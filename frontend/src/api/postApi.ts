@@ -286,4 +286,63 @@ export const getCommentReplies = async (commentId: string, page = 1, pageSize = 
     console.error('獲取評論回覆錯誤:', error);
     throw error;
   }
+};
+
+// 轉發貼文
+export const sharePost = async (postId: string, comment = ''): Promise<{ detail: string }> => {
+  try {
+    const response = await api.post(`/posts/${postId}/share/`, { comment });
+    return response.data;
+  } catch (error) {
+    console.error('轉發貼文錯誤:', error);
+    throw error;
+  }
+};
+
+// 取消轉發貼文
+export const unsharePost = async (postId: string): Promise<{ detail: string }> => {
+  try {
+    const response = await api.post(`/posts/${postId}/unshare/`);
+    return response.data;
+  } catch (error) {
+    console.error('取消轉發貼文錯誤:', error);
+    throw error;
+  }
+};
+
+// 獲取用戶轉發的貼文
+export const getSharedPosts = async (page = 1, pageSize = 10): Promise<PaginatedResponse<any>> => {
+  try {
+    const response = await api.get('/posts/shared_posts/', {
+      params: { page, page_size: pageSize }
+    });
+    return response.data;
+  } catch (error) {
+    console.error('獲取轉發貼文錯誤:', error);
+    throw error;
+  }
+};
+
+// 獲取推薦貼文（信息流）
+export const getFeed = async (page = 1, pageSize = 10): Promise<PaginatedResponse<Post>> => {
+  try {
+    const response = await api.get('/posts/recommendations/', {
+      params: { page, page_size: pageSize }
+    });
+    return response.data;
+  } catch (error) {
+    console.error('獲取推薦貼文錯誤:', error);
+    throw error;
+  }
+};
+
+// 獲取推薦用戶
+export const getRecommendedUsers = async (): Promise<any> => {
+  try {
+    // 這裡暫時返回空陣列，需要實際的後端 API
+    return { users: [] };
+  } catch (error) {
+    console.error('獲取推薦用戶錯誤:', error);
+    throw error;
+  }
 }; 

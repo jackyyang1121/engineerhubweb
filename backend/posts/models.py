@@ -204,7 +204,7 @@ class Post(models.Model):
             
         except Exception as e:
             # 如果高亮失敗，記錄錯誤但不中斷
-            print(f"程式碼高亮失敗: {e}")
+            logger.error(f"程式碼高亮失敗: {e}")
             self.code_language = 'text'
             self.code_highlighted = f"<pre><code>{self.code_snippet}</code></pre>"
     
@@ -370,7 +370,7 @@ class PostMedia(models.Model):
                 )
                 
         except Exception as e:
-            print(f"圖片處理失敗: {e}")
+            logger.error(f"圖片處理失敗: {e}")
     
     def generate_video_thumbnail(self):
         """生成影片縮略圖"""
@@ -379,7 +379,106 @@ class PostMedia(models.Model):
             # 目前只是佔位符實現
             pass
         except Exception as e:
-            print(f"影片縮略圖生成失敗: {e}")
+            logger.error(f"影片縮略圖生成失敗: {e}")
+
+
+class Comment(models.Model):
+    """
+    評論模型
+    支援樹狀結構的評論和回覆
+    """
+    
+    id = models.UUIDField(
+        primary_key=True,
+        default=uuid.uuid4,
+        editable=False,
+        help_text="評論唯一標識符"
+    )
+    
+    post = models.ForeignKey(
+        Post,
+        on_delete=models.CASCADE,
+        related_name='comments',
+        help_text="所屬貼文"
+    )
+    
+    author = models.ForeignKey(
+        User,
+        on_delete=models.CASCADE,
+        related_name='comments',
+        help_text="評論作者"
+    )
+    
+    content = models.TextField(
+        help_text="評論內容"
+    )
+    
+    parent = models.ForeignKey(
+        'self',
+        on_delete=models.CASCADE,
+        null=True,
+        blank=True,
+        related_name='replies',
+        help_text="父評論（用於回覆）"
+    )
+    
+    # 互動數據
+    likes_count = models.PositiveIntegerField(
+        default=0,
+        help_text="點讚數量"
+    )
+    
+    # 狀態
+    is_deleted = models.BooleanField(
+        default=False,
+        help_text="是否已刪除"
+    )
+    
+    # 時間戳
+    created_at = models.DateTimeField(
+        auto_now_add=True,
+        help_text="創建時間"
+    )
+    
+    updated_at = models.DateTimeField(
+        auto_now=True,
+        help_text="更新時間"
+    )
+    
+    class Meta:
+        db_table = 'posts_comment'
+        verbose_name = '評論'
+        verbose_name_plural = '評論'
+        ordering = ['-created_at']
+        indexes = [
+            models.Index(fields=['post', '-created_at']),
+            models.Index(fields=['author', '-created_at']),
+            models.Index(fields=['parent', '-created_at']),
+        ]
+    
+    def __str__(self):
+        return f"{self.author.username} 評論 {self.post.author.username} 的貼文"
+    
+    def save(self, *args, **kwargs):
+        """創建評論時更新計數器"""
+        is_new = self.pk is None
+        super().save(*args, **kwargs)
+        
+        if is_new:
+            # 更新貼文評論數
+            Post.objects.filter(id=self.post.id).update(
+                comments_count=models.F('comments_count') + 1
+            )
+    
+    def delete(self, *args, **kwargs):
+        """刪除評論時更新計數器"""
+        post_id = self.post.id
+        super().delete(*args, **kwargs)
+        
+        # 更新貼文評論數
+        Post.objects.filter(id=post_id).update(
+            comments_count=models.F('comments_count') - 1
+        )
 
 
 class Like(models.Model):
@@ -430,27 +529,15 @@ class Like(models.Model):
             Post.objects.filter(id=self.post.id).update(
                 likes_count=models.F('likes_count') + 1
             )
-            
-            # 更新作者收到的點讚數
-            User.objects.filter(id=self.post.author.id).update(
-                likes_received_count=models.F('likes_received_count') + 1
-            )
     
     def delete(self, *args, **kwargs):
         """刪除點讚時更新計數器"""
         post_id = self.post.id
-        author_id = self.post.author.id
-        
         super().delete(*args, **kwargs)
         
         # 更新貼文點讚數
         Post.objects.filter(id=post_id).update(
             likes_count=models.F('likes_count') - 1
-        )
-        
-        # 更新作者收到的點讚數
-        User.objects.filter(id=author_id).update(
-            likes_received_count=models.F('likes_received_count') - 1
         )
 
 
@@ -591,4 +678,146 @@ class Report(models.Model):
         ]
     
     def __str__(self):
-        return f"{self.reporter.username} 舉報了 {self.post.author.username} 的貼文" 
+        return f"{self.reporter.username} 舉報了 {self.post.author.username} 的貼文"
+
+
+class PostView(models.Model):
+    """
+    貼文瀏覽記錄模型
+    用於記錄用戶瀏覽貼文的行為，支援推薦系統分析
+    """
+    
+    id = models.UUIDField(
+        primary_key=True,
+        default=uuid.uuid4,
+        editable=False,
+        help_text="瀏覽記錄唯一標識符"
+    )
+    
+    user = models.ForeignKey(
+        User,
+        on_delete=models.CASCADE,
+        related_name='post_views',
+        help_text="瀏覽用戶"
+    )
+    
+    post = models.ForeignKey(
+        Post,
+        on_delete=models.CASCADE,
+        related_name='view_records',
+        help_text="被瀏覽的貼文"
+    )
+    
+    created_at = models.DateTimeField(
+        auto_now_add=True,
+        help_text="瀏覽時間"
+    )
+    
+    # 瀏覽時長（秒數），可用於分析用戶興趣度
+    duration = models.PositiveIntegerField(
+        default=0,
+        help_text="瀏覽時長（秒）"
+    )
+    
+    # 瀏覽來源（推薦、搜尋、直接訪問等）
+    source = models.CharField(
+        max_length=50,
+        choices=[
+            ('recommendation', '推薦'),
+            ('search', '搜尋'),
+            ('following', '關注'),
+            ('trending', '熱門'),
+            ('direct', '直接訪問'),
+            ('profile', '個人頁面'),
+        ],
+        default='direct',
+        help_text="瀏覽來源"
+    )
+    
+    class Meta:
+        db_table = 'posts_postview'
+        verbose_name = '貼文瀏覽記錄'
+        verbose_name_plural = '貼文瀏覽記錄'
+        unique_together = ['user', 'post']  # 每個用戶對每篇貼文只記錄一次瀏覽
+        indexes = [
+            models.Index(fields=['user', '-created_at']),
+            models.Index(fields=['post', '-created_at']),
+            models.Index(fields=['source', '-created_at']),
+        ]
+    
+    def __str__(self):
+        return f"{self.user.username} 瀏覽 {self.post.id}"
+
+
+class PostShare(models.Model):
+    """
+    貼文轉發模型
+    記錄用戶轉發貼文的行為
+    """
+    
+    id = models.UUIDField(
+        primary_key=True,
+        default=uuid.uuid4,
+        editable=False,
+        help_text="轉發記錄唯一標識符"
+    )
+    
+    user = models.ForeignKey(
+        User,
+        on_delete=models.CASCADE,
+        related_name='shared_posts',
+        help_text="轉發用戶"
+    )
+    
+    post = models.ForeignKey(
+        Post,
+        on_delete=models.CASCADE,
+        related_name='shares',
+        help_text="被轉發的貼文"
+    )
+    
+    comment = models.TextField(
+        blank=True,
+        help_text="轉發時的評論"
+    )
+    
+    created_at = models.DateTimeField(
+        auto_now_add=True,
+        help_text="轉發時間"
+    )
+    
+    class Meta:
+        db_table = 'posts_postshare'
+        verbose_name = '貼文轉發'
+        verbose_name_plural = '貼文轉發'
+        unique_together = ('user', 'post')  # 防止重複轉發
+        indexes = [
+            models.Index(fields=['user', '-created_at']),
+            models.Index(fields=['post', '-created_at']),
+            models.Index(fields=['-created_at']),
+        ]
+    
+    def __str__(self):
+        return f"{self.user.username} 轉發了 {self.post.author.username} 的貼文"
+    
+    def save(self, *args, **kwargs):
+        """保存時更新貼文轉發數量"""
+        is_new = self.pk is None
+        super().save(*args, **kwargs)
+        
+        if is_new:
+            # 增加貼文轉發數量
+            Post.objects.filter(id=self.post.id).update(
+                shares_count=models.F('shares_count') + 1
+            )
+            logger.info(f"用戶 {self.user.username} 轉發了貼文 {self.post.id}")
+    
+    def delete(self, *args, **kwargs):
+        """刪除時更新貼文轉發數量"""
+        post_id = self.post.id
+        super().delete(*args, **kwargs)
+        
+        Post.objects.filter(id=post_id).update(
+            shares_count=models.F('shares_count') - 1
+        )
+        logger.info(f"用戶 {self.user.username} 取消轉發貼文 {post_id}") 

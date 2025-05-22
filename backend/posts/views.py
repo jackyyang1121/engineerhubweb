@@ -4,18 +4,20 @@ from rest_framework.decorators import action
 from rest_framework.response import Response
 from rest_framework.exceptions import ValidationError
 from django.db import transaction
-from django.db.models import Q
+from django.db.models import Q, F
 from django.shortcuts import get_object_or_404
 from django.utils import timezone
+from datetime import timedelta
 
-from .models import Post, Comment, Like, Save, Report
+from .models import Post, Comment, Like, Save, Report, PostView, PostShare
 from .serializers import (
     PostSerializer, CommentSerializer, ReplySerializer,
-    LikeSerializer, SaveSerializer, ReportSerializer
+    LikeSerializer, SaveSerializer, ReportSerializer, PostShareSerializer
 )
 
 # 設置日誌記錄器
 logger = logging.getLogger('engineerhub.posts')
+
 
 class IsAuthorOrReadOnly(permissions.BasePermission):
     """
@@ -228,9 +230,13 @@ class PostViewSet(viewsets.ModelViewSet):
         """
         post = self.get_object()
         
+        # 獲取舉報數據
+        reason = request.data.get('reason')
+        description = request.data.get('description', '')
+        
         try:
-            # 檢查是否已經舉報
-            if Report.objects.filter(user=request.user, post=post).exists():
+            # 檢查是否已經舉報過
+            if Report.objects.filter(reporter=request.user, post=post).exists():
                 logger.warning(f"用戶 {request.user.username} 已經舉報過貼文 {post.id}")
                 return Response(
                     {"detail": "您已經舉報過這篇貼文"},
@@ -238,14 +244,15 @@ class PostViewSet(viewsets.ModelViewSet):
                 )
             
             # 創建舉報
-            serializer = ReportSerializer(data=request.data)
-            serializer.is_valid(raise_exception=True)
-            serializer.save(user=request.user, post=post)
-            logger.info(f"用戶 {request.user.username} 舉報貼文 {post.id}")
-            return Response({"detail": "舉報成功"}, status=status.HTTP_201_CREATED)
-        except ValidationError as e:
-            logger.error(f"貼文舉報驗證錯誤: {str(e)}")
-            return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+            with transaction.atomic():
+                report = Report.objects.create(
+                    reporter=request.user,
+                    post=post,
+                    reason=reason,
+                    description=description
+                )
+                logger.info(f"用戶 {request.user.username} 舉報貼文 {post.id}")
+                return Response({"detail": "舉報成功，我們會盡快處理"}, status=status.HTTP_201_CREATED)
         except Exception as e:
             logger.error(f"貼文舉報失敗: {str(e)}")
             return Response(
@@ -259,8 +266,13 @@ class PostViewSet(viewsets.ModelViewSet):
         獲取關注用戶的貼文
         """
         try:
+            from profiles.models import Follow
+            
             # 獲取當前用戶關注的用戶
-            following_users = request.user.following.values_list('following_user', flat=True)
+            following_users = Follow.objects.filter(follower=request.user).values_list('following', flat=True)
+            
+            if not following_users:
+                return Response({"message": "您還沒有關注任何用戶", "posts": []})
             
             # 獲取關注用戶的貼文
             posts = Post.objects.filter(author__in=following_users)
@@ -283,25 +295,108 @@ class PostViewSet(viewsets.ModelViewSet):
     @action(detail=False, methods=['get'])
     def trending(self, request):
         """
-        獲取熱門貼文
+        獲取熱門貼文（過去24小時內點讚數最多）
         """
         try:
-            # 獲取最近一週的貼文，按點讚數和評論數排序
-            one_week_ago = timezone.now() - timezone.timedelta(days=7)
-            posts = Post.objects.filter(created_at__gte=one_week_ago).order_by('-likes_count', '-comments_count')
+            # 計算24小時前的時間
+            yesterday = timezone.now() - timedelta(days=1)
+            
+            # 獲取熱門貼文
+            trending_posts = Post.objects.filter(
+                created_at__gte=yesterday
+            ).order_by('-likes_count', '-comments_count', '-created_at')
             
             # 分頁與序列化
-            page = self.paginate_queryset(posts)
+            page = self.paginate_queryset(trending_posts)
             if page is not None:
                 serializer = self.get_serializer(page, many=True)
                 return self.get_paginated_response(serializer.data)
             
-            serializer = self.get_serializer(posts, many=True)
+            serializer = self.get_serializer(trending_posts, many=True)
             return Response(serializer.data)
         except Exception as e:
             logger.error(f"獲取熱門貼文失敗: {str(e)}")
             return Response(
                 {"detail": f"獲取熱門貼文失敗: {str(e)}"},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR
+            )
+    
+    @action(detail=False, methods=['get'])
+    def recommendations(self, request):
+        """
+        獲取個性化推薦貼文
+        """
+        try:
+            from .recommendation import recommendation_engine
+            
+            # 獲取推薦貼文
+            recommended_posts = recommendation_engine.get_recommendations(
+                user=request.user,
+                limit=20
+            )
+            
+            # 分頁與序列化
+            page = self.paginate_queryset(recommended_posts)
+            if page is not None:
+                serializer = self.get_serializer(page, many=True)
+                return self.get_paginated_response(serializer.data)
+            
+            serializer = self.get_serializer(recommended_posts, many=True)
+            return Response(serializer.data)
+        except Exception as e:
+            logger.error(f"獲取推薦貼文失敗: {str(e)}")
+            return Response(
+                {"detail": f"獲取推薦貼文失敗: {str(e)}"},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR
+            )
+    
+    @action(detail=True, methods=['post'])
+    def record_interaction(self, request, pk=None):
+        """
+        記錄用戶與貼文的互動行為，用於優化推薦系統
+        
+        互動類型：view（瀏覽）、like（點讚）、comment（評論）、share（分享）
+        """
+        try:
+            from .recommendation import recommendation_engine
+            
+            post = self.get_object()
+            action = request.data.get('action')
+            
+            if action not in ['view', 'like', 'comment', 'share']:
+                return Response(
+                    {"detail": "無效的互動類型"},
+                    status=status.HTTP_400_BAD_REQUEST
+                )
+            
+            # 更新用戶偏好
+            recommendation_engine.update_user_preferences(
+                user=request.user,
+                post=post,
+                action=action
+            )
+            
+            # 如果是瀏覽行為，記錄到瀏覽歷史
+            if action == 'view':
+                PostView.objects.get_or_create(
+                    user=request.user,
+                    post=post,
+                    defaults={'created_at': timezone.now()}
+                )
+                
+                # 增加貼文瀏覽數
+                Post.objects.filter(id=post.id).update(
+                    views_count=F('views_count') + 1
+                )
+            
+            logger.info(f"用戶 {request.user.username} 對貼文 {post.id} 執行了 {action} 操作")
+            
+            return Response({"detail": "互動記錄成功"}, status=status.HTTP_200_OK)
+            
+        except Exception as e:
+            logger.error(f"記錄用戶互動失敗: {str(e)}")
+            return Response(
+                {"detail": f"記錄互動失敗: {str(e)}"},
                 status=status.HTTP_500_INTERNAL_SERVER_ERROR
             )
     
@@ -326,6 +421,104 @@ class PostViewSet(viewsets.ModelViewSet):
             logger.error(f"獲取收藏貼文失敗: {str(e)}")
             return Response(
                 {"detail": f"獲取收藏貼文失敗: {str(e)}"},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR
+            )
+    
+    @action(detail=True, methods=['post'])
+    def share(self, request, pk=None):
+        """
+        轉發貼文
+        """
+        post = self.get_object()
+        comment = request.data.get('comment', '')
+        
+        try:
+            # 檢查是否已經轉發過
+            if PostShare.objects.filter(user=request.user, post=post).exists():
+                logger.warning(f"用戶 {request.user.username} 已經轉發過貼文 {post.id}")
+                return Response(
+                    {"detail": "您已經轉發過這篇貼文"},
+                    status=status.HTTP_400_BAD_REQUEST
+                )
+            
+            # 檢查是否試圖轉發自己的貼文
+            if post.author == request.user:
+                logger.warning(f"用戶 {request.user.username} 嘗試轉發自己的貼文 {post.id}")
+                return Response(
+                    {"detail": "不能轉發自己的貼文"},
+                    status=status.HTTP_400_BAD_REQUEST
+                )
+            
+            # 創建轉發記錄
+            with transaction.atomic():
+                share = PostShare.objects.create(
+                    user=request.user,
+                    post=post,
+                    comment=comment
+                )
+                logger.info(f"用戶 {request.user.username} 轉發貼文 {post.id}")
+                
+                # 序列化轉發記錄
+                serializer = PostShareSerializer(share, context={'request': request})
+                return Response(serializer.data, status=status.HTTP_201_CREATED)
+                
+        except Exception as e:
+            logger.error(f"轉發貼文失敗: {str(e)}")
+            return Response(
+                {"detail": f"轉發失敗: {str(e)}"},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR
+            )
+    
+    @action(detail=True, methods=['post'])
+    def unshare(self, request, pk=None):
+        """
+        取消轉發貼文
+        """
+        post = self.get_object()
+        
+        try:
+            # 檢查是否已經轉發
+            share = PostShare.objects.filter(user=request.user, post=post).first()
+            if not share:
+                logger.warning(f"用戶 {request.user.username} 未轉發過貼文 {post.id}")
+                return Response(
+                    {"detail": "您未轉發過這篇貼文"},
+                    status=status.HTTP_400_BAD_REQUEST
+                )
+            
+            # 刪除轉發記錄
+            share.delete()
+            logger.info(f"用戶 {request.user.username} 取消轉發貼文 {post.id}")
+            return Response({"detail": "取消轉發成功"}, status=status.HTTP_200_OK)
+            
+        except Exception as e:
+            logger.error(f"取消轉發失敗: {str(e)}")
+            return Response(
+                {"detail": f"取消轉發失敗: {str(e)}"},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR
+            )
+    
+    @action(detail=False, methods=['get'])
+    def shared_posts(self, request):
+        """
+        獲取用戶轉發的貼文
+        """
+        try:
+            # 獲取用戶轉發的貼文
+            shared_posts = PostShare.objects.filter(user=request.user).order_by('-created_at')
+            
+            # 分頁與序列化
+            page = self.paginate_queryset(shared_posts)
+            if page is not None:
+                serializer = PostShareSerializer(page, many=True, context={'request': request})
+                return self.get_paginated_response(serializer.data)
+            
+            serializer = PostShareSerializer(shared_posts, many=True, context={'request': request})
+            return Response(serializer.data)
+        except Exception as e:
+            logger.error(f"獲取轉發貼文失敗: {str(e)}")
+            return Response(
+                {"detail": f"獲取轉發貼文失敗: {str(e)}"},
                 status=status.HTTP_500_INTERNAL_SERVER_ERROR
             )
 
@@ -361,7 +554,7 @@ class CommentViewSet(viewsets.ModelViewSet):
         創建評論時設置用戶為當前用戶
         """
         try:
-            serializer.save(user=self.request.user)
+            serializer.save(author=self.request.user)
             logger.info(f"用戶 {self.request.user.username} 創建了新評論")
         except Exception as e:
             logger.error(f"評論創建失敗: {str(e)}")
@@ -374,7 +567,7 @@ class CommentViewSet(viewsets.ModelViewSet):
         try:
             # 只允許用戶更新自己的評論
             instance = serializer.instance
-            if instance.user != self.request.user:
+            if instance.author != self.request.user:
                 logger.warning(f"用戶 {self.request.user.username} 嘗試更新其他用戶的評論")
                 raise ValidationError("無權限更新其他用戶的評論")
             
@@ -390,7 +583,7 @@ class CommentViewSet(viewsets.ModelViewSet):
         """
         try:
             # 只允許用戶刪除自己的評論
-            if instance.user != self.request.user:
+            if instance.author != self.request.user:
                 logger.warning(f"用戶 {self.request.user.username} 嘗試刪除其他用戶的評論")
                 raise ValidationError("無權限刪除其他用戶的評論")
             
