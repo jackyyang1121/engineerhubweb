@@ -27,8 +27,9 @@ import { toast } from 'react-toastify';
 
 import LoadingSpinner from '../../components/common/LoadingSpinner';
 import EmptyState from '../../components/common/EmptyState';
+import api from '../../api/client';
 
-// 模擬通知API（需要根據實際後端API調整）
+// 通知介面類型
 interface Notification {
   id: string;
   type: 'follow' | 'like' | 'comment' | 'reply' | 'mention' | 'message' | 'share' | 'system';
@@ -52,79 +53,51 @@ interface NotificationResponse {
   total_count: number;
 }
 
-// 模擬API函數
+// 通知API
 const notificationAPI = {
-  getNotifications: async (_filters?: { type?: string; is_read?: boolean }): Promise<NotificationResponse> => {
-    // TODO: 替換為實際的API調用
-    return new Promise((resolve) => {
-      setTimeout(() => {
-        resolve({
-          notifications: [
-            {
-              id: '1',
-              type: 'follow',
-              title: '新的關注者',
-              message: 'John Doe 開始關注您',
-              is_read: false,
-              created_at: new Date(Date.now() - 30 * 60 * 1000).toISOString(),
-              actor: {
-                id: 1,
-                username: 'johndoe',
-                first_name: 'John',
-                last_name: 'Doe',
-                avatar: null
-              }
-            },
-            {
-              id: '2',
-              type: 'like',
-              title: '貼文被點讚',
-              message: 'Jane Smith 點讚了您的貼文「React 最佳實踐」',
-              is_read: false,
-              created_at: new Date(Date.now() - 60 * 60 * 1000).toISOString(),
-              actor: {
-                id: 2,
-                username: 'janesmith',
-                first_name: 'Jane',
-                last_name: 'Smith',
-                avatar: null
-              }
-            },
-            {
-              id: '3',
-              type: 'comment',
-              title: '新評論',
-              message: 'Bob Johnson 評論了您的貼文',
-              is_read: true,
-              created_at: new Date(Date.now() - 2 * 60 * 60 * 1000).toISOString(),
-              actor: {
-                id: 3,
-                username: 'bobjohnson',
-                first_name: 'Bob',
-                last_name: 'Johnson',
-                avatar: null
-              }
-            }
-          ],
-          unread_count: 2,
-          total_count: 3
-        });
-      }, 500);
-    });
+  getNotifications: async (filters?: { type?: string; is_read?: boolean }): Promise<NotificationResponse> => {
+    try {
+      const params = new URLSearchParams();
+      if (filters?.type) params.append('type', filters.type);
+      if (filters?.is_read !== undefined) params.append('is_read', filters.is_read.toString());
+      
+      const response = await api.get(`/notifications/?${params.toString()}`);
+      return response.data;
+    } catch (error) {
+      console.error('獲取通知失敗:', error);
+      throw error;
+    }
   },
 
-  markAsRead: async (_notificationIds: string[]): Promise<void> => {
-    // TODO: 替換為實際的API調用
-    return new Promise((resolve) => {
-      setTimeout(resolve, 300);
-    });
+  markAsRead: async (notificationIds: string[]): Promise<void> => {
+    try {
+      await api.patch('/notifications/mark-read/', {
+        notification_ids: notificationIds
+      });
+    } catch (error) {
+      console.error('標記已讀失敗:', error);
+      throw error;
+    }
   },
 
   markAllAsRead: async (): Promise<void> => {
-    // TODO: 替換為實際的API調用
-    return new Promise((resolve) => {
-      setTimeout(resolve, 500);
-    });
+    try {
+      await api.patch('/notifications/mark-all-read/');
+    } catch (error) {
+      console.error('標記全部已讀失敗:', error);
+      throw error;
+    }
+  },
+
+  deleteNotifications: async (notificationIds: string[]): Promise<void> => {
+    try {
+      await api.delete('/notifications/bulk-delete/', {
+        data: { notification_ids: notificationIds }
+      });
+    } catch (error) {
+      console.error('刪除通知失敗:', error);
+      throw error;
+    }
   }
 };
 
@@ -173,6 +146,19 @@ const NotificationsPage: React.FC = () => {
     },
     onError: () => {
       toast.error('操作失敗，請重試');
+    }
+  });
+
+  // 刪除通知
+  const deleteNotificationsMutation = useMutation({
+    mutationFn: notificationAPI.deleteNotifications,
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['notifications'] });
+      setSelectedNotifications([]);
+      toast.success('通知已刪除');
+    },
+    onError: () => {
+      toast.error('刪除失敗，請重試');
     }
   });
 
@@ -229,7 +215,7 @@ const NotificationsPage: React.FC = () => {
     );
   };
 
-  // 全選/取消全選
+  // 處理全選
   const handleSelectAll = () => {
     if (selectedNotifications.length === notifications.length) {
       setSelectedNotifications([]);
@@ -245,6 +231,18 @@ const NotificationsPage: React.FC = () => {
       return;
     }
     markAsReadMutation.mutate(selectedNotifications);
+  };
+
+  // 刪除選中的通知
+  const handleDeleteSelected = () => {
+    if (selectedNotifications.length === 0) {
+      toast.warning('請先選擇要刪除的通知');
+      return;
+    }
+    
+    if (window.confirm(`確定要刪除 ${selectedNotifications.length} 條通知嗎？`)) {
+      deleteNotificationsMutation.mutate(selectedNotifications);
+    }
   };
 
   if (isLoading) {
@@ -349,6 +347,13 @@ const NotificationsPage: React.FC = () => {
                 className="px-3 py-1 bg-green-600 text-white text-sm rounded-md hover:bg-green-700 transition-colors disabled:opacity-50"
               >
                 標記已讀
+              </button>
+              <button
+                onClick={handleDeleteSelected}
+                disabled={deleteNotificationsMutation.isPending}
+                className="px-3 py-1 bg-red-600 text-white text-sm rounded-md hover:bg-red-700 transition-colors disabled:opacity-50"
+              >
+                刪除
               </button>
               <button
                 onClick={() => setSelectedNotifications([])}

@@ -20,6 +20,10 @@ import ProfilePage from './pages/profile/ProfilePage';
 import SearchPage from './pages/search/SearchPage';
 import SettingsPage from './pages/settings/SettingsPage';
 import PostDetailPage from './pages/posts/PostDetailPage';
+import NotificationsPage from './pages/notifications/NotificationsPage';
+import MessagesPage from './pages/MessagesPage';
+import ChatPage from './pages/chat/ChatPage';
+import SavedPostsPage from './pages/saved/SavedPostsPage';
 
 // 类型定义
 interface ProtectedRouteProps {
@@ -53,13 +57,24 @@ const GuestRoute = ({ children }: GuestRouteProps) => {
   return <>{children}</>;
 };
 
-// 页面组件占位符
-const ExplorePage = () => <div className="p-4">发现页</div>;
-const NotificationsPage = () => <div className="p-4">通知页</div>;
-const MessagesPage = () => <div className="p-4">消息页</div>;
-const ChatPage = () => <div className="p-4">聊天页</div>;
-const SavedPostsPage = () => <div className="p-4">已保存的帖子</div>;
-const NotFoundPage = () => <div className="p-4">404 页面未找到</div>;
+// 導入探索頁面組件
+import ExplorePage from './pages/explore/ExplorePage';
+
+// 404页面
+const NotFoundPage = () => (
+  <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+    <div className="text-center">
+      <h1 className="text-6xl font-bold text-gray-900 mb-4">404</h1>
+      <p className="text-xl text-gray-600 mb-8">頁面未找到</p>
+      <a 
+        href="/" 
+        className="px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+      >
+        返回首頁
+      </a>
+    </div>
+  </div>
+);
 
 function App() {
   const checkAuth = useAuthStore(state => state.checkAuth);
@@ -154,7 +169,18 @@ function App() {
         <Route path="*" element={<NotFoundPage />} />
       </Routes>
       
-      <ToastContainer position="bottom-right" autoClose={3000} />
+      <ToastContainer 
+        position="bottom-right" 
+        autoClose={3000}
+        hideProgressBar={false}
+        newestOnTop={false}
+        closeOnClick
+        rtl={false}
+        pauseOnFocusLoss
+        draggable
+        pauseOnHover
+        theme="colored"
+      />
     </>
   );
 }
