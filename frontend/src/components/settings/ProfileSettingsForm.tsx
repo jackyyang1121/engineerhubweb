@@ -1,10 +1,11 @@
-import { useState, useRef, useEffect } from 'react';
+import { useState, useRef } from 'react';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { toast } from 'react-toastify';
-import { PencilIcon, XCircleIcon, XMarkIcon } from '@heroicons/react/24/outline';
+import { PencilIcon, XCircleIcon } from '@heroicons/react/24/outline';
 import { PlusIcon } from '@heroicons/react/24/solid';
 
 import { useAuthStore } from '../../store/authStore';
+import type { UserData } from '../../types';
 import * as userApi from '../../api/userApi';
 
 const ProfileSettingsForm = () => {
@@ -22,15 +23,24 @@ const ProfileSettingsForm = () => {
   
   // 更新個人資料的mutation
   const updateProfileMutation = useMutation({
-    mutationFn: userApi.updateProfile,
-    onSuccess: (updatedUser) => {
+    mutationFn: async (data: { username: string; bio: string; skill_tags: string[] }) => {
+      // 如果有頭像，先上傳頭像
+      if (avatar) {
+        await userApi.uploadAvatar(avatar);
+      }
+      // 然後更新其他資料
+      return userApi.updateUserProfile(data);
+    },
+    onSuccess: (updatedUser: UserData) => {
       // 更新全局用戶數據
       updateUser(updatedUser);
       // 更新緩存的用戶數據
       queryClient.invalidateQueries({ queryKey: ['user'] });
       toast.success('個人資料已更新');
+      // 清除頭像臨時數據
+      setAvatar(null);
     },
-    onError: (error) => {
+    onError: (error: any) => {
       toast.error('更新個人資料失敗，請重試');
       console.error('更新個人資料錯誤:', error);
     }
@@ -78,18 +88,14 @@ const ProfileSettingsForm = () => {
       return;
     }
     
-    // 創建表單數據
-    const formData = new FormData();
-    formData.append('username', username);
-    formData.append('bio', bio);
-    if (avatar) {
-      formData.append('avatar', avatar);
-    }
-    skillTags.forEach((tag) => {
-      formData.append('skill_tags', tag);
-    });
+    // 準備更新數據
+    const updateData = {
+      username: username.trim(),
+      bio: bio.trim(),
+      skill_tags: skillTags
+    };
     
-    updateProfileMutation.mutate(formData);
+    updateProfileMutation.mutate(updateData);
   };
   
   // 添加技能標籤

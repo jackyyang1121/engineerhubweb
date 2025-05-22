@@ -1,12 +1,8 @@
-import { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
-import { useMutation, useQueryClient } from '@tanstack/react-query';
-import { toast } from 'react-toastify';
+import { useState } from 'react';import { useNavigate } from 'react-router-dom';import { toast } from 'react-toastify';
 import {
   UserIcon,
   LockClosedIcon,
   BellIcon,
-  EyeIcon,
   ShieldCheckIcon,
   ArrowLeftOnRectangleIcon,
 } from '@heroicons/react/24/outline';
@@ -14,10 +10,10 @@ import {
 import ProfileSettingsForm from '../../components/settings/ProfileSettingsForm';
 import AccountSettingsForm from '../../components/settings/AccountSettingsForm';
 import NotificationSettingsForm from '../../components/settings/NotificationSettingsForm';
-import PrivacySettingsForm from '../../components/settings/PrivacySettingsForm';
+import PrivacySettingsForm from '../../components/settings/PrivacySettingsForm'; 
 import DeleteAccountForm from '../../components/settings/DeleteAccountForm';
 import { useAuthStore } from '../../store/authStore';
-import * as authApi from '../../api/authApi';
+
 
 // 設置頁標籤類型
 type SettingsTab = 
@@ -29,7 +25,6 @@ type SettingsTab =
 
 const SettingsPage = () => {
   const navigate = useNavigate();
-  const queryClient = useQueryClient();
   const { user, logout } = useAuthStore();
   const [activeTab, setActiveTab] = useState<SettingsTab>('profile');
   

@@ -24,7 +24,7 @@ const AccountSettingsForm = () => {
   
   // 更改密碼的mutation
   const changePasswordMutation = useMutation({
-    mutationFn: userApi.changePassword,
+    mutationFn: userApi.changeUserPassword,
     onSuccess: () => {
       toast.success('密碼已成功更新');
       // 清空表單

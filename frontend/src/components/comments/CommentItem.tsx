@@ -122,11 +122,7 @@ const CommentItem: React.FC<CommentItemProps> = ({
   
   // 回覆評論的mutation
   const replyMutation = useMutation({
-    mutationFn: (content: string) => commentApi.createComment({
-      post_id: postId,
-      content,
-      parent_id: comment.id
-    }),
+        mutationFn: (content: string) => commentApi.createComment({      post: postId,      content,      parent: comment.id    }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['comments', postId] });
       setIsReplying(false);

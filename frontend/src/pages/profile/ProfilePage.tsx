@@ -32,6 +32,10 @@ const fetchUserProfile = async (username: string): Promise<{
       username,
       email: `${username}@example.com`,
       avatar: `https://ui-avatars.com/api/?name=${username}&background=random&size=256`,
+      followers_count: 128,
+      following_count: 97,
+      posts_count: 42,
+      likes_received_count: 0,
       bio: '工程師 | 技術愛好者 | 開源貢獻者\n熱愛解決問題和創建優秀的用戶體驗。',
       skill_tags: ['JavaScript', 'TypeScript', 'React', 'Node.js', 'Python', 'Docker'],
       is_online: true,
@@ -47,7 +51,7 @@ const fetchUserProfile = async (username: string): Promise<{
 };
 
 // 模擬獲取用戶項目
-const fetchUserProjects = async (username: string): Promise<Project[]> => {
+const fetchUserProjects = async (_username: string): Promise<Project[]> => {
   // 模擬網絡延遲
   await new Promise(resolve => setTimeout(resolve, 700));
   
@@ -83,14 +87,14 @@ const fetchUserProjects = async (username: string): Promise<Project[]> => {
 };
 
 // 模擬關注用戶API
-const followUser = async (userId: string): Promise<void> => {
+const followUser = async (_userId: string): Promise<void> => {
   // 模擬網絡延遲
   await new Promise(resolve => setTimeout(resolve, 300));
   // 實際項目中應調用實際API
 };
 
 // 模擬取消關注用戶API
-const unfollowUser = async (userId: string): Promise<void> => {
+const unfollowUser = async (_userId: string): Promise<void> => {
   // 模擬網絡延遲
   await new Promise(resolve => setTimeout(resolve, 300));
   // 實際項目中應調用實際API

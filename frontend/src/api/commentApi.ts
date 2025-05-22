@@ -21,13 +21,17 @@ export const getCommentsByPostId = async (postId: string, page = 1, limit = 10):
         created_at: new Date(Date.now() - i * 3600000).toISOString(),
         updated_at: i % 3 === 0 ? new Date(Date.now() - i * 1800000).toISOString() : undefined,
         likes_count: Math.floor(Math.random() * 10),
+        replies_count: i === 0 ? 2 : 0,
         is_liked: Math.random() > 0.5,
+        is_deleted: false,
+        is_edited: i % 3 === 0,
         user: {
           id: `user-${i}`,
           username: `test_user_${i}`,
+          display_name: `Test User ${i}`,
           avatar: `https://ui-avatars.com/api/?name=User${i}&background=random`
         },
-        replies_count: i === 0 ? 2 : 0
+        post: postId
       })),
       count: 3,
       next: null,
@@ -50,13 +54,18 @@ export const getCommentReplies = async (commentId: string, page = 1, limit = 10)
         content: `這是對評論的第 ${i + 1} 條回覆。`,
         created_at: new Date(Date.now() - i * 1800000).toISOString(),
         likes_count: Math.floor(Math.random() * 5),
+        replies_count: 0,
         is_liked: Math.random() > 0.5,
+        is_deleted: false,
+        is_edited: false,
         user: {
           id: `user-reply-${i}`,
           username: `reply_user_${i}`,
+          display_name: `Reply User ${i}`,
           avatar: `https://ui-avatars.com/api/?name=Reply${i}&background=random`
         },
-        parent_id: commentId
+        post: 'mock-post-id',
+        parent: commentId
       })),
       count: 2,
       next: null,

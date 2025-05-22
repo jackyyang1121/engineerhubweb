@@ -13,7 +13,10 @@ import {
   SunIcon,
   MoonIcon,
   ComputerDesktopIcon
-} from '@heroicons/react/24/outline';import { useAuthStore } from '../../store/authStore';import { useUIStore } from '../../store/uiStore';import type { UserData } from '../../types';
+} from '@heroicons/react/24/outline';
+import { useAuthStore } from '../../store/authStore';
+import { useUIStore } from '../../store/uiStore';
+
 
 interface HeaderProps {
   className?: string;
@@ -30,10 +33,16 @@ const Header: React.FC<HeaderProps> = ({ className = '' }) => {
   const navigate = useNavigate();
   const location = useLocation();
   const { user, isAuthenticated, logout } = useAuthStore();
-  const { theme, setTheme, sidebar, toggleSidebar } = useUIStore();
+  const { 
+    theme, 
+    setTheme, 
+    setSearchQuery,
+    notifications,
+    toggleNotifications
+  } = useUIStore();
   
   const [isSearchFocused, setIsSearchFocused] = useState(false);
-  const [searchQuery, setSearchQuery] = useState('');
+  const [searchValue, setSearchValue] = useState('');
   const [isProfileMenuOpen, setIsProfileMenuOpen] = useState(false);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [isThemeMenuOpen, setIsThemeMenuOpen] = useState(false);
@@ -52,9 +61,9 @@ const Header: React.FC<HeaderProps> = ({ className = '' }) => {
 
   // 主題選項
   const themeOptions = [
-    { key: 'light', name: '淺色主題', icon: SunIcon },
-    { key: 'dark', name: '深色主題', icon: MoonIcon },
-    { key: 'auto', name: '跟隨系統', icon: ComputerDesktopIcon },
+    { key: 'light' as const, name: '淺色主題', icon: SunIcon },
+    { key: 'dark' as const, name: '深色主題', icon: MoonIcon },
+    { key: 'auto' as const, name: '跟隨系統', icon: ComputerDesktopIcon },
   ];
 
   // 點擊外部關閉菜單
@@ -75,9 +84,10 @@ const Header: React.FC<HeaderProps> = ({ className = '' }) => {
   // 搜索處理
   const handleSearch = (e: React.FormEvent) => {
     e.preventDefault();
-    if (searchQuery.trim()) {
-      navigate(`/search?q=${encodeURIComponent(searchQuery.trim())}`);
-      setSearchQuery('');
+    if (searchValue.trim()) {
+      setSearchQuery(searchValue.trim());
+      navigate(`/search?q=${encodeURIComponent(searchValue.trim())}`);
+      setSearchValue('');
       searchInputRef.current?.blur();
     }
   };
@@ -97,6 +107,14 @@ const Header: React.FC<HeaderProps> = ({ className = '' }) => {
     return location.pathname.startsWith(href);
   };
 
+  // 獲取當前主題圖標
+  const getCurrentThemeIcon = () => {
+    const option = themeOptions.find(opt => opt.key === theme);
+    return option ? option.icon : ComputerDesktopIcon;
+  };
+
+  const CurrentThemeIcon = getCurrentThemeIcon();
+
   return (
     <header className={`sticky top-0 z-50 bg-white/80 dark:bg-gray-900/80 backdrop-blur-md border-b border-gray-200 dark:border-gray-700 ${className}`}>
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
@@ -108,6 +126,7 @@ const Header: React.FC<HeaderProps> = ({ className = '' }) => {
             <button
               onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
               className="md:hidden p-2 text-gray-600 dark:text-gray-300 hover:text-gray-900 dark:hover:text-white transition-colors"
+              aria-label="打開菜單"
             >
               {isMobileMenuOpen ? (
                 <XMarkIcon className="h-6 w-6" />
@@ -155,8 +174,8 @@ const Header: React.FC<HeaderProps> = ({ className = '' }) => {
                 <input
                   ref={searchInputRef}
                   type="text"
-                  value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
+                  value={searchValue}
+                  onChange={(e) => setSearchValue(e.target.value)}
                   onFocus={() => setIsSearchFocused(true)}
                   onBlur={() => setIsSearchFocused(false)}
                   placeholder="搜索貼文、用戶或標籤..."
@@ -180,17 +199,24 @@ const Header: React.FC<HeaderProps> = ({ className = '' }) => {
                 </Link>
 
                 {/* 通知按鈕 */}
-                <button className="relative p-2 text-gray-600 dark:text-gray-300 hover:text-gray-900 dark:hover:text-white hover:bg-gray-100 dark:hover:bg-gray-800 rounded-full transition-colors">
+                <button 
+                  onClick={toggleNotifications}
+                  className="relative p-2 text-gray-600 dark:text-gray-300 hover:text-gray-900 dark:hover:text-white hover:bg-gray-100 dark:hover:bg-gray-800 rounded-full transition-colors"
+                  aria-label="通知"
+                >
                   <BellIcon className="h-6 w-6" />
-                  <span className="absolute -top-1 -right-1 h-4 w-4 bg-red-500 text-white text-xs rounded-full flex items-center justify-center">
-                    3
-                  </span>
+                  {notifications.unreadCount > 0 && (
+                    <span className="absolute -top-1 -right-1 h-4 w-4 bg-red-500 text-white text-xs rounded-full flex items-center justify-center">
+                      {notifications.unreadCount > 99 ? '99+' : notifications.unreadCount}
+                    </span>
+                  )}
                 </button>
 
                 {/* 聊天按鈕 */}
                 <Link
                   to="/messages"
                   className="p-2 text-gray-600 dark:text-gray-300 hover:text-gray-900 dark:hover:text-white hover:bg-gray-100 dark:hover:bg-gray-800 rounded-full transition-colors"
+                  aria-label="聊天"
                 >
                   <ChatBubbleLeftRightIcon className="h-6 w-6" />
                 </Link>
@@ -200,30 +226,29 @@ const Header: React.FC<HeaderProps> = ({ className = '' }) => {
                   <button
                     onClick={() => setIsThemeMenuOpen(!isThemeMenuOpen)}
                     className="p-2 text-gray-600 dark:text-gray-300 hover:text-gray-900 dark:hover:text-white hover:bg-gray-100 dark:hover:bg-gray-800 rounded-full transition-colors"
+                    aria-label="切換主題"
                   >
-                    {theme === 'light' && <SunIcon className="h-6 w-6" />}
-                    {theme === 'dark' && <MoonIcon className="h-6 w-6" />}
-                    {theme === 'auto' && <ComputerDesktopIcon className="h-6 w-6" />}
+                    <CurrentThemeIcon className="h-6 w-6" />
                   </button>
 
-                  {/* 主題菜單 */}
+                  {/* 主題選擇菜單 */}
                   {isThemeMenuOpen && (
-                    <div className="absolute right-0 mt-2 w-48 bg-white dark:bg-gray-800 rounded-lg shadow-lg border border-gray-200 dark:border-gray-700 py-1 z-50">
+                    <div className="absolute right-0 mt-2 w-48 bg-white dark:bg-gray-800 rounded-md shadow-lg py-1 ring-1 ring-black ring-opacity-5 focus:outline-none z-50">
                       {themeOptions.map((option) => {
                         const IconComponent = option.icon;
                         return (
                           <button
                             key={option.key}
                             onClick={() => {
-                              setTheme(option.key as any);
+                              setTheme(option.key);
                               setIsThemeMenuOpen(false);
                             }}
-                            className={`w-full flex items-center space-x-3 px-4 py-2 text-sm hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors ${
-                              theme === option.key ? 'text-blue-600 dark:text-blue-400' : 'text-gray-700 dark:text-gray-300'
+                            className={`flex items-center w-full px-4 py-2 text-sm text-left hover:bg-gray-100 dark:hover:bg-gray-700 ${
+                              theme === option.key ? 'text-blue-600 dark:text-blue-400 bg-blue-50 dark:bg-blue-900/20' : 'text-gray-700 dark:text-gray-300'
                             }`}
                           >
-                            <IconComponent className="h-5 w-5" />
-                            <span>{option.name}</span>
+                            <IconComponent className="h-4 w-4 mr-3" />
+                            {option.name}
                           </button>
                         );
                       })}
@@ -235,32 +260,39 @@ const Header: React.FC<HeaderProps> = ({ className = '' }) => {
                 <div className="relative" ref={profileMenuRef}>
                   <button
                     onClick={() => setIsProfileMenuOpen(!isProfileMenuOpen)}
-                    className="flex items-center space-x-2 p-1 rounded-full hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
+                    className="flex items-center space-x-2 p-1 text-gray-600 dark:text-gray-300 hover:text-gray-900 dark:hover:text-white rounded-full transition-colors focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    aria-label="用戶菜單"
                   >
-                    {user?.avatar ? (
+                    {user?.avatar_url ? (
                       <img
-                        src={user.avatar}
-                        alt={user.username}
-                        className="h-8 w-8 rounded-full object-cover border-2 border-transparent hover:border-gray-300 dark:hover:border-gray-600 transition-colors"
+                        src={user.avatar_url}
+                        alt={user.display_name || user.username}
+                        className="h-8 w-8 rounded-full object-cover"
                       />
                     ) : (
-                      <UserCircleIcon className="h-8 w-8 text-gray-600 dark:text-gray-300" />
+                      <UserCircleIcon className="h-8 w-8" />
                     )}
                   </button>
 
-                  {/* 用戶下拉菜單 */}
+                  {/* 用戶菜單下拉 */}
                   {isProfileMenuOpen && (
-                    <div className="absolute right-0 mt-2 w-64 bg-white dark:bg-gray-800 rounded-lg shadow-lg border border-gray-200 dark:border-gray-700 py-2 z-50">
+                    <div className="absolute right-0 mt-2 w-72 bg-white dark:bg-gray-800 rounded-lg shadow-lg py-2 ring-1 ring-black ring-opacity-5 focus:outline-none z-50">
                       {/* 用戶信息 */}
                       <div className="px-4 py-3 border-b border-gray-200 dark:border-gray-700">
                         <div className="flex items-center space-x-3">
-                          {user?.avatar ? (
-                            <img src={user.avatar} alt={user.username} className="h-10 w-10 rounded-full object-cover" />
+                          {user?.avatar_url ? (
+                            <img
+                              src={user.avatar_url}
+                              alt={user.display_name || user.username}
+                              className="h-10 w-10 rounded-full object-cover"
+                            />
                           ) : (
-                            <UserCircleIcon className="h-10 w-10 text-gray-600 dark:text-gray-300" />
+                            <UserCircleIcon className="h-10 w-10 text-gray-400" />
                           )}
                           <div>
-                            <p className="font-medium text-gray-900 dark:text-white">{user?.display_name || user?.username}</p>
+                            <p className="font-medium text-gray-900 dark:text-white">
+                              {user?.display_name || user?.first_name || user?.username}
+                            </p>
                             <p className="text-sm text-gray-500 dark:text-gray-400">@{user?.username}</p>
                           </div>
                         </div>
@@ -271,29 +303,27 @@ const Header: React.FC<HeaderProps> = ({ className = '' }) => {
                         <Link
                           to={`/profile/${user?.username}`}
                           onClick={() => setIsProfileMenuOpen(false)}
-                          className="flex items-center space-x-3 px-4 py-2 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
+                          className="flex items-center px-4 py-2 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700"
                         >
-                          <UserCircleIcon className="h-5 w-5" />
-                          <span>個人資料</span>
+                          <UserCircleIcon className="h-4 w-4 mr-3" />
+                          個人資料
                         </Link>
                         
                         <Link
                           to="/settings"
                           onClick={() => setIsProfileMenuOpen(false)}
-                          className="flex items-center space-x-3 px-4 py-2 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
+                          className="flex items-center px-4 py-2 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700"
                         >
-                          <Cog6ToothIcon className="h-5 w-5" />
-                          <span>設置</span>
+                          <Cog6ToothIcon className="h-4 w-4 mr-3" />
+                          設置
                         </Link>
-                        
-                        <div className="border-t border-gray-200 dark:border-gray-700 my-1"></div>
-                        
+
                         <button
                           onClick={handleLogout}
-                          className="w-full flex items-center space-x-3 px-4 py-2 text-sm text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors"
+                          className="flex items-center w-full px-4 py-2 text-sm text-red-600 dark:text-red-400 hover:bg-gray-100 dark:hover:bg-gray-700"
                         >
-                          <ArrowRightOnRectangleIcon className="h-5 w-5" />
-                          <span>登出</span>
+                          <ArrowRightOnRectangleIcon className="h-4 w-4 mr-3" />
+                          登出
                         </button>
                       </div>
                     </div>
@@ -303,15 +333,49 @@ const Header: React.FC<HeaderProps> = ({ className = '' }) => {
             ) : (
               /* 未登入狀態 */
               <div className="flex items-center space-x-3">
+                {/* 主題切換（未登入時也可用） */}
+                <div className="relative" ref={themeMenuRef}>
+                  <button
+                    onClick={() => setIsThemeMenuOpen(!isThemeMenuOpen)}
+                    className="p-2 text-gray-600 dark:text-gray-300 hover:text-gray-900 dark:hover:text-white hover:bg-gray-100 dark:hover:bg-gray-800 rounded-full transition-colors"
+                    aria-label="切換主題"
+                  >
+                    <CurrentThemeIcon className="h-6 w-6" />
+                  </button>
+
+                  {isThemeMenuOpen && (
+                    <div className="absolute right-0 mt-2 w-48 bg-white dark:bg-gray-800 rounded-md shadow-lg py-1 ring-1 ring-black ring-opacity-5 focus:outline-none z-50">
+                      {themeOptions.map((option) => {
+                        const IconComponent = option.icon;
+                        return (
+                          <button
+                            key={option.key}
+                            onClick={() => {
+                              setTheme(option.key);
+                              setIsThemeMenuOpen(false);
+                            }}
+                            className={`flex items-center w-full px-4 py-2 text-sm text-left hover:bg-gray-100 dark:hover:bg-gray-700 ${
+                              theme === option.key ? 'text-blue-600 dark:text-blue-400 bg-blue-50 dark:bg-blue-900/20' : 'text-gray-700 dark:text-gray-300'
+                            }`}
+                          >
+                            <IconComponent className="h-4 w-4 mr-3" />
+                            {option.name}
+                          </button>
+                        );
+                      })}
+                    </div>
+                  )}
+                </div>
+
                 <Link
                   to="/auth/login"
-                  className="px-4 py-2 text-gray-700 dark:text-gray-300 hover:text-gray-900 dark:hover:text-white font-medium transition-colors"
+                  className="px-4 py-2 text-gray-700 dark:text-gray-300 hover:text-gray-900 dark:hover:text-white transition-colors"
                 >
                   登入
                 </Link>
                 <Link
                   to="/auth/register"
-                  className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-full font-medium transition-colors"
+                  className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-full transition-colors font-medium"
                 >
                   註冊
                 </Link>
@@ -323,13 +387,13 @@ const Header: React.FC<HeaderProps> = ({ className = '' }) => {
         {/* 移動端菜單 */}
         {isMobileMenuOpen && (
           <div className="md:hidden border-t border-gray-200 dark:border-gray-700 py-4">
-            <nav className="space-y-2">
+            <nav className="flex flex-col space-y-2">
               {navigation.map((item) => (
                 <Link
                   key={item.name}
                   to={item.href}
                   onClick={() => setIsMobileMenuOpen(false)}
-                  className={`block px-3 py-2 rounded-md text-base font-medium transition-colors ${
+                  className={`px-3 py-2 rounded-md text-base font-medium transition-colors ${
                     isCurrentPage(item.href)
                       ? 'text-blue-600 dark:text-blue-400 bg-blue-50 dark:bg-blue-900/20'
                       : 'text-gray-700 dark:text-gray-300 hover:text-gray-900 dark:hover:text-white hover:bg-gray-100 dark:hover:bg-gray-800'
@@ -345,8 +409,8 @@ const Header: React.FC<HeaderProps> = ({ className = '' }) => {
                   onClick={() => setIsMobileMenuOpen(false)}
                   className="flex items-center space-x-2 px-3 py-2 mt-4 bg-blue-600 hover:bg-blue-700 text-white rounded-md transition-colors font-medium"
                 >
-                  <PlusIcon className="h-5 w-5" />
-                  <span>發布貼文</span>
+                  <PlusIcon className="h-4 w-4" />
+                  <span>發文</span>
                 </Link>
               )}
             </nav>

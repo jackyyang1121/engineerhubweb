@@ -108,7 +108,7 @@ export const useAuthStore = create<AuthState>()(
         },
         
         checkAuth: async () => {
-          const { token, refreshToken, refreshAuth } = get();
+          const { token, refreshAuth } = get();
           
           // 如果没有令牌，则未认证
           if (!token) {

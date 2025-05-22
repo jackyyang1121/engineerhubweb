@@ -2,9 +2,7 @@ import api from './axiosConfig';
 
 // 從統一類型文件導入類型定義
 import type { 
-  UserData, 
-  Post, 
-  PostMedia, 
+  Post,  
   CreatePostData, 
   UpdatePostData,
   PaginatedResponse,

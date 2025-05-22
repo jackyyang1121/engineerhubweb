@@ -1,4 +1,3 @@
-import { useState } from 'react';
 import { useInfiniteQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useInView } from 'react-intersection-observer';
 import { toast } from 'react-toastify';
@@ -53,12 +52,7 @@ const CommentSection: React.FC<CommentSectionProps> = ({ postId }) => {
   });
   
   // 處理評論提交
-  const handleCommentSubmit = (content: string) => {
-    createCommentMutation.mutate({
-      post_id: postId,
-      content
-    });
-  };
+    const handleCommentSubmit = (content: string) => {    createCommentMutation.mutate({      post: postId,      content    });  };
   
   // 滾動到底部加載更多評論
   if (inView && hasNextPage && !isFetchingNextPage) {
@@ -121,7 +115,7 @@ const CommentSection: React.FC<CommentSectionProps> = ({ postId }) => {
               </div>
             )}
             
-            {!hasNextPage && data?.pages[0].results.length > 0 && (
+            {!hasNextPage && data?.pages[0] && data.pages[0].results.length > 0 && (
               <div className="py-4 text-center text-gray-500">
                 已顯示所有評論
               </div>

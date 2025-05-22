@@ -1,12 +1,11 @@
-import { useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { toast } from 'react-toastify';
 
 import PostCard from '../../components/posts/PostCard';
 import CommentSection from '../../components/comments/CommentSection';
 import * as postApi from '../../api/postApi';
-import * as commentApi from '../../api/commentApi';
+
 
 const PostDetailPage = () => {
   const { postId } = useParams<{ postId: string }>();

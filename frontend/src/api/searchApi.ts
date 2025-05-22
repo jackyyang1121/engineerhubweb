@@ -1,13 +1,13 @@
 import axios from './axiosConfig';
 
 // 從統一類型文件導入類型定義
-import type { Post, UserData, SearchAllResult } from '../types';
+import type { Post, UserData, SearchResult } from '../types';
 
 // 重新導出類型定義供其他模塊使用
-export type { SearchAllResult } from '../types';
+export type { SearchResult } from '../types';
 
 // 搜索全部內容（用戶和貼文）
-export const searchAll = async (query: string): Promise<SearchAllResult> => {
+export const searchAll = async (query: string): Promise<SearchResult> => {
   try {
     const response = await axios.get(`/search?q=${encodeURIComponent(query)}`);
     return response.data;
@@ -24,7 +24,11 @@ export const searchAll = async (query: string): Promise<SearchAllResult> => {
             username: 'example_user',
             email: 'example@test.com',
             avatar: `https://ui-avatars.com/api/?name=Example&background=random`,
-            is_online: true
+            is_online: true,
+            followers_count: 120,
+            following_count: 85,
+            posts_count: 45,
+            likes_received_count: 320
           },
           content: `這是一個關於 ${query} 的示例貼文`,
           media: [],
@@ -35,8 +39,11 @@ export const searchAll = async (query: string): Promise<SearchAllResult> => {
           likes_count: 15,
           comments_count: 3,
           shares_count: 2,
+          views_count: 120,
           is_liked: false,
-          is_saved: false
+          is_saved: false,
+          is_published: true,
+          is_featured: false
         },
         {
           id: '2',
@@ -46,7 +53,11 @@ export const searchAll = async (query: string): Promise<SearchAllResult> => {
             username: 'tech_lover',
             email: 'tech@test.com',
             avatar: `https://ui-avatars.com/api/?name=Tech&background=random`,
-            is_online: false
+            is_online: false,
+            followers_count: 230,
+            following_count: 156,
+            posts_count: 67,
+            likes_received_count: 890
           },
           content: `另一個含有 ${query} 的貼文示例`,
           media: [],
@@ -57,8 +68,11 @@ export const searchAll = async (query: string): Promise<SearchAllResult> => {
           likes_count: 8,
           comments_count: 1,
           shares_count: 0,
+          views_count: 85,
           is_liked: false,
-          is_saved: false
+          is_saved: false,
+          is_published: true,
+          is_featured: false
         }
       ],
       users: [
@@ -71,12 +85,10 @@ export const searchAll = async (query: string): Promise<SearchAllResult> => {
           skill_tags: ['JavaScript', 'React', query],
           is_following: false,
           is_online: true,
-          stats: {
-            followers_count: 120,
-            following_count: 85,
-            posts_count: 45,
-            likes_received_count: 320
-          }
+          followers_count: 120,
+          following_count: 85,
+          posts_count: 45,
+          likes_received_count: 320
         },
         {
           id: '2',
@@ -87,14 +99,13 @@ export const searchAll = async (query: string): Promise<SearchAllResult> => {
           skill_tags: ['Python', query, 'Docker'],
           is_following: true,
           is_online: false,
-          stats: {
-            followers_count: 230,
-            following_count: 156,
-            posts_count: 67,
-            likes_received_count: 890
-          }
+          followers_count: 230,
+          following_count: 156,
+          posts_count: 67,
+          likes_received_count: 890
         }
       ],
+      total_count: 23,
       posts_count: 15,
       users_count: 8
     };
@@ -117,7 +128,11 @@ export const searchPosts = async (query: string): Promise<Post[]> => {
         username: `user_${i + 1}`,
         email: `user${i + 1}@example.com`,
         avatar: `https://ui-avatars.com/api/?name=User${i+1}&background=random`,
-        is_online: i % 2 === 0
+        is_online: i % 2 === 0,
+        followers_count: 50 + i * 10,
+        following_count: 30 + i * 5,
+        posts_count: 20 + i * 5,
+        likes_received_count: 100 + i * 20
       },
       content: `這是一個關於 ${query} 的第 ${i + 1} 個示例貼文。包含更多相關內容。`,
       media: [],
@@ -128,8 +143,11 @@ export const searchPosts = async (query: string): Promise<Post[]> => {
       likes_count: Math.floor(Math.random() * 50),
       comments_count: Math.floor(Math.random() * 10),
       shares_count: Math.floor(Math.random() * 5),
+      views_count: Math.floor(Math.random() * 200),
       is_liked: false,
-      is_saved: false
+      is_saved: false,
+      is_published: true,
+      is_featured: i === 0
     }));
   }
 };
@@ -152,12 +170,10 @@ export const searchUsers = async (query: string): Promise<UserData[]> => {
       is_following: i % 3 === 0,
       is_online: i % 2 === 0,
       last_online: new Date().toISOString(),
-      stats: {
-        followers_count: 50 + i * 10,
-        following_count: 30 + i * 5,
-        posts_count: 20 + i * 5,
-        likes_received_count: 100 + i * 20
-      }
+      followers_count: 50 + i * 10,
+      following_count: 30 + i * 5,
+      posts_count: 20 + i * 5,
+      likes_received_count: 100 + i * 20
     }));
   }
 }; 

@@ -1,0 +1,14 @@
+//這個檔案作用是忽略 @tailwind 的警告
+/*
+為什麼會有這些警告？
+VS Code CSS 語言服務器不認識 @tailwind 指令，因為它不是標準 CSS 規則
+Tailwind CSS 使用 PostCSS 處理這些特殊指令
+這是正常現象，幾乎所有使用 Tailwind 的項目都會有這些警告
+*/
+
+
+{
+    "css.validate": false,
+    "scss.validate": false,
+    "less.validate": false
+  }

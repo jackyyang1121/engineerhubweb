@@ -118,11 +118,11 @@ const UserCard: React.FC<UserCardProps> = ({
         
         {/* 其他統計信息 */}
         <div className="mt-2 flex items-center text-sm text-gray-500 space-x-3">
-          {user.stats?.followers_count !== undefined && (
-            <span>{user.stats.followers_count} 位關注者</span>
+          {user.followers_count !== undefined && (
+            <span>{user.followers_count} 位關注者</span>
           )}
-          {user.stats?.posts_count !== undefined && (
-            <span>{user.stats.posts_count} 則貼文</span>
+          {user.posts_count !== undefined && (
+            <span>{user.posts_count} 則貼文</span>
           )}
         </div>
       </div>
