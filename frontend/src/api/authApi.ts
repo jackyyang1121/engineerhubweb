@@ -19,7 +19,7 @@ export type {
 
 // 註冊新用戶
 export const register = async (userData: RegisterData): Promise<TokenResponse> => {
-  const response = await api.post('/auth/registration/', userData);
+  const response = await api.post('/simple-auth/register/', userData);
   return response.data;
 };
 
@@ -30,7 +30,7 @@ export const login = async (credentials: LoginData): Promise<TokenResponse> => {
     username: credentials.email,  // 後端用戶名字段可以接受郵箱
     password: credentials.password
   };
-  const response = await api.post('/auth/login/', loginData);
+  const response = await api.post('/simple-auth/login/', loginData);
   return response.data;
 };
 

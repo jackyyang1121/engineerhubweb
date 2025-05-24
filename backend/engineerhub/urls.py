@@ -4,8 +4,6 @@ from django.conf import settings
 from django.conf.urls.static import static
 from django.shortcuts import redirect
 from django.http import HttpResponse
-from django.views.decorators.csrf import csrf_exempt, ensure_csrf_cookie
-from django.middleware.csrf import get_token
 from drf_spectacular.views import SpectacularAPIView, SpectacularSwaggerView, SpectacularRedocView
 
 # 根路径視圖 - 重定向到 API 文檔
@@ -18,16 +16,8 @@ def health_check(request):
     """健康检查端点"""
     return HttpResponse('OK', content_type='text/plain')
 
-# CSRF token 端點
-@ensure_csrf_cookie
-def csrf_token_view(request):
-    """提供 CSRF token 給前端"""
-    return HttpResponse('{"detail": "CSRF cookie set"}', content_type='application/json')
-
-# 包裝簡化的註冊和登入視圖
+# 簡化的認證視圖（現在不需要 CSRF 豁免）
 from accounts.views import SimpleRegistrationView, SimpleLoginView
-simple_register_view = csrf_exempt(SimpleRegistrationView.as_view())
-simple_login_view = csrf_exempt(SimpleLoginView.as_view())
 
 urlpatterns = [
     # 根路径 - 重定向到 API 文檔
@@ -35,9 +25,6 @@ urlpatterns = [
     
     # 健康檢查
     path('health/', health_check, name='health-check'),
-    
-    # CSRF token 端點
-    path('api/csrf/', csrf_token_view, name='csrf-token'),
     
     # 管理員界面
     path('admin/', admin.site.urls),
@@ -52,14 +39,14 @@ urlpatterns = [
     path('api/posts/', include('posts.urls')),
     path('api/chat/', include('chat.urls')),
     
-    # 簡化的認證端點（免除 CSRF）- 推薦用於前端
-    path('api/auth/login/', simple_login_view, name='simple_login'),
-    path('api/auth/registration/', simple_register_view, name='simple_register'),
+    # 簡化的認證端點（純 JWT，無需 CSRF）
+    path('api/simple-auth/login/', SimpleLoginView.as_view(), name='simple_login'),
+    path('api/simple-auth/register/', SimpleRegistrationView.as_view(), name='simple_register'),
     
-    # 其他認證API (dj-rest-auth) - 需要 CSRF token
+    # 其他認證API (dj-rest-auth) - 現在也無需 CSRF
     path('api/auth/', include('dj_rest_auth.urls')),
     
-    # 社交登入 (AllAuth)
+    # 社交登入 (AllAuth) - Admin 使用
     path('accounts/', include('allauth.urls')),
 ]
 

@@ -34,11 +34,18 @@ except ImportError:
     print("⚠️  Debug Toolbar 未安裝，跳過")
 
 # ==================== 開發環境 CSRF 設置 ====================
-# 對於開發環境，我們可以放寬 CSRF 檢查以便於前端開發
+# 對於前後端分離的 JWT 架構，我們完全禁用 CSRF 保護
 CSRF_COOKIE_SECURE = False
 CSRF_COOKIE_HTTPONLY = False
 CSRF_COOKIE_SAMESITE = 'Lax'
 CSRF_USE_SESSIONS = False
+
+# 完全禁用 CSRF 中間件的檢查（僅開發環境）
+# 移除 CSRF 中間件
+MIDDLEWARE = [item for item in MIDDLEWARE if item != 'django.middleware.csrf.CsrfViewMiddleware']
+
+# 或者設置 CSRF 豁免所有請求（替代方案）
+# CSRF_COOKIE_NAME = None  # 禁用 CSRF cookie
 
 # ==================== AllAuth 開發環境設置 ====================
 # 在開發環境中使用用戶名或郵件登入，並禁用郵件驗證以便於測試
@@ -55,8 +62,12 @@ REST_AUTH.update({
     'JWT_AUTH_HTTPONLY': False,  # 允許前端讀取 JWT
 })
 
-# 修改 REST_FRAMEWORK 設置以支援匿名註冊
+# 修改 REST_FRAMEWORK 設置，純 JWT 認證
 REST_FRAMEWORK.update({
+    'DEFAULT_AUTHENTICATION_CLASSES': [
+        'rest_framework_simplejwt.authentication.JWTAuthentication',  # 只使用 JWT
+        # 移除 SessionAuthentication 以避免 CSRF 要求
+    ],
     'DEFAULT_PERMISSION_CLASSES': [
         'rest_framework.permissions.AllowAny',  # 開發環境允許匿名訪問
     ],
