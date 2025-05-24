@@ -80,19 +80,7 @@ INSTALLED_APPS = DJANGO_APPS + THIRD_PARTY_APPS + LOCAL_APPS
 # 中介軟體配置
 # ==============================================================================
 
-MIDDLEWARE = [
-    'corsheaders.middleware.CorsMiddleware',
-    'django.middleware.security.SecurityMiddleware',
-    'whitenoise.middleware.WhiteNoiseMiddleware',  # 靜態檔案服務
-    'django.contrib.sessions.middleware.SessionMiddleware',
-    'django.middleware.common.CommonMiddleware',
-    'django.middleware.csrf.CsrfViewMiddleware',
-    'django.contrib.auth.middleware.AuthenticationMiddleware',
-    'django.contrib.messages.middleware.MessageMiddleware',
-    'django.middleware.clickjacking.XFrameOptionsMiddleware',
-    'core.middleware.UserActivityMiddleware',  # 自定義用戶活動追蹤中介軟體
-    'core.middleware.RequestLoggingMiddleware',  # 自定義請求日誌中介軟體
-]
+MIDDLEWARE = [    'corsheaders.middleware.CorsMiddleware',    'django.middleware.security.SecurityMiddleware',    'whitenoise.middleware.WhiteNoiseMiddleware',  # 靜態檔案服務    'django.contrib.sessions.middleware.SessionMiddleware',    'django.middleware.common.CommonMiddleware',    'django.middleware.csrf.CsrfViewMiddleware',    'django.contrib.auth.middleware.AuthenticationMiddleware',    'django.contrib.messages.middleware.MessageMiddleware',    'django.middleware.clickjacking.XFrameOptionsMiddleware',    'allauth.account.middleware.AccountMiddleware',  # AllAuth 中間件    'core.middleware.UserActivityMiddleware',  # 自定義用戶活動追蹤中介軟體    'core.middleware.RequestLoggingMiddleware',  # 自定義請求日誌中介軟體]
 
 ROOT_URLCONF = 'engineerhub.urls'
 
@@ -451,10 +439,7 @@ LOGGING = {
             'format': '{levelname} {message}',
             'style': '{',
         },
-        'json': {
-            'format': '{"level": "{levelname}", "time": "{asctime}", "module": "{module}", "message": "{message}"}',
-            'style': '{',
-        },
+
     },
     'filters': {
         'require_debug_true': {
