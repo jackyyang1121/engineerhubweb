@@ -5,8 +5,8 @@ DJANGO_ENVIRONMENT=development
 DJANGO_ALLOWED_HOSTS=localhost,127.0.0.1,0.0.0.0
 
 # 數據庫配置 (PostgreSQL)
-DB_NAME=engineerhub_db
-DB_USER=postgres
+DB_NAME=engineerhub
+DB_USER=engineerhub_user
 DB_PASSWORD=your-password-here
 DB_HOST=localhost
 DB_PORT=5432
