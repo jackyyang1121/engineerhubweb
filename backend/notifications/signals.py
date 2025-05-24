@@ -102,7 +102,7 @@ def handle_message_notification(sender, instance, created, **kwargs):
             logger.error(f"創建私信通知失敗: {str(e)}")
 
 
-@receiver(post_save, sender='posts.Share')
+@receiver(post_save, sender='posts.PostShare')
 def handle_share_notification(sender, instance, created, **kwargs):
     """
     處理分享通知

@@ -5,7 +5,6 @@ EngineerHub - 用戶序列化器
 
 from rest_framework import serializers
 from rest_framework_simplejwt.serializers import TokenObtainPairSerializer
-from django.contrib.auth.password_validation import validate_password
 from django.core.exceptions import ValidationError
 from django.contrib.auth import authenticate
 from PIL import Image
@@ -122,7 +121,6 @@ class UserCreateSerializer(serializers.ModelSerializer):
     
     password = serializers.CharField(
         write_only=True,
-        validators=[validate_password],
         style={'input_type': 'password'}
     )
     password_confirm = serializers.CharField(
@@ -362,7 +360,6 @@ class PasswordChangeSerializer(serializers.Serializer):
     )
     new_password = serializers.CharField(
         required=True,
-        validators=[validate_password],
         style={'input_type': 'password'}
     )
     new_password_confirm = serializers.CharField(

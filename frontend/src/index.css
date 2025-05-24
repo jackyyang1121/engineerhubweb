@@ -4,7 +4,7 @@
    ============================================ */
 
 /* 字體導入 */
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap');
 @import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600&display=swap');
 
 /* Tailwind CSS 基礎層 */
@@ -70,17 +70,19 @@
   --shadow-md: 0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1);
   --shadow-lg: 0 10px 15px -3px rgb(0 0 0 / 0.1), 0 4px 6px -4px rgb(0 0 0 / 0.1);
   --shadow-xl: 0 20px 25px -5px rgb(0 0 0 / 0.1), 0 8px 10px -6px rgb(0 0 0 / 0.1);
+  --shadow-2xl: 0 25px 50px -12px rgb(0 0 0 / 0.25);
 
   /* 圓角 */
   --radius-sm: 0.25rem;
   --radius-md: 0.375rem;
   --radius-lg: 0.5rem;
   --radius-xl: 0.75rem;
+  --radius-2xl: 1rem;
 
   /* 過渡動畫 */
-  --transition-fast: 150ms ease-out;
-  --transition-normal: 200ms ease-out;
-  --transition-slow: 300ms ease-out;
+  --transition-fast: 150ms cubic-bezier(0.4, 0, 0.2, 1);
+  --transition-normal: 200ms cubic-bezier(0.4, 0, 0.2, 1);
+  --transition-slow: 300ms cubic-bezier(0.4, 0, 0.2, 1);
 
   /* Z-index */
   --z-dropdown: 1000;
@@ -209,21 +211,21 @@
    組件樣式
    ============================================ */
 @layer components {
-  /* 按鈕基礎樣式 */
+  /* 按鈕樣式 */
   .btn {
-    @apply inline-flex items-center justify-center px-4 py-2 text-sm font-medium rounded-md transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-offset-2 disabled:opacity-50 disabled:pointer-events-none;
+    @apply px-4 py-2 text-sm font-medium rounded-lg transition-all duration-300 focus:outline-none focus:ring-2 focus:ring-offset-2 transform hover:scale-105 active:scale-95;
   }
 
   .btn-primary {
-    @apply bg-primary-600 text-white shadow-sm hover:bg-primary-700 focus:ring-primary-500;
+    @apply bg-gradient-to-r from-blue-500 via-purple-500 to-pink-500 text-white shadow-lg hover:shadow-xl hover:from-blue-600 hover:via-purple-600 hover:to-pink-600 focus:ring-blue-500;
   }
 
   .btn-secondary {
-    @apply bg-white text-gray-700 border border-gray-300 shadow-sm hover:bg-gray-50 focus:ring-primary-500;
+    @apply bg-white text-gray-700 border border-gray-300 shadow-sm hover:bg-gray-50 hover:shadow-md focus:ring-gray-500;
   }
 
   .btn-danger {
-    @apply bg-red-600 text-white shadow-sm hover:bg-red-700 focus:ring-red-500;
+    @apply bg-gradient-to-r from-red-500 to-red-600 text-white shadow-lg hover:shadow-xl hover:from-red-600 hover:to-red-700 focus:ring-red-500;
   }
 
   .btn-ghost {
@@ -240,20 +242,20 @@
 
   /* 輸入框樣式 */
   .input {
-    @apply block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm placeholder-gray-400 focus:outline-none focus:ring-primary-500 focus:border-primary-500 transition-colors;
+    @apply w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-300 bg-white/50 backdrop-blur-sm;
   }
 
   .input-error {
-    @apply border-red-300 focus:border-red-500 focus:ring-red-500;
+    @apply border-red-300 focus:ring-red-500;
   }
 
   /* 卡片樣式 */
   .card {
-    @apply bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden;
+    @apply bg-white/70 backdrop-blur-xl rounded-2xl shadow-xl border border-white/20 hover:shadow-2xl transition-all duration-300;
   }
 
   .card-header {
-    @apply px-6 py-4 border-b border-gray-200 bg-gray-50;
+    @apply px-6 py-4 border-b border-gray-100;
   }
 
   .card-body {
@@ -261,50 +263,50 @@
   }
 
   .card-footer {
-    @apply px-6 py-4 bg-gray-50 border-t border-gray-200;
+    @apply px-6 py-4 border-t border-gray-100;
   }
 
   /* 標籤樣式 */
   .tag {
-    @apply inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium;
+    @apply inline-flex items-center px-3 py-1 rounded-full text-xs font-medium backdrop-blur-sm transition-all duration-300 hover:scale-105;
   }
 
   .tag-primary {
-    @apply bg-primary-100 text-primary-800;
+    @apply bg-blue-100/80 text-blue-800 border border-blue-200;
   }
 
   .tag-secondary {
-    @apply bg-gray-100 text-gray-800;
+    @apply bg-gray-100/80 text-gray-800 border border-gray-200;
   }
 
   .tag-success {
-    @apply bg-green-100 text-green-800;
+    @apply bg-green-100/80 text-green-800 border border-green-200;
   }
 
   .tag-danger {
-    @apply bg-red-100 text-red-800;
+    @apply bg-red-100/80 text-red-800 border border-red-200;
   }
 
   .tag-warning {
-    @apply bg-yellow-100 text-yellow-800;
+    @apply bg-yellow-100/80 text-yellow-800 border border-yellow-200;
   }
 
   .tag-info {
-    @apply bg-blue-100 text-blue-800;
+    @apply bg-cyan-100/80 text-cyan-800 border border-cyan-200;
   }
 
   /* 徽章樣式 */
   .badge {
-    @apply absolute -top-1 -right-1 flex items-center justify-center h-5 w-5 rounded-full bg-red-500 text-white text-xs font-medium;
+    @apply inline-flex items-center justify-center w-6 h-6 text-xs font-bold text-white bg-gradient-to-r from-red-500 to-red-600 rounded-full shadow-lg;
   }
 
   /* 程式碼區塊 */
   .code-block {
-    @apply relative bg-gray-900 text-gray-100 rounded-lg overflow-hidden;
+    @apply bg-gray-900 rounded-xl overflow-hidden shadow-xl;
   }
 
   .code-header {
-    @apply flex items-center justify-between px-4 py-2 bg-gray-800 border-b border-gray-700;
+    @apply flex items-center justify-between px-4 py-2 bg-gray-800 text-gray-300 text-sm;
   }
 
   .code-content {
@@ -313,13 +315,12 @@
 
   /* 載入動畫 */
   .loading-spinner {
-    @apply animate-spin rounded-full border-2 border-gray-300 border-t-primary-600;
+    @apply animate-spin rounded-full border-4 border-gray-200 border-t-blue-600;
   }
 
-  /* 模態框遮罩 */
+  /* 模態框 */
   .modal-overlay {
-    @apply fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4;
-    z-index: var(--z-modal);
+    @apply fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm;
   }
 
   /* Toast 通知樣式覆蓋 */
@@ -394,10 +395,15 @@
     background: rgba(255, 255, 255, 0.1);
     border: 1px solid rgba(255, 255, 255, 0.2);
   }
+
+  /* 網格背景 */
+  .bg-grid-white {
+    background-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32' width='32' height='32' fill='none' stroke='rgb(255 255 255 / 0.05)'%3e%3cpath d='m0 .5h32m-16 0v32'/%3e%3c/svg%3e");
+  }
 }
 
 /* ============================================
-   動畫定義
+   自定義動畫
    ============================================ */
 @keyframes fadeIn {
   from { opacity: 0; }
@@ -431,21 +437,38 @@
   50% { opacity: 0.5; }
 }
 
-/* 動畫工具類 */
+@keyframes glow {
+  0%, 100% { box-shadow: 0 0 20px rgba(59, 130, 246, 0.3); }
+  50% { box-shadow: 0 0 30px rgba(59, 130, 246, 0.6); }
+}
+
+@keyframes float {
+  0%, 100% { transform: translateY(0px); }
+  50% { transform: translateY(-10px); }
+}
+
 .animate-fade-in {
-  animation: fadeIn var(--transition-normal) ease-out;
+  animation: fadeIn 0.5s ease-out;
 }
 
 .animate-slide-in-up {
-  animation: slideInUp var(--transition-normal) ease-out;
+  animation: slideInUp 0.5s ease-out;
 }
 
 .animate-slide-in-down {
-  animation: slideInDown var(--transition-normal) ease-out;
+  animation: slideInDown 0.5s ease-out;
 }
 
 .animate-pulse-slow {
-  animation: pulse 2s infinite;
+  animation: pulse 3s ease-in-out infinite;
+}
+
+.animate-glow {
+  animation: glow 2s ease-in-out infinite;
+}
+
+.animate-float {
+  animation: float 3s ease-in-out infinite;
 }
 
 /* ============================================

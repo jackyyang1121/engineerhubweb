@@ -146,21 +146,7 @@ SESSION_CACHE_ALIAS = 'default'
 
 # ==================== 密碼驗證 ====================
 AUTH_PASSWORD_VALIDATORS = [
-    {
-        'NAME': 'django.contrib.auth.password_validation.UserAttributeSimilarityValidator',
-    },
-    {
-        'NAME': 'django.contrib.auth.password_validation.MinimumLengthValidator',
-        'OPTIONS': {
-            'min_length': 8,
-        }
-    },
-    {
-        'NAME': 'django.contrib.auth.password_validation.CommonPasswordValidator',
-    },
-    {
-        'NAME': 'django.contrib.auth.password_validation.NumericPasswordValidator',
-    },
+    # 已移除所有密碼驗證器，允許任何密碼
 ]
 
 # ==================== 自定義用戶模型 ====================

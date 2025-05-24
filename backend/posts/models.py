@@ -382,104 +382,6 @@ class PostMedia(models.Model):
             logger.error(f"影片縮略圖生成失敗: {e}")
 
 
-class Comment(models.Model):
-    """
-    評論模型
-    支援樹狀結構的評論和回覆
-    """
-    
-    id = models.UUIDField(
-        primary_key=True,
-        default=uuid.uuid4,
-        editable=False,
-        help_text="評論唯一標識符"
-    )
-    
-    post = models.ForeignKey(
-        Post,
-        on_delete=models.CASCADE,
-        related_name='comments',
-        help_text="所屬貼文"
-    )
-    
-    author = models.ForeignKey(
-        User,
-        on_delete=models.CASCADE,
-        related_name='comments',
-        help_text="評論作者"
-    )
-    
-    content = models.TextField(
-        help_text="評論內容"
-    )
-    
-    parent = models.ForeignKey(
-        'self',
-        on_delete=models.CASCADE,
-        null=True,
-        blank=True,
-        related_name='replies',
-        help_text="父評論（用於回覆）"
-    )
-    
-    # 互動數據
-    likes_count = models.PositiveIntegerField(
-        default=0,
-        help_text="點讚數量"
-    )
-    
-    # 狀態
-    is_deleted = models.BooleanField(
-        default=False,
-        help_text="是否已刪除"
-    )
-    
-    # 時間戳
-    created_at = models.DateTimeField(
-        auto_now_add=True,
-        help_text="創建時間"
-    )
-    
-    updated_at = models.DateTimeField(
-        auto_now=True,
-        help_text="更新時間"
-    )
-    
-    class Meta:
-        db_table = 'posts_comment'
-        verbose_name = '評論'
-        verbose_name_plural = '評論'
-        ordering = ['-created_at']
-        indexes = [
-            models.Index(fields=['post', '-created_at']),
-            models.Index(fields=['author', '-created_at']),
-            models.Index(fields=['parent', '-created_at']),
-        ]
-    
-    def __str__(self):
-        return f"{self.author.username} 評論 {self.post.author.username} 的貼文"
-    
-    def save(self, *args, **kwargs):
-        """創建評論時更新計數器"""
-        is_new = self.pk is None
-        super().save(*args, **kwargs)
-        
-        if is_new:
-            # 更新貼文評論數
-            Post.objects.filter(id=self.post.id).update(
-                comments_count=models.F('comments_count') + 1
-            )
-    
-    def delete(self, *args, **kwargs):
-        """刪除評論時更新計數器"""
-        post_id = self.post.id
-        super().delete(*args, **kwargs)
-        
-        # 更新貼文評論數
-        Post.objects.filter(id=post_id).update(
-            comments_count=models.F('comments_count') - 1
-        )
-
 
 class Like(models.Model):
     """
@@ -613,7 +515,7 @@ class Report(models.Model):
     reporter = models.ForeignKey(
         User,
         on_delete=models.CASCADE,
-        related_name='reports_made',
+        related_name='post_reports_made',
         help_text="舉報者"
     )
     
@@ -647,7 +549,7 @@ class Report(models.Model):
         on_delete=models.SET_NULL,
         null=True,
         blank=True,
-        related_name='reports_reviewed',
+        related_name='post_reports_reviewed',
         help_text="審核者"
     )
     

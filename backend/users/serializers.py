@@ -1,12 +1,56 @@
 import logging
 from rest_framework import serializers
 from .models import CustomUser, UserFollowing
-from django.contrib.auth.password_validation import validate_password
 from django.core.exceptions import ValidationError
 from django.db import transaction
+from dj_rest_auth.registration.serializers import RegisterSerializer
 
 # 設置日誌記錄器
 logger = logging.getLogger('engineerhub.users')
+
+class CustomRegisterSerializer(RegisterSerializer):
+    """
+    自定義註冊序列化器，用於 dj-rest-auth
+    提供更好的密碼驗證錯誤處理
+    """
+    
+    def validate_password1(self, password):
+        """
+        驗證密碼是否符合規範 - 已移除所有限制
+        """
+        # 已移除所有密碼驗證，允許任何密碼
+        return password
+    
+    def validate_username(self, username):
+        """
+        驗證用戶名
+        """
+        # 調用父類驗證
+        username = super().validate_username(username)
+        
+        # 檢查保留用戶名
+        reserved_usernames = [
+            'admin', 'api', 'www', 'mail', 'support', 'help',
+            'about', 'contact', 'terms', 'privacy', 'settings',
+            'profile', 'user', 'users', 'root', 'system'
+        ]
+        if username.lower() in reserved_usernames:
+            raise serializers.ValidationError('此用戶名不可用，請選擇其他用戶名')
+        
+        return username
+    
+    def validate_email(self, email):
+        """
+        驗證郵箱
+        """
+        # 調用父類驗證
+        email = super().validate_email(email)
+        
+        # 檢查郵箱是否已被使用
+        if CustomUser.objects.filter(email=email).exists():
+            raise serializers.ValidationError('此郵箱已被註冊，請使用其他郵箱或嘗試登錄')
+        
+        return email
 
 class UserSerializer(serializers.ModelSerializer):
     """
@@ -41,12 +85,12 @@ class UserRegistrationSerializer(serializers.ModelSerializer):
     """
     用戶註冊序列化器
     """
-    password = serializers.CharField(
+    password1 = serializers.CharField(
         write_only=True, 
         required=True, 
         style={'input_type': 'password'}
     )
-    password_confirm = serializers.CharField(
+    password2 = serializers.CharField(
         write_only=True, 
         required=True, 
         style={'input_type': 'password'}
@@ -55,7 +99,7 @@ class UserRegistrationSerializer(serializers.ModelSerializer):
     class Meta:
         model = CustomUser
         fields = [
-            'username', 'email', 'password', 'password_confirm',
+            'username', 'email', 'password1', 'password2',
             'first_name', 'last_name', 'phone_number'
         ]
     
@@ -64,16 +108,11 @@ class UserRegistrationSerializer(serializers.ModelSerializer):
         驗證密碼是否匹配並符合規範
         """
         # 檢查密碼是否匹配
-        if data['password'] != data['password_confirm']:
-            logger.warning(f"用戶註冊密碼不匹配: {data['username']}")
-            raise serializers.ValidationError({"password": "兩次輸入的密碼不匹配"})
+        if data['password1'] != data['password2']:
+            logger.warning(f"用戶註冊密碼不匹配: {data.get('username', 'unknown')}")
+            raise serializers.ValidationError({"password1": ["兩次輸入的密碼不匹配"]})
         
-        # 使用 Django 內建的密碼驗證
-        try:
-            validate_password(data['password'])
-        except ValidationError as e:
-            logger.warning(f"用戶註冊密碼不符合規範: {data['username']}")
-            raise serializers.ValidationError({"password": e.messages})
+                # 已移除所有密碼驗證，允許任何密碼
         
         return data
     
@@ -81,14 +120,15 @@ class UserRegistrationSerializer(serializers.ModelSerializer):
         """
         創建用戶
         """
-        validated_data.pop('password_confirm')
+        password = validated_data.pop('password1')
+        validated_data.pop('password2')
         
         try:
             with transaction.atomic():
                 user = CustomUser.objects.create_user(
                     username=validated_data['username'],
                     email=validated_data['email'],
-                    password=validated_data['password'],
+                    password=password,
                     first_name=validated_data.get('first_name', ''),
                     last_name=validated_data.get('last_name', ''),
                     phone_number=validated_data.get('phone_number', None)
@@ -145,13 +185,9 @@ class ChangePasswordSerializer(serializers.Serializer):
     
     def validate_new_password(self, value):
         """
-        驗證新密碼是否符合規範
+        驗證新密碼是否符合規範 - 已移除所有限制
         """
-        try:
-            validate_password(value)
-        except ValidationError as e:
-            logger.warning(f"用戶密碼更新失敗 - 新密碼不符合規範: {self.context['request'].user.username}")
-            raise serializers.ValidationError(e.messages)
+        # 已移除所有密碼驗證，允許任何密碼
         return value
     
     def save(self):

@@ -568,7 +568,7 @@ class ValidationHelper:
     @staticmethod
     def validate_password_strength(password: str) -> Dict[str, Any]:
         """
-        驗證密碼強度
+        驗證密碼強度 - 已移除所有限制
         
         Args:
             password: 密碼
@@ -576,40 +576,12 @@ class ValidationHelper:
         Returns:
             dict: 驗證結果
         """
+        # 已移除所有密碼限制，任何密碼都被認為是有效的
         result = {
             'is_valid': True,
-            'score': 0,
+            'score': 5,  # 最高分
             'errors': []
         }
-        
-        if len(password) < 8:
-            result['errors'].append('密碼長度至少8位')
-            result['is_valid'] = False
-        else:
-            result['score'] += 1
-        
-        if not re.search(r'[a-z]', password):
-            result['errors'].append('密碼需包含小寫字母')
-            result['is_valid'] = False
-        else:
-            result['score'] += 1
-        
-        if not re.search(r'[A-Z]', password):
-            result['errors'].append('密碼需包含大寫字母')
-            result['is_valid'] = False
-        else:
-            result['score'] += 1
-        
-        if not re.search(r'\d', password):
-            result['errors'].append('密碼需包含數字')
-            result['is_valid'] = False
-        else:
-            result['score'] += 1
-        
-        if not re.search(r'[!@#$%^&*(),.?":{}|<>]', password):
-            result['errors'].append('密碼需包含特殊字符')
-        else:
-            result['score'] += 1
         
         return result
 

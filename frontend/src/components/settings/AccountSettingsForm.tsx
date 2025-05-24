@@ -87,10 +87,7 @@ const AccountSettingsForm = () => {
       return;
     }
     
-    if (newPassword.length < 8) {
-      toast.error('新密碼長度必須至少為8個字符');
-      return;
-    }
+        // 已移除所有密碼限制
     
     if (newPassword !== confirmPassword) {
       toast.error('新密碼和確認密碼不匹配');
@@ -163,9 +160,9 @@ const AccountSettingsForm = () => {
                 className="absolute inset-y-0 right-0 pr-3 flex items-center"
               >
                 {showCurrentPassword ? (
-                  <EyeSlashIcon className="h-5 w-5 text-gray-400" />
+                  <EyeSlashIcon className="h-4 w-4 text-gray-400" />
                 ) : (
-                  <EyeIcon className="h-5 w-5 text-gray-400" />
+                  <EyeIcon className="h-4 w-4 text-gray-400" />
                 )}
               </button>
             </div>
@@ -191,13 +188,12 @@ const AccountSettingsForm = () => {
                 className="absolute inset-y-0 right-0 pr-3 flex items-center"
               >
                 {showNewPassword ? (
-                  <EyeSlashIcon className="h-5 w-5 text-gray-400" />
+                  <EyeSlashIcon className="h-4 w-4 text-gray-400" />
                 ) : (
-                  <EyeIcon className="h-5 w-5 text-gray-400" />
+                  <EyeIcon className="h-4 w-4 text-gray-400" />
                 )}
               </button>
             </div>
-            <p className="mt-1 text-xs text-gray-500">密碼必須至少包含8個字符</p>
           </div>
           
           {/* 確認新密碼 */}
@@ -220,9 +216,9 @@ const AccountSettingsForm = () => {
                 className="absolute inset-y-0 right-0 pr-3 flex items-center"
               >
                 {showConfirmPassword ? (
-                  <EyeSlashIcon className="h-5 w-5 text-gray-400" />
+                  <EyeSlashIcon className="h-4 w-4 text-gray-400" />
                 ) : (
-                  <EyeIcon className="h-5 w-5 text-gray-400" />
+                  <EyeIcon className="h-4 w-4 text-gray-400" />
                 )}
               </button>
             </div>

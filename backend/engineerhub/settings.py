@@ -9,6 +9,7 @@ import os
 import logging.config
 from pathlib import Path
 from datetime import timedelta
+from decouple import config
 
 # 專案根目錄路徑
 BASE_DIR = Path(__file__).resolve().parent.parent
@@ -55,6 +56,9 @@ THIRD_PARTY_APPS = [
     'allauth.socialaccount.providers.google',
     'allauth.socialaccount.providers.github',
     
+    # 搜索引擎
+    'algoliasearch_django',
+    
     # 其他工具
     'corsheaders',
     'channels',
@@ -80,7 +84,20 @@ INSTALLED_APPS = DJANGO_APPS + THIRD_PARTY_APPS + LOCAL_APPS
 # 中介軟體配置
 # ==============================================================================
 
-MIDDLEWARE = [    'corsheaders.middleware.CorsMiddleware',    'django.middleware.security.SecurityMiddleware',    'whitenoise.middleware.WhiteNoiseMiddleware',  # 靜態檔案服務    'django.contrib.sessions.middleware.SessionMiddleware',    'django.middleware.common.CommonMiddleware',    'django.middleware.csrf.CsrfViewMiddleware',    'django.contrib.auth.middleware.AuthenticationMiddleware',    'django.contrib.messages.middleware.MessageMiddleware',    'django.middleware.clickjacking.XFrameOptionsMiddleware',    'allauth.account.middleware.AccountMiddleware',  # AllAuth 中間件    'core.middleware.UserActivityMiddleware',  # 自定義用戶活動追蹤中介軟體    'core.middleware.RequestLoggingMiddleware',  # 自定義請求日誌中介軟體]
+MIDDLEWARE = [
+    'corsheaders.middleware.CorsMiddleware',
+    'django.middleware.security.SecurityMiddleware',
+    'whitenoise.middleware.WhiteNoiseMiddleware',  # 靜態檔案服務
+    'django.contrib.sessions.middleware.SessionMiddleware',
+    'django.middleware.common.CommonMiddleware',
+    'django.middleware.csrf.CsrfViewMiddleware',
+    'django.contrib.auth.middleware.AuthenticationMiddleware',
+    'django.contrib.messages.middleware.MessageMiddleware',
+    'django.middleware.clickjacking.XFrameOptionsMiddleware',
+    'allauth.account.middleware.AccountMiddleware',  # AllAuth 中間件
+    # 'core.middleware.UserActivityMiddleware',  # 自定義用戶活動追蹤中介軟體（暫時禁用）
+    # 'core.middleware.RequestLoggingMiddleware',  # 自定義請求日誌中介軟體（暫時禁用）
+]
 
 ROOT_URLCONF = 'engineerhub.urls'
 
@@ -196,21 +213,7 @@ CELERY_BEAT_SCHEDULER = 'django_celery_beat.schedulers:DatabaseScheduler'
 # ==============================================================================
 
 AUTH_PASSWORD_VALIDATORS = [
-    {
-        'NAME': 'django.contrib.auth.password_validation.UserAttributeSimilarityValidator',
-    },
-    {
-        'NAME': 'django.contrib.auth.password_validation.MinimumLengthValidator',
-        'OPTIONS': {
-            'min_length': 8,
-        }
-    },
-    {
-        'NAME': 'django.contrib.auth.password_validation.CommonPasswordValidator',
-    },
-    {
-        'NAME': 'django.contrib.auth.password_validation.NumericPasswordValidator',
-    },
+    # 已移除所有密碼驗證器，允許任何密碼
 ]
 
 # ==============================================================================
@@ -252,9 +255,11 @@ CORS_ALLOW_ALL_ORIGINS = DEBUG
 CORS_ALLOWED_ORIGINS = [
     "http://localhost:3000",  # React 開發服務器
     "http://127.0.0.1:3000",
+    "http://localhost:5173",  # Vite 開發服務器
+    "http://127.0.0.1:5173",
     "http://localhost:8000",  # Django 開發服務器
     "http://127.0.0.1:8000",
-] + os.environ.get('CORS_ALLOWED_ORIGINS', '').split(',')
+] + [origin for origin in os.environ.get('CORS_ALLOWED_ORIGINS', '').split(',') if origin]
 
 CORS_ALLOW_CREDENTIALS = True
 CORS_ALLOW_HEADERS = [
@@ -268,6 +273,19 @@ CORS_ALLOW_HEADERS = [
     'x-csrftoken',
     'x-requested-with',
 ]
+
+# ==============================================================================
+# CSRF 配置
+# ==============================================================================
+
+CSRF_TRUSTED_ORIGINS = [
+    "http://localhost:3000",  # React 開發服務器
+    "http://127.0.0.1:3000",
+    "http://localhost:5173",  # Vite 開發服務器
+    "http://127.0.0.1:5173",
+    "http://localhost:8000",  # Django 開發服務器
+    "http://127.0.0.1:8000",
+] + [origin for origin in os.environ.get('CSRF_TRUSTED_ORIGINS', '').split(',') if origin]
 
 # ==============================================================================
 # REST Framework 配置
@@ -350,7 +368,21 @@ SIMPLE_JWT = {
     'SLIDING_TOKEN_REFRESH_LIFETIME': timedelta(days=1),
 }
 
-# ==============================================================================# AllAuth 和社交登入配置# ==============================================================================# 新版 django-allauth 設置ACCOUNT_LOGIN_METHODS = {'email'}ACCOUNT_EMAIL_VERIFICATION = 'optional'ACCOUNT_SIGNUP_FIELDS = ['email*', 'username*', 'password1*', 'password2*']ACCOUNT_USER_MODEL_USERNAME_FIELD = 'username'ACCOUNT_USER_MODEL_EMAIL_FIELD = 'email'# 移除已廢棄的設置以避免警告# ACCOUNT_EMAIL_REQUIRED = True  # 已廢棄，使用 ACCOUNT_SIGNUP_FIELDS 替代# ACCOUNT_AUTHENTICATION_METHOD = 'email'  # 已廢棄，使用 ACCOUNT_LOGIN_METHODS 替代# ACCOUNT_USERNAME_REQUIRED = True  # 已廢棄，使用 ACCOUNT_SIGNUP_FIELDS 替代
+# ==============================================================================
+# AllAuth 和社交登入配置
+# ==============================================================================
+
+# 新版 django-allauth 設置
+ACCOUNT_LOGIN_METHODS = {'email'}
+ACCOUNT_EMAIL_VERIFICATION = 'optional'
+ACCOUNT_SIGNUP_FIELDS = ['email*', 'username*', 'password1*', 'password2*']
+ACCOUNT_USER_MODEL_USERNAME_FIELD = 'username'
+ACCOUNT_USER_MODEL_EMAIL_FIELD = 'email'
+
+# 移除已廢棄的設置以避免警告
+# ACCOUNT_EMAIL_REQUIRED = True  # 已廢棄，使用 ACCOUNT_SIGNUP_FIELDS 替代
+# ACCOUNT_AUTHENTICATION_METHOD = 'email'  # 已廢棄，使用 ACCOUNT_LOGIN_METHODS 替代
+# ACCOUNT_USERNAME_REQUIRED = True  # 已廢棄使用 ACCOUNT_SIGNUP_FIELDS 替代
 
 # 社交賬號提供者配置
 SOCIALACCOUNT_PROVIDERS = {
@@ -369,6 +401,20 @@ SOCIALACCOUNT_PROVIDERS = {
             'user:email',
         ],
     }
+}
+
+# ==============================================================================
+# dj-rest-auth 配置
+# ==============================================================================
+
+# 自定義 dj-rest-auth 序列化器
+REST_AUTH = {
+    'USE_JWT': True,
+    'JWT_AUTH_COOKIE': 'auth-jwt',
+    'JWT_AUTH_REFRESH_COOKIE': 'auth-jwt-refresh',
+    'JWT_AUTH_HTTPONLY': False,  # 允許前端讀取 JWT cookie
+    'USER_DETAILS_SERIALIZER': 'users.serializers.UserSerializer',
+    'REGISTER_SERIALIZER': 'users.serializers.CustomRegisterSerializer',
 }
 
 # ==============================================================================
@@ -439,7 +485,6 @@ LOGGING = {
             'format': '{levelname} {message}',
             'style': '{',
         },
-
     },
     'filters': {
         'require_debug_true': {
@@ -543,6 +588,25 @@ REDOC_SETTINGS = {
 }
 
 # ==============================================================================
+# Algolia 搜索配置
+# ==============================================================================
+
+# 檢查是否配置了 Algolia
+ALGOLIA_APPLICATION_ID = config('ALGOLIA_APPLICATION_ID', default='')
+ALGOLIA_API_KEY = config('ALGOLIA_API_KEY', default='')
+
+# 如果未配置 Algolia，將使用數據庫搜索作為備用方案
+USE_ALGOLIA = bool(ALGOLIA_APPLICATION_ID and ALGOLIA_API_KEY)
+
+ALGOLIA = {
+    'APPLICATION_ID': ALGOLIA_APPLICATION_ID,
+    'API_KEY': ALGOLIA_API_KEY,
+    'SEARCH_API_KEY': config('ALGOLIA_SEARCH_API_KEY', default=''),
+    'INDEX_PREFIX': config('ALGOLIA_INDEX_PREFIX', default='engineerhub'),
+    'ENABLED': USE_ALGOLIA,
+}
+
+# ==============================================================================
 # 自定義配置
 # ==============================================================================
 
@@ -630,4 +694,5 @@ if 'test' in os.environ.get('DJANGO_MANAGEMENT_COMMAND', ''):
         }
     }
     
-        # 關閉電子郵件發送    EMAIL_BACKEND = 'django.core.mail.backends.locmem.EmailBackend'# ==============================================================================# Algolia 搜索配置# ==============================================================================# 檢查是否配置了 AlgoliaALGOLIA_APPLICATION_ID = os.environ.get('ALGOLIA_APPLICATION_ID', '')ALGOLIA_API_KEY = os.environ.get('ALGOLIA_API_KEY', '')# 如果未配置 Algolia，將使用數據庫搜索作為備用方案USE_ALGOLIA = bool(ALGOLIA_APPLICATION_ID and ALGOLIA_API_KEY)ALGOLIA = {    'APPLICATION_ID': ALGOLIA_APPLICATION_ID,    'API_KEY': ALGOLIA_API_KEY,    'SEARCH_API_KEY': os.environ.get('ALGOLIA_SEARCH_API_KEY', ''),    'ENABLED': USE_ALGOLIA,}
+    # 關閉電子郵件發送
+    EMAIL_BACKEND = 'django.core.mail.backends.locmem.EmailBackend'

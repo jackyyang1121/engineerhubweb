@@ -23,6 +23,7 @@ boto3==1.29.7
 Pygments==2.16.1
 
 # ==================== 搜索引擎 ====================
+algoliasearch-django==3.0.0
 elasticsearch==8.10.0
 elasticsearch-dsl==8.9.0
 

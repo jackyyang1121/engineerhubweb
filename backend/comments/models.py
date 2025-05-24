@@ -27,14 +27,14 @@ class Comment(models.Model):
     user = models.ForeignKey(
         User,
         on_delete=models.CASCADE,
-        related_name='comments',
+        related_name='user_comments',
         help_text="評論作者"
     )
     
     post = models.ForeignKey(
         'posts.Post',
         on_delete=models.CASCADE,
-        related_name='comments',
+        related_name='post_comments',
         help_text="所屬貼文"
     )
     

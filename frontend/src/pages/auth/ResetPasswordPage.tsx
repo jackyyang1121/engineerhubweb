@@ -13,6 +13,7 @@ const ResetPasswordPage = () => {
   const [searchParams] = useSearchParams();
   const [isLoading, setIsLoading] = useState(false);
   const [isCompleted, setIsCompleted] = useState(false);
+  const [serverErrors, setServerErrors] = useState<Record<string, string[]>>({});
   
   // 从URL参数获取uid和token
   const uid = searchParams.get('uid');
@@ -22,7 +23,8 @@ const ResetPasswordPage = () => {
     register, 
     handleSubmit, 
     watch,
-    formState: { errors } 
+    formState: { errors },
+    setError
   } = useForm<ResetPasswordInputs>();
   
   const password = watch('new_password1');
@@ -34,6 +36,7 @@ const ResetPasswordPage = () => {
     }
     
     setIsLoading(true);
+    setServerErrors({});
     try {
       await authApi.resetPassword({
         uid,
@@ -43,9 +46,54 @@ const ResetPasswordPage = () => {
       });
       toast.success('密码重置成功！');
       setIsCompleted(true);
-    } catch (error) {
-      toast.error('密码重置失败，请重试或获取新的重置链接');
+    } catch (error: any) {
       console.error('密码重置错误:', error);
+      
+      // 處理後端返回的詳細錯誤信息
+      if (error.response?.data) {
+        const errorData = error.response.data;
+        
+        // 如果有字段特定的錯誤
+        if (errorData.new_password1 || errorData.new_password2) {
+          const fieldErrors: Record<string, string[]> = {};
+          
+          // 新密碼錯誤
+          if (errorData.new_password1) {
+            fieldErrors.new_password1 = Array.isArray(errorData.new_password1) 
+              ? errorData.new_password1 
+              : [errorData.new_password1];
+            
+            setError('new_password1', {
+              type: 'server',
+              message: fieldErrors.new_password1[0]
+            });
+          }
+          
+          // 確認密碼錯誤
+          if (errorData.new_password2) {
+            fieldErrors.new_password2 = Array.isArray(errorData.new_password2) 
+              ? errorData.new_password2 
+              : [errorData.new_password2];
+              
+            setError('new_password2', {
+              type: 'server',
+              message: fieldErrors.new_password2[0]
+            });
+          }
+          
+          setServerErrors(fieldErrors);
+        } else if (errorData.non_field_errors) {
+          toast.error(Array.isArray(errorData.non_field_errors) 
+            ? errorData.non_field_errors[0] 
+            : errorData.non_field_errors);
+        } else if (errorData.detail) {
+          toast.error(errorData.detail);
+        } else {
+          toast.error('密码重置失败，请重试或获取新的重置链接');
+        }
+      } else {
+        toast.error('密码重置失败，请重试或获取新的重置链接');
+      }
     } finally {
       setIsLoading(false);
     }
@@ -105,17 +153,14 @@ const ResetPasswordPage = () => {
               type="password"
               autoComplete="new-password"
               className={`input ${errors.new_password1 ? 'border-red-500' : ''}`}
-              {...register('new_password1', { 
-                required: '请输入新密码',
-                minLength: {
-                  value: 8,
-                  message: '密码长度至少为8个字符'
-                }
-              })}
+                            {...register('new_password1', {                 required: '请输入新密码'              })}
             />
             {errors.new_password1 && (
               <p className="mt-1 text-sm text-red-600">{errors.new_password1.message}</p>
             )}
+            {serverErrors.new_password1 && serverErrors.new_password1.map((error, index) => (
+              <p key={index} className="mt-1 text-sm text-red-600">{error}</p>
+            ))}
           </div>
         </div>
 
@@ -137,6 +182,9 @@ const ResetPasswordPage = () => {
             {errors.new_password2 && (
               <p className="mt-1 text-sm text-red-600">{errors.new_password2.message}</p>
             )}
+            {serverErrors.new_password2 && serverErrors.new_password2.map((error, index) => (
+              <p key={index} className="mt-1 text-sm text-red-600">{error}</p>
+            ))}
           </div>
         </div>
 

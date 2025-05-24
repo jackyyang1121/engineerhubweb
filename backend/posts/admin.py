@@ -1,6 +1,6 @@
 from django.contrib import admin
 from django.utils.html import format_html
-from .models import Post, PostMedia, Like, Comment, Save, Report
+from .models import Post, PostMedia, Like, Save, Report
 from django.utils import timezone
 
 @admin.register(Post)
@@ -57,26 +57,7 @@ class PostMediaAdmin(admin.ModelAdmin):
     file_preview.short_description = '媒體預覽'
 
 
-@admin.register(Comment)
-class CommentAdmin(admin.ModelAdmin):
-    """
-    評論管理界面
-    """
-    list_display = ('id', 'user', 'post', 'parent', 'content_preview', 'created_at')
-    list_filter = ('created_at', 'user')
-    search_fields = ('content', 'user__username', 'post__id')
-    date_hierarchy = 'created_at'
-    
-    def content_preview(self, obj):
-        """
-        顯示截斷的內容預覽
-        """
-        max_length = 50
-        if len(obj.content) > max_length:
-            return f"{obj.content[:max_length]}..."
-        return obj.content
-    
-    content_preview.short_description = '內容預覽'
+
 
 
 @admin.register(Like)
@@ -106,10 +87,10 @@ class ReportAdmin(admin.ModelAdmin):
     """
     舉報管理界面
     """
-    list_display = ('id', 'user', 'post', 'reason', 'is_processed', 'created_at', 'processed_at')
-    list_filter = ('reason', 'is_processed', 'created_at')
-    search_fields = ('user__username', 'post__id', 'details')
-    readonly_fields = ('user', 'post', 'reason', 'details', 'created_at')
+    list_display = ('id', 'reporter', 'post', 'reason', 'status', 'created_at', 'reviewed_at')
+    list_filter = ('reason', 'status', 'created_at')
+    search_fields = ('reporter__username', 'post__id', 'description')
+    readonly_fields = ('reporter', 'post', 'reason', 'description', 'created_at')
     date_hierarchy = 'created_at'
     
     actions = ['mark_as_processed']
@@ -118,7 +99,7 @@ class ReportAdmin(admin.ModelAdmin):
         """
         將選中的舉報標記為已處理
         """
-        queryset.update(is_processed=True, processed_at=timezone.now())
+        queryset.update(status='resolved', reviewed_at=timezone.now())
         self.message_user(request, f"已將 {queryset.count()} 個舉報標記為已處理")
     
     mark_as_processed.short_description = '標記為已處理' 

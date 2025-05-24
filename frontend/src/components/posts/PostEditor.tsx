@@ -112,173 +112,203 @@ const PostEditor: React.FC<PostEditorProps> = ({ onClose, onPostCreated }) => {
   };
 
   return (
-    <div className="bg-white rounded-lg shadow overflow-hidden">
-      <div className="p-4 border-b border-gray-200 flex justify-between items-center">
-        <h3 className="text-lg font-medium">建立貼文</h3>
-        {onClose && (
-          <button
-            onClick={onClose}
-            className="text-gray-400 hover:text-gray-500"
-          >
-            <XMarkIcon className="h-5 w-5" />
-          </button>
-        )}
-      </div>
-      
-      <form onSubmit={handleSubmit(onSubmit)}>
-        <div className="p-4">
-          <div className="flex items-start space-x-3">
-            {/* 使用者頭像 */}
-            <img
-              src={user?.avatar || `https://ui-avatars.com/api/?name=${user?.username || 'U'}&background=random`}
-              alt={user?.username || '使用者'}
-              className="h-10 w-10 rounded-full"
-            />
-            
-            {/* 內容輸入區 */}
-            <div className="flex-1">
-              <textarea
-                {...register('content')}
-                rows={4}
-                placeholder="有什麼想法？"
-                className="w-full p-2 border border-gray-300 rounded-md focus:ring-primary-500 focus:border-primary-500"
-              />
-              {errors.content && (
-                <p className="mt-1 text-sm text-red-600">{errors.content.message}</p>
-              )}
-              
-              {/* 程式碼編輯器 */}
-              {showCodeEditor && (
-                <div className="mt-4 border border-gray-300 rounded-md overflow-hidden">
-                  <div className="bg-gray-100 p-2 flex justify-between items-center">
-                    <div className="flex items-center">
-                      <CodeBracketIcon className="h-5 w-5 text-gray-500 mr-2" />
-                      <select
-                        value={language}
-                        onChange={(e) => setLanguage(e.target.value)}
-                        className="text-sm border-0 bg-transparent text-gray-600 focus:ring-0"
-                      >
-                        <option value="javascript">JavaScript</option>
-                        <option value="python">Python</option>
-                        <option value="java">Java</option>
-                        <option value="csharp">C#</option>
-                        <option value="cpp">C++</option>
-                        <option value="php">PHP</option>
-                        <option value="ruby">Ruby</option>
-                        <option value="go">Go</option>
-                        <option value="rust">Rust</option>
-                        <option value="typescript">TypeScript</option>
-                        <option value="html">HTML</option>
-                        <option value="css">CSS</option>
-                        <option value="sql">SQL</option>
-                      </select>
-                    </div>
-                    <button
-                      type="button"
-                      onClick={toggleCodeEditor}
-                      className="text-gray-500 hover:text-gray-700"
-                    >
-                      <XMarkIcon className="h-5 w-5" />
-                    </button>
-                  </div>
-                  <CodeEditor
-                    language={language}
-                    value={code}
-                    onChange={setCode}
-                    placeholder="// 在此輸入程式碼..."
-                  />
-                  <div className="bg-gray-50 p-2 text-xs text-right text-gray-500">
-                    {code.length}/{MAX_CODE_LENGTH}
-                  </div>
-                </div>
-              )}
-              
-              {/* 媒體預覽區 */}
-              {mediaPreviewUrls.length > 0 && (
-                <div className="mt-4 grid grid-cols-2 sm:grid-cols-3 gap-2">
-                  {mediaPreviewUrls.map((url, index) => (
-                    <div key={index} className="relative">
-                      {mediaFiles[index].type.startsWith('image/') ? (
-                        <img 
-                          src={url} 
-                          alt={`媒體 ${index + 1}`} 
-                          className="h-32 w-full object-cover rounded-md"
-                        />
-                      ) : (
-                        <video 
-                          src={url} 
-                          className="h-32 w-full object-cover rounded-md" 
-                          controls
-                        />
-                      )}
-                      <button
-                        type="button"
-                        onClick={() => removeMediaFile(index)}
-                        className="absolute top-1 right-1 bg-gray-800 bg-opacity-50 text-white rounded-full p-1"
-                      >
-                        <XMarkIcon className="h-4 w-4" />
-                      </button>
-                    </div>
-                  ))}
-                </div>
-              )}
-            </div>
+    <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+      <div className="bg-white/90 backdrop-blur-xl rounded-3xl shadow-2xl border border-white/20 w-full max-w-2xl max-h-[90vh] overflow-hidden animate-slide-in-up">
+        {/* 頭部 */}
+        <div className="px-6 py-4 border-b border-white/20 flex justify-between items-center bg-gradient-to-r from-blue-500/10 via-purple-500/10 to-pink-500/10">
+          <div className="flex items-center space-x-3">
+            <DocumentPlusIcon className="h-6 w-6 text-blue-600" />
+            <h3 className="text-lg font-semibold text-slate-900">創建新貼文</h3>
           </div>
+          {onClose && (
+            <button
+              onClick={onClose}
+              className="p-2 text-slate-400 hover:text-slate-600 hover:bg-slate-100 rounded-xl transition-all duration-200"
+            >
+              <XMarkIcon className="h-5 w-5" />
+            </button>
+          )}
         </div>
         
-        {/* 底部工具欄 */}
-        <div className="px-4 py-3 bg-gray-50 flex justify-between">
-          <div className="flex space-x-2">
-            {/* 媒體上傳按鈕 */}
-            <button
-              type="button"
-              onClick={() => fileInputRef.current?.click()}
-              disabled={mediaFiles.length >= MAX_MEDIA_COUNT}
-              className={`p-2 rounded-full ${
-                mediaFiles.length >= MAX_MEDIA_COUNT 
-                ? 'text-gray-400 cursor-not-allowed' 
-                : 'text-gray-500 hover:bg-gray-100'
-              }`}
-              title={mediaFiles.length >= MAX_MEDIA_COUNT ? `最多上傳 ${MAX_MEDIA_COUNT} 個媒體檔案` : '上傳媒體'}
-            >
-              <PhotoIcon className="h-5 w-5" />
-              <input
-                type="file"
-                ref={fileInputRef}
-                accept={ALLOWED_MEDIA_TYPES.join(',')}
-                multiple
-                onChange={handleMediaUpload}
-                className="hidden"
-              />
-            </button>
-            
-            {/* 程式碼按鈕 */}
-            {!showCodeEditor && (
-              <button
-                type="button"
-                onClick={toggleCodeEditor}
-                className="p-2 rounded-full text-gray-500 hover:bg-gray-100"
-                title="添加程式碼"
-              >
-                <CodeBracketIcon className="h-5 w-5" />
-              </button>
-            )}
+        <form onSubmit={handleSubmit(onSubmit)} className="flex flex-col h-full">
+          <div className="flex-1 overflow-y-auto">
+            <div className="p-6">
+              <div className="flex items-start space-x-4">
+                {/* 使用者頭像 */}
+                <div className="relative">
+                  <img
+                    src={user?.avatar || `https://ui-avatars.com/api/?name=${user?.username || 'U'}&background=gradient`}
+                    alt={user?.username || '使用者'}
+                    className="h-12 w-12 rounded-xl object-cover border-2 border-white shadow-lg"
+                  />
+                  <div className="absolute -bottom-1 -right-1 w-4 h-4 bg-green-400 rounded-full border-2 border-white"></div>
+                </div>
+                
+                {/* 內容輸入區 */}
+                <div className="flex-1">
+                  <textarea
+                    {...register('content')}
+                    rows={4}
+                    placeholder="分享你的想法、經驗或問題..."
+                    className="w-full p-4 bg-white/50 backdrop-blur-sm border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-400 focus:border-transparent transition-all duration-300 resize-none text-slate-800 placeholder-slate-500"
+                  />
+                  {errors.content && (
+                    <p className="mt-2 text-sm text-red-500 animate-slide-in-down">{errors.content.message}</p>
+                  )}
+                  
+                  {/* 程式碼編輯器 */}
+                  {showCodeEditor && (
+                    <div className="mt-4 bg-white/70 backdrop-blur-sm border border-slate-200 rounded-xl overflow-hidden shadow-lg">
+                      <div className="bg-gradient-to-r from-slate-100 to-slate-50 px-4 py-3 flex justify-between items-center border-b border-slate-200">
+                        <div className="flex items-center space-x-3">
+                          <CodeBracketIcon className="h-5 w-5 text-slate-600" />
+                          <select
+                            value={language}
+                            onChange={(e) => setLanguage(e.target.value)}
+                            className="text-sm bg-white border border-slate-200 rounded-lg px-3 py-1 text-slate-700 focus:ring-2 focus:ring-blue-400 focus:border-transparent"
+                          >
+                            <option value="javascript">JavaScript</option>
+                            <option value="python">Python</option>
+                            <option value="java">Java</option>
+                            <option value="csharp">C#</option>
+                            <option value="cpp">C++</option>
+                            <option value="php">PHP</option>
+                            <option value="ruby">Ruby</option>
+                            <option value="go">Go</option>
+                            <option value="rust">Rust</option>
+                            <option value="typescript">TypeScript</option>
+                            <option value="html">HTML</option>
+                            <option value="css">CSS</option>
+                            <option value="sql">SQL</option>
+                          </select>
+                        </div>
+                        <button
+                          type="button"
+                          onClick={toggleCodeEditor}
+                          className="p-1 text-slate-400 hover:text-slate-600 hover:bg-slate-200 rounded-lg transition-all duration-200"
+                        >
+                          <XMarkIcon className="h-4 w-4" />
+                        </button>
+                      </div>
+                      <div className="relative">
+                        <CodeEditor
+                          language={language}
+                          value={code}
+                          onChange={setCode}
+                          placeholder="// 在此輸入程式碼..."
+                        />
+                        <div className="bg-slate-50 px-4 py-2 text-xs text-right text-slate-500 border-t border-slate-200">
+                          {code.length}/{MAX_CODE_LENGTH} 字符
+                        </div>
+                      </div>
+                    </div>
+                  )}
+                  
+                  {/* 媒體預覽區 */}
+                  {mediaPreviewUrls.length > 0 && (
+                    <div className="mt-4 grid grid-cols-2 sm:grid-cols-3 gap-3">
+                      {mediaPreviewUrls.map((url, index) => (
+                        <div key={index} className="relative group">
+                          {mediaFiles[index].type.startsWith('image/') ? (
+                            <img 
+                              src={url} 
+                              alt={`媒體 ${index + 1}`} 
+                              className="h-32 w-full object-cover rounded-xl border border-slate-200"
+                            />
+                          ) : (
+                            <video 
+                              src={url} 
+                              className="h-32 w-full object-cover rounded-xl border border-slate-200" 
+                              controls
+                            />
+                          )}
+                          <button
+                            type="button"
+                            onClick={() => removeMediaFile(index)}
+                            className="absolute top-2 right-2 bg-red-500 hover:bg-red-600 text-white rounded-full p-1 opacity-0 group-hover:opacity-100 transition-all duration-200 shadow-lg"
+                          >
+                            <XMarkIcon className="h-4 w-4" />
+                          </button>
+                          <div className="absolute inset-0 bg-black/0 group-hover:bg-black/10 rounded-xl transition-all duration-200"></div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              </div>
+            </div>
           </div>
           
-          {/* 發布按鈕 */}
-          <button
-            type="submit"
-            disabled={isSubmitting || (!content.trim() && !code && mediaFiles.length === 0)}
-            className={`px-4 py-2 rounded-full ${
-              isSubmitting || (!content.trim() && !code && mediaFiles.length === 0)
-                ? 'bg-primary-300 cursor-not-allowed'
-                : 'bg-primary-600 hover:bg-primary-700'
-            } text-white font-medium`}
-          >
-            {isSubmitting ? '發布中...' : '發布'}
-          </button>
-        </div>
-      </form>
+          {/* 底部工具欄 */}
+          <div className="px-6 py-4 border-t border-white/20 bg-gradient-to-r from-slate-50/80 via-white/80 to-slate-50/80 backdrop-blur-sm">
+            <div className="flex justify-between items-center">
+              <div className="flex space-x-3">
+                {/* 媒體上傳按鈕 */}
+                <button
+                  type="button"
+                  onClick={() => fileInputRef.current?.click()}
+                  disabled={mediaFiles.length >= MAX_MEDIA_COUNT}
+                  className={`p-3 rounded-xl transition-all duration-200 ${
+                    mediaFiles.length >= MAX_MEDIA_COUNT 
+                    ? 'text-slate-400 cursor-not-allowed bg-slate-100' 
+                    : 'text-slate-600 hover:text-blue-600 hover:bg-blue-50'
+                  }`}
+                  title={mediaFiles.length >= MAX_MEDIA_COUNT ? `最多上傳 ${MAX_MEDIA_COUNT} 個媒體檔案` : '上傳媒體'}
+                >
+                  <PhotoIcon className="h-5 w-5" />
+                  <input
+                    type="file"
+                    ref={fileInputRef}
+                    accept={ALLOWED_MEDIA_TYPES.join(',')}
+                    multiple
+                    onChange={handleMediaUpload}
+                    className="hidden"
+                  />
+                </button>
+                
+                {/* 程式碼按鈕 */}
+                <button
+                  type="button"
+                  onClick={toggleCodeEditor}
+                  className={`p-3 rounded-xl transition-all duration-200 ${
+                    showCodeEditor 
+                      ? 'text-blue-600 bg-blue-100' 
+                      : 'text-slate-600 hover:text-blue-600 hover:bg-blue-50'
+                  }`}
+                  title={showCodeEditor ? '關閉程式碼編輯器' : '添加程式碼'}
+                >
+                  <CodeBracketIcon className="h-5 w-5" />
+                </button>
+              </div>
+              
+              {/* 字數統計和發布按鈕 */}
+              <div className="flex items-center space-x-4">
+                <div className="text-xs text-slate-500">
+                  {content.length}/500 字符
+                </div>
+                <button
+                  type="submit"
+                  disabled={isSubmitting || (!content.trim() && !code && mediaFiles.length === 0)}
+                  className={`px-6 py-3 rounded-xl font-semibold transition-all duration-300 transform ${
+                    isSubmitting || (!content.trim() && !code && mediaFiles.length === 0)
+                      ? 'bg-slate-200 text-slate-400 cursor-not-allowed'
+                      : 'bg-gradient-to-r from-blue-500 via-purple-500 to-pink-500 hover:from-blue-600 hover:via-purple-600 hover:to-pink-600 text-white hover:scale-105 active:scale-95 shadow-lg hover:shadow-xl'
+                  }`}
+                >
+                  {isSubmitting ? (
+                    <div className="flex items-center space-x-2">
+                      <div className="w-4 h-4 border-2 border-slate-400 border-t-transparent rounded-full animate-spin"></div>
+                      <span>發布中...</span>
+                    </div>
+                  ) : (
+                    '發布貼文'
+                  )}
+                </button>
+              </div>
+            </div>
+          </div>
+        </form>
+      </div>
     </div>
   );
 };

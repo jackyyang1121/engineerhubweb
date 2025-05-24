@@ -9,7 +9,8 @@ from django.shortcuts import get_object_or_404
 from django.utils import timezone
 from datetime import timedelta
 
-from .models import Post, Comment, Like, Save, Report, PostView, PostShare
+from .models import Post, Like, Save, Report, PostView, PostShare
+from comments.models import Comment
 from .serializers import (
     PostSerializer, CommentSerializer, ReplySerializer,
     LikeSerializer, SaveSerializer, ReportSerializer, PostShareSerializer

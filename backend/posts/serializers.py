@@ -2,8 +2,10 @@ import logging
 from rest_framework import serializers
 from django.db import transaction
 from django.utils.html import strip_tags
-from .models import Post, PostMedia, Like, Comment, Save, Report, PostShare
+from .models import Post, PostMedia, Like, Save, Report, PostShare
+from comments.models import Comment
 from users.serializers import UserSerializer
+from django.db import models
 
 # 設置日誌記錄器
 logger = logging.getLogger('engineerhub.posts')
@@ -23,13 +25,13 @@ class CommentSerializer(serializers.ModelSerializer):
     """
     評論序列化器
     """
-    author_details = UserSerializer(source='author', read_only=True)
+    author_details = UserSerializer(source='user', read_only=True)
     replies_count = serializers.SerializerMethodField()
     
     class Meta:
         model = Comment
         fields = [
-            'id', 'author', 'post', 'parent', 'content', 
+            'id', 'user', 'post', 'parent', 'content', 
             'created_at', 'updated_at', 'author_details',
             'replies_count'
         ]
@@ -64,7 +66,7 @@ class CommentSerializer(serializers.ModelSerializer):
         """
         try:
             comment = Comment.objects.create(**validated_data)
-            logger.info(f"用戶 {validated_data['author'].username} 評論成功: {comment.id}")
+            logger.info(f"用戶 {validated_data['user'].username} 評論成功: {comment.id}")
             return comment
         except Exception as e:
             logger.error(f"創建評論失敗: {str(e)}")
@@ -75,12 +77,12 @@ class ReplySerializer(serializers.ModelSerializer):
     """
     回覆序列化器
     """
-    author_details = UserSerializer(source='author', read_only=True)
+    author_details = UserSerializer(source='user', read_only=True)
     
     class Meta:
         model = Comment
         fields = [
-            'id', 'author', 'content', 'created_at', 
+            'id', 'user', 'content', 'created_at', 
             'updated_at', 'author_details'
         ]
         read_only_fields = ['id', 'created_at', 'updated_at']
@@ -230,16 +232,15 @@ class PostSerializer(serializers.ModelSerializer):
                     setattr(instance, attr, value)
                 instance.save()
                 
-                # 如果有新的媒體文件，處理它們
+                # 如果有新媒體文件，清除舊的並添加新的
                 if media_files:
-                    # 保留原有的媒體文件順序，添加新的
-                    current_max_order = PostMedia.objects.filter(post=instance).count()
+                    instance.media.all().delete()
                     for i, (file, media_type) in enumerate(zip(media_files, media_types)):
                         PostMedia.objects.create(
                             post=instance,
                             file=file,
                             media_type=media_type,
-                            order=current_max_order + i
+                            order=i
                         )
                 
                 logger.info(f"貼文 {instance.id} 更新成功")
@@ -261,7 +262,7 @@ class LikeSerializer(serializers.ModelSerializer):
             serializers.UniqueTogetherValidator(
                 queryset=Like.objects.all(),
                 fields=['user', 'post'],
-                message="您已經點讚過這篇貼文"
+                message="您已經點讚過此貼文"
             )
         ]
 
@@ -278,7 +279,7 @@ class SaveSerializer(serializers.ModelSerializer):
             serializers.UniqueTogetherValidator(
                 queryset=Save.objects.all(),
                 fields=['user', 'post'],
-                message="您已經收藏過這篇貼文"
+                message="您已經收藏過此貼文"
             )
         ]
 
@@ -299,19 +300,13 @@ class ReportSerializer(serializers.ModelSerializer):
         """
         驗證舉報數據
         """
-        # 檢查用戶是否已經舉報過該貼文
-        reporter = data.get('reporter')
-        post = data.get('post')
-        if Report.objects.filter(reporter=reporter, post=post).exists():
-            logger.warning(f"用戶 {reporter.username} 重複舉報貼文 {post.id}")
-            raise serializers.ValidationError("您已經舉報過這篇貼文")
-        
-        # 如果舉報原因是"其他"，則詳細說明必填
-        reason = data.get('reason')
-        description = data.get('description', '').strip()
-        if reason == 'other' and not description:
-            logger.warning("舉報原因為'其他'但未提供詳細說明")
-            raise serializers.ValidationError("選擇'其他'原因時，必須提供詳細說明")
+        # 檢查是否已經舉報過
+        if Report.objects.filter(
+            reporter=data['reporter'], 
+            post=data['post']
+        ).exists():
+            logger.warning(f"用戶 {data['reporter'].username} 重複舉報貼文 {data['post'].id}")
+            raise serializers.ValidationError("您已經舉報過此貼文")
         
         return data
 
@@ -332,17 +327,17 @@ class PostShareSerializer(serializers.ModelSerializer):
         """
         驗證轉發數據
         """
-        user = data.get('user')
-        post = data.get('post')
+        # 檢查是否已經轉發過
+        if PostShare.objects.filter(
+            user=data['user'], 
+            post=data['post']
+        ).exists():
+            logger.warning(f"用戶 {data['user'].username} 重複轉發貼文 {data['post'].id}")
+            raise serializers.ValidationError("您已經轉發過此貼文")
         
-        # 檢查用戶是否已經轉發過該貼文
-        if PostShare.objects.filter(user=user, post=post).exists():
-            logger.warning(f"用戶 {user.username} 重複轉發貼文 {post.id}")
-            raise serializers.ValidationError("您已經轉發過這篇貼文")
-        
-        # 檢查用戶是否試圖轉發自己的貼文
-        if post.author == user:
-            logger.warning(f"用戶 {user.username} 嘗試轉發自己的貼文 {post.id}")
+        # 檢查是否是自己的貼文
+        if data['post'].author == data['user']:
+            logger.warning(f"用戶 {data['user'].username} 嘗試轉發自己的貼文 {data['post'].id}")
             raise serializers.ValidationError("不能轉發自己的貼文")
         
         return data
@@ -353,7 +348,13 @@ class PostShareSerializer(serializers.ModelSerializer):
         """
         try:
             share = PostShare.objects.create(**validated_data)
-            logger.info(f"用戶 {validated_data['user'].username} 轉發貼文成功: {share.id}")
+            
+            # 更新貼文轉發數
+            Post.objects.filter(id=share.post.id).update(
+                shares_count=models.F('shares_count') + 1
+            )
+            
+            logger.info(f"用戶 {validated_data['user'].username} 轉發貼文成功: {share.post.id}")
             return share
         except Exception as e:
             logger.error(f"轉發貼文失敗: {str(e)}")

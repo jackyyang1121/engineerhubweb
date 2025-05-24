@@ -10,7 +10,7 @@
  */
 
 import React, { useState, useEffect, useCallback } from 'react';
-import { PlusIcon, SparklesIcon, UserGroupIcon } from '@heroicons/react/24/outline';
+import { PlusIcon, SparklesIcon, UserGroupIcon, FireIcon } from '@heroicons/react/24/outline';
 import { useInfiniteQuery } from '@tanstack/react-query';
 import { useInView } from 'react-intersection-observer';
 
@@ -154,170 +154,164 @@ const HomePage: React.FC = () => {
   const posts = data?.pages.flatMap(page => page.posts) ?? [];
 
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="min-h-screen">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="flex gap-8">
           {/* 主要內容區 */}
           <div className="flex-1 max-w-2xl">
             {/* 歡迎信息 */}
-            <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6 mb-6">
-              <div className="flex items-center space-x-3">
-                <img
-                  src={user?.avatar || '/default-avatar.png'}
-                  alt={user?.username}
-                  className="w-12 h-12 rounded-full"
-                />
+            <div className="bg-white/70 backdrop-blur-xl rounded-2xl shadow-xl border border-white/20 p-8 mb-8 hover:shadow-2xl transition-all duration-300">
+              <div className="flex items-center space-x-4">
+                <div className="relative">
+                  <img
+                    src={user?.avatar || '/default-avatar.png'}
+                    alt={user?.username}
+                    className="w-16 h-16 rounded-2xl object-cover border-4 border-white shadow-lg"
+                  />
+                  <div className="absolute -bottom-1 -right-1 w-6 h-6 bg-green-400 rounded-full border-4 border-white animate-pulse"></div>
+                </div>
                 <div>
-                  <h1 className="text-xl font-semibold text-gray-900">
+                  <h1 className="text-2xl font-bold bg-gradient-to-r from-slate-900 via-blue-800 to-purple-800 bg-clip-text text-transparent mb-2">
                     歡迎回來，{user?.first_name || user?.username}！
                   </h1>
-                  <p className="text-gray-600">看看今天工程師社群有什麼新動態</p>
+                  <p className="text-slate-600 flex items-center">
+                    <SparklesIcon className="h-4 w-4 mr-2 text-yellow-500" />
+                    看看今天工程師社群有什麼新動態
+                  </p>
                 </div>
               </div>
             </div>
 
             {/* 快速發文 */}
-            <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-4 mb-6">
+            <div className="bg-white/70 backdrop-blur-xl rounded-2xl shadow-xl border border-white/20 p-6 mb-8 hover:shadow-2xl transition-all duration-300">
               <button
                 onClick={() => setShowPostEditor(true)}
-                className="w-full text-left px-4 py-3 bg-gray-50 hover:bg-gray-100 rounded-lg transition-colors"
+                className="w-full text-left px-6 py-4 bg-gradient-to-r from-blue-50 to-purple-50 hover:from-blue-100 hover:to-purple-100 rounded-xl transition-all duration-300 border border-blue-200/50 group"
               >
-                <span className="text-gray-500">分享你的想法、程式碼或經驗...</span>
+                <div className="flex items-center space-x-3">
+                  <PlusIcon className="h-5 w-5 text-blue-500 group-hover:rotate-90 transition-transform duration-300" />
+                  <span className="text-slate-500 group-hover:text-slate-700 transition-colors">
+                    分享你的想法、程式碼或經驗...
+                  </span>
+                </div>
               </button>
             </div>
 
             {/* 貼文信息流 */}
-            <div className="space-y-6">
+            <div className="space-y-8">
               {isLoading ? (
                 <div className="flex justify-center py-12">
-                  <LoadingSpinner size="lg" />
+                  <div className="bg-white/70 backdrop-blur-xl rounded-2xl p-8 shadow-xl">
+                    <LoadingSpinner size="lg" />
+                    <p className="text-slate-600 mt-4 text-center">正在載入精彩內容...</p>
+                  </div>
                 </div>
               ) : posts.length > 0 ? (
                 <>
                   {posts.map((post) => (
-                    <PostCard
-                      key={post.id}
-                      post={post}
-                      onPostUpdated={refetch}
-                      onPostDeleted={refetch}
-                    />
+                    <div key={post.id} className="transform hover:scale-[1.02] transition-all duration-300">
+                      <PostCard
+                        post={post}
+                      />
+                    </div>
                   ))}
                   
-                  {/* 載入更多觸發器 */}
-                  <div ref={loadMoreRef} className="py-4">
+                  {/* 載入更多 */}
+                  <div ref={loadMoreRef} className="flex justify-center py-8">
                     {isFetchingNextPage && (
-                      <div className="flex justify-center">
-                        <LoadingSpinner />
+                      <div className="bg-white/70 backdrop-blur-xl rounded-2xl p-6 shadow-xl">
+                        <LoadingSpinner size="md" />
+                        <p className="text-slate-600 mt-2 text-center text-sm">載入更多內容...</p>
                       </div>
                     )}
                   </div>
                 </>
               ) : (
-                <EmptyState
-                  icon={SparklesIcon}
-                  title="尚無貼文"
-                  description="成為第一個分享內容的人，或者關注一些工程師來看到更多內容！"
-                  action={{
-                    label: '立即發文',
-                    onClick: () => setShowPostEditor(true)
-                  }}
-                />
+                <div className="bg-white/70 backdrop-blur-xl rounded-2xl p-8 shadow-xl">
+                  <EmptyState
+                    title="還沒有貼文"
+                    description="成為第一個分享精彩內容的人！"
+                  />
+                </div>
               )}
             </div>
           </div>
 
-          {/* 右側邊欄 */}
-          <div className="hidden lg:block w-80 space-y-6">
+          {/* 側邊欄 */}
+          <div className="w-80 space-y-6">
             {/* 熱門話題 */}
-            <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
-              <h3 className="text-lg font-semibold text-gray-900 mb-4 flex items-center">
-                <SparklesIcon className="w-5 h-5 mr-2 text-yellow-500" />
-                熱門話題
-              </h3>
-              <div className="space-y-3">
-                {trendingTopics.slice(0, 5).map((topic, index) => (
-                  <div key={index} className="flex items-center justify-between">
-                    <div>
-                      <div className="font-medium text-gray-900">#{topic.name}</div>
-                      <div className="text-sm text-gray-500">{topic.posts_count} 篇貼文</div>
+            {trendingTopics.length > 0 && (
+              <div className="bg-white/70 backdrop-blur-xl rounded-2xl shadow-xl border border-white/20 p-6 hover:shadow-2xl transition-all duration-300">
+                <h3 className="text-lg font-bold text-slate-900 flex items-center mb-4">
+                  <FireIcon className="h-5 w-5 mr-2 text-orange-500" />
+                  熱門話題
+                </h3>
+                <div className="space-y-3">
+                  {trendingTopics.slice(0, 8).map((topic, index) => (
+                    <div
+                      key={index}
+                      className="p-3 bg-gradient-to-r from-orange-50 to-red-50 rounded-xl hover:from-orange-100 hover:to-red-100 transition-all duration-300 cursor-pointer group"
+                    >
+                      <div className="flex items-center justify-between">
+                        <span className="font-medium text-slate-800 group-hover:text-slate-900">
+                          #{topic.name}
+                        </span>
+                        <span className="text-xs text-slate-500 bg-white/50 px-2 py-1 rounded-full">
+                          {topic.posts_count || 0}
+                        </span>
+                      </div>
                     </div>
-                    <div className={`text-sm ${
-                      topic.trend_direction === 'up' 
-                        ? 'text-green-500' 
-                        : topic.trend_direction === 'down'
-                        ? 'text-red-500'
-                        : 'text-gray-500'
-                    }`}>
-                      {topic.trend_direction === 'up' && '↗️'}
-                      {topic.trend_direction === 'down' && '↘️'}
-                      {topic.trend_direction === 'stable' && '➡️'}
-                    </div>
-                  </div>
-                ))}
+                  ))}
+                </div>
               </div>
-            </div>
+            )}
 
             {/* 推薦用戶 */}
-            <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
-              <h3 className="text-lg font-semibold text-gray-900 mb-4 flex items-center">
-                <UserGroupIcon className="w-5 h-5 mr-2 text-blue-500" />
-                推薦關注
-              </h3>
-              <div className="space-y-4">
-                {recommendedUsers.slice(0, 3).map((user) => (
-                  <div key={user.id} className="flex items-center justify-between">
-                    <div className="flex items-center space-x-3">
+            {recommendedUsers.length > 0 && (
+              <div className="bg-white/70 backdrop-blur-xl rounded-2xl shadow-xl border border-white/20 p-6 hover:shadow-2xl transition-all duration-300">
+                <h3 className="text-lg font-bold text-slate-900 flex items-center mb-4">
+                  <UserGroupIcon className="h-5 w-5 mr-2 text-blue-500" />
+                  推薦工程師
+                </h3>
+                <div className="space-y-4">
+                  {recommendedUsers.slice(0, 5).map((user) => (
+                    <div
+                      key={user.id}
+                      className="flex items-center space-x-3 p-3 bg-gradient-to-r from-blue-50 to-purple-50 rounded-xl hover:from-blue-100 hover:to-purple-100 transition-all duration-300 group"
+                    >
                       <img
                         src={user.avatar || '/default-avatar.png'}
                         alt={user.username}
-                        className="w-10 h-10 rounded-full"
+                        className="w-10 h-10 rounded-xl object-cover border-2 border-white shadow-md group-hover:scale-110 transition-transform duration-300"
                       />
-                      <div>
-                        <div className="font-medium text-gray-900">
+                      <div className="flex-1 min-w-0">
+                        <p className="font-semibold text-slate-800 text-sm truncate">
                           {user.first_name} {user.last_name}
-                        </div>
-                        <div className="text-sm text-gray-500">@{user.username}</div>
-                        <div className="text-xs text-gray-400">
-                          {user.followers_count} 個關注者
-                        </div>
+                        </p>
+                        <p className="text-slate-500 text-xs truncate">@{user.username}</p>
+                        <p className="text-slate-400 text-xs">{user.followers_count} 關注者</p>
                       </div>
-                    </div>
-                    {!user.is_following && (
                       <button
                         onClick={() => handleFollowUser(user.id)}
-                        className="px-3 py-1 bg-blue-600 text-white text-sm rounded-md hover:bg-blue-700 transition-colors"
+                        disabled={user.is_following}
+                        className={`px-3 py-1 text-xs font-medium rounded-lg transition-all duration-300 ${
+                          user.is_following
+                            ? 'bg-green-100 text-green-700 cursor-not-allowed'
+                            : 'bg-blue-500 text-white hover:bg-blue-600 hover:scale-105'
+                        }`}
                       >
-                        關注
+                        {user.is_following ? '已關注' : '關注'}
                       </button>
-                    )}
-                  </div>
-                ))}
+                    </div>
+                  ))}
+                </div>
               </div>
-            </div>
-
-            {/* 開發者資訊 */}
-            <div className="bg-gradient-to-r from-blue-500 to-purple-600 rounded-lg p-6 text-white">
-              <h3 className="text-lg font-semibold mb-2">EngineerHub</h3>
-              <p className="text-sm opacity-90 mb-4">
-                專屬於工程師的技術交流社群，分享程式碼、討論技術、展示作品。
-              </p>
-              <div className="text-xs opacity-75">
-                版本 1.0.0 • Made with ❤️ by Engineers
-              </div>
-            </div>
+            )}
           </div>
         </div>
       </div>
 
-      {/* 浮動發文按鈕 */}
-      <button
-        onClick={() => setShowPostEditor(true)}
-        className="fixed bottom-6 right-6 lg:hidden w-14 h-14 bg-blue-600 hover:bg-blue-700 text-white rounded-full shadow-lg flex items-center justify-center transition-colors z-50"
-      >
-        <PlusIcon className="w-6 h-6" />
-      </button>
-
-      {/* 發文模態框 */}
+      {/* 發布貼文編輯器模態框 */}
       {showPostEditor && (
         <PostEditor
           onClose={() => setShowPostEditor(false)}

@@ -37,19 +37,38 @@ class AlgoliaSearchService:
     """
     
     def __init__(self):
-        # Algolia 客戶端初始化
-        self.client = SearchClient.create(
-            settings.ALGOLIA['APPLICATION_ID'],
-            settings.ALGOLIA['API_KEY']
-        )
+        # 檢查 Algolia 配置是否可用
+        self.algolia_enabled = settings.ALGOLIA.get('ENABLED', False)
         
-        # 索引名稱
-        self.posts_index_name = f"{settings.ALGOLIA['INDEX_PREFIX']}_Post"
-        self.users_index_name = f"{settings.ALGOLIA['INDEX_PREFIX']}_User"
-        
-        # 取得索引實例
-        self.posts_index = self.client.init_index(self.posts_index_name)
-        self.users_index = self.client.init_index(self.users_index_name)
+        if self.algolia_enabled and settings.ALGOLIA.get('APPLICATION_ID') and settings.ALGOLIA.get('API_KEY'):
+            try:
+                # Algolia 客戶端初始化
+                self.client = SearchClient.create(
+                    settings.ALGOLIA['APPLICATION_ID'],
+                    settings.ALGOLIA['API_KEY']
+                )
+                
+                # 索引名稱
+                self.posts_index_name = f"{settings.ALGOLIA['INDEX_PREFIX']}_Post"
+                self.users_index_name = f"{settings.ALGOLIA['INDEX_PREFIX']}_User"
+                
+                # 取得索引實例
+                self.posts_index = self.client.init_index(self.posts_index_name)
+                self.users_index = self.client.init_index(self.users_index_name)
+                
+                logger.info("Algolia 搜尋服務已初始化")
+            except Exception as e:
+                logger.warning(f"Algolia 初始化失敗，將使用數據庫搜尋: {str(e)}")
+                self.algolia_enabled = False
+                self.client = None
+                self.posts_index = None
+                self.users_index = None
+        else:
+            logger.info("Algolia 配置不完整，使用數據庫搜尋作為備用方案")
+            self.algolia_enabled = False
+            self.client = None
+            self.posts_index = None
+            self.users_index = None
         
         # 設定參數
         self.cache_timeout = getattr(settings, 'SEARCH_CACHE_TIMEOUT', 300)
@@ -82,6 +101,17 @@ class AlgoliaSearchService:
                 'query': query,
                 'facets': {},
                 'search_time': 0
+            }
+        
+        # 如果 Algolia 不可用，返回空結果
+        if not self.algolia_enabled:
+            return {
+                'posts': [], 
+                'total': 0, 
+                'query': query,
+                'facets': {},
+                'search_time': 0,
+                'message': 'Algolia 搜尋服務暫時不可用，請稍後再試'
             }
         
         start_time = time.time()
@@ -214,6 +244,16 @@ class AlgoliaSearchService:
                 'total': 0, 
                 'query': query,
                 'search_time': 0
+            }
+        
+        # 如果 Algolia 不可用，返回空結果
+        if not self.algolia_enabled:
+            return {
+                'users': [], 
+                'total': 0, 
+                'query': query,
+                'search_time': 0,
+                'message': 'Algolia 搜尋服務暫時不可用，請稍後再試'
             }
         
         start_time = time.time()
@@ -374,20 +414,21 @@ class AlgoliaSearchService:
             
             suggestions = set()
             
-            # 從用戶索引獲取建議（用戶名）
-            try:
-                user_response = self.users_index.search(query, {
-                    'hitsPerPage': limit,
-                    'attributesToRetrieve': ['username'],
-                    'restrictSearchableAttributes': ['username']
-                })
-                
-                for hit in user_response['hits']:
-                    username = hit.get('username', '')
-                    if username and username.lower().startswith(query.lower()):
-                        suggestions.add(username)
-            except:
-                pass
+            # 如果 Algolia 可用，從用戶索引獲取建議
+            if self.algolia_enabled:
+                try:
+                    user_response = self.users_index.search(query, {
+                        'hitsPerPage': limit,
+                        'attributesToRetrieve': ['username'],
+                        'restrictSearchableAttributes': ['username']
+                    })
+                    
+                    for hit in user_response['hits']:
+                        username = hit.get('username', '')
+                        if username and username.lower().startswith(query.lower()):
+                            suggestions.add(username)
+                except:
+                    pass
             
             # 從熱門搜尋歷史獲取建議
             try:
