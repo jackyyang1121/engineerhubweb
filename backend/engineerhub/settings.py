@@ -362,16 +362,7 @@ SIMPLE_JWT = {
     'SLIDING_TOKEN_REFRESH_LIFETIME': timedelta(days=1),
 }
 
-# ==============================================================================
-# AllAuth 和社交登入配置
-# ==============================================================================
-
-ACCOUNT_EMAIL_REQUIRED = True
-ACCOUNT_AUTHENTICATION_METHOD = 'email'
-ACCOUNT_EMAIL_VERIFICATION = 'optional'
-ACCOUNT_USERNAME_REQUIRED = True
-ACCOUNT_USER_MODEL_USERNAME_FIELD = 'username'
-ACCOUNT_USER_MODEL_EMAIL_FIELD = 'email'
+# ==============================================================================# AllAuth 和社交登入配置# ==============================================================================# 新版 django-allauth 設置ACCOUNT_LOGIN_METHODS = {'email'}ACCOUNT_EMAIL_VERIFICATION = 'optional'ACCOUNT_SIGNUP_FIELDS = ['email*', 'username*', 'password1*', 'password2*']ACCOUNT_USER_MODEL_USERNAME_FIELD = 'username'ACCOUNT_USER_MODEL_EMAIL_FIELD = 'email'# 移除已廢棄的設置以避免警告# ACCOUNT_EMAIL_REQUIRED = True  # 已廢棄，使用 ACCOUNT_SIGNUP_FIELDS 替代# ACCOUNT_AUTHENTICATION_METHOD = 'email'  # 已廢棄，使用 ACCOUNT_LOGIN_METHODS 替代# ACCOUNT_USERNAME_REQUIRED = True  # 已廢棄，使用 ACCOUNT_SIGNUP_FIELDS 替代
 
 # 社交賬號提供者配置
 SOCIALACCOUNT_PROVIDERS = {
@@ -654,5 +645,4 @@ if 'test' in os.environ.get('DJANGO_MANAGEMENT_COMMAND', ''):
         }
     }
     
-    # 關閉電子郵件發送
-    EMAIL_BACKEND = 'django.core.mail.backends.locmem.EmailBackend'
+        # 關閉電子郵件發送    EMAIL_BACKEND = 'django.core.mail.backends.locmem.EmailBackend'# ==============================================================================# Algolia 搜索配置# ==============================================================================# 檢查是否配置了 AlgoliaALGOLIA_APPLICATION_ID = os.environ.get('ALGOLIA_APPLICATION_ID', '')ALGOLIA_API_KEY = os.environ.get('ALGOLIA_API_KEY', '')# 如果未配置 Algolia，將使用數據庫搜索作為備用方案USE_ALGOLIA = bool(ALGOLIA_APPLICATION_ID and ALGOLIA_API_KEY)ALGOLIA = {    'APPLICATION_ID': ALGOLIA_APPLICATION_ID,    'API_KEY': ALGOLIA_API_KEY,    'SEARCH_API_KEY': os.environ.get('ALGOLIA_SEARCH_API_KEY', ''),    'ENABLED': USE_ALGOLIA,}
