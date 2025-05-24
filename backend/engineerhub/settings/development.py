@@ -40,10 +40,25 @@ CSRF_COOKIE_HTTPONLY = False
 CSRF_COOKIE_SAMESITE = 'Lax'
 CSRF_USE_SESSIONS = False
 
+# ==================== AllAuth 開發環境設置 ====================
+# 在開發環境中禁用郵件驗證以便於測試
+ACCOUNT_EMAIL_VERIFICATION = 'none'  # 禁用郵件驗證
+ACCOUNT_EMAIL_REQUIRED = False       # 不強制要求郵件
+ACCOUNT_USERNAME_REQUIRED = True     # 保持用戶名要求
+ACCOUNT_SIGNUP_PASSWORD_ENTER_TWICE = False  # 不需要確認密碼
+
 # ==================== DRF 開發環境設置 ====================
 # 修改 dj-rest-auth 配置以便於開發
 REST_AUTH.update({
     'SESSION_LOGIN': False,  # 禁用會話登入，只使用 JWT
+    'JWT_AUTH_HTTPONLY': False,  # 允許前端讀取 JWT
+})
+
+# 修改 REST_FRAMEWORK 設置以支援匿名註冊
+REST_FRAMEWORK.update({
+    'DEFAULT_PERMISSION_CLASSES': [
+        'rest_framework.permissions.AllowAny',  # 開發環境允許匿名訪問
+    ],
 })
 
 # ==================== 郵件設置 ====================

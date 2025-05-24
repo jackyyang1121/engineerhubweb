@@ -79,6 +79,139 @@ class UserRegistrationView(generics.CreateAPIView):
         logger.info(f'新用戶註冊: {user.username} from {get_client_ip(self.request)}')
 
 
+class SimpleRegistrationView(generics.CreateAPIView):
+    """
+    簡化的用戶註冊視圖
+    專門用於開發環境，避免複雜的驗證
+    """
+    permission_classes = [AllowAny]
+    
+    def post(self, request, *args, **kwargs):
+        """處理註冊請求"""
+        data = request.data
+        
+        # 基本驗證
+        username = data.get('username', '').strip()
+        email = data.get('email', '').strip()
+        password = data.get('password', '')
+        
+        # 檢查必填欄位
+        if not username or not password:
+            return Response(
+                {'error': '用戶名和密碼是必填的'},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+        
+        # 檢查用戶名是否已存在
+        if User.objects.filter(username=username).exists():
+            return Response(
+                {'error': '用戶名已存在'},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+        
+        # 檢查郵箱是否已存在
+        if email and User.objects.filter(email=email).exists():
+            return Response(
+                {'error': '郵箱已被註冊'},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+        
+        try:
+            # 創建用戶
+            user = User.objects.create_user(
+                username=username,
+                email=email or '',
+                password=password,
+                first_name=data.get('first_name', ''),
+                last_name=data.get('last_name', '')
+            )
+            
+            # 創建用戶設置
+            UserSettings.objects.get_or_create(user=user)
+            
+            # 生成 JWT token
+            from rest_framework_simplejwt.tokens import RefreshToken
+            refresh = RefreshToken.for_user(user)
+            
+            logger.info(f'新用戶註冊成功: {user.username}')
+            
+            return Response({
+                'user': {
+                    'id': str(user.id),
+                    'username': user.username,
+                    'email': user.email,
+                    'first_name': user.first_name,
+                    'last_name': user.last_name,
+                },
+                'access_token': str(refresh.access_token),
+                'refresh_token': str(refresh),
+            }, status=status.HTTP_201_CREATED)
+            
+        except Exception as e:
+            logger.error(f'註冊失敗: {e}')
+            return Response(
+                {'error': '註冊失敗，請稍後重試'},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR
+            )
+
+
+class SimpleLoginView(generics.GenericAPIView):
+    """
+    簡化的用戶登入視圖
+    """
+    permission_classes = [AllowAny]
+    
+    def post(self, request, *args, **kwargs):
+        """處理登入請求"""
+        data = request.data
+        
+        username = data.get('username', '').strip()
+        password = data.get('password', '')
+        
+        if not username or not password:
+            return Response(
+                {'error': '用戶名和密碼是必填的'},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+        
+        # 嘗試驗證用戶
+        from django.contrib.auth import authenticate
+        user = authenticate(username=username, password=password)
+        
+        if user is None:
+            return Response(
+                {'error': '用戶名或密碼錯誤'},
+                status=status.HTTP_401_UNAUTHORIZED
+            )
+        
+        if not user.is_active:
+            return Response(
+                {'error': '用戶帳戶已被禁用'},
+                status=status.HTTP_401_UNAUTHORIZED
+            )
+        
+        # 更新在線狀態
+        user.update_online_status(True)
+        
+        # 生成 JWT token
+        from rest_framework_simplejwt.tokens import RefreshToken
+        refresh = RefreshToken.for_user(user)
+        
+        logger.info(f'用戶登入: {user.username}')
+        
+        return Response({
+            'user': {
+                'id': str(user.id),
+                'username': user.username,
+                'email': user.email,
+                'first_name': user.first_name,
+                'last_name': user.last_name,
+            },
+            'access_token': str(refresh.access_token),
+            'refresh_token': str(refresh),
+        }, status=status.HTTP_200_OK)
+
+
 class UserViewSet(ModelViewSet):
     """
     用戶ViewSet

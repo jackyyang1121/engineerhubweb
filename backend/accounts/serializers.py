@@ -477,14 +477,31 @@ class CustomRegisterSerializer(serializers.ModelSerializer):
             })
         return attrs
     
+    def get_cleaned_data(self):
+        """為 dj-rest-auth 提供清理後的數據"""
+        return {
+            'username': self.validated_data.get('username', ''),
+            'email': self.validated_data.get('email', ''),
+            'first_name': self.validated_data.get('first_name', ''),
+            'last_name': self.validated_data.get('last_name', ''),
+            'password1': self.validated_data.get('password1', ''),
+        }
+    
     def save(self, request):
-        """創建用戶"""
-        validated_data = self.validated_data
-        validated_data.pop('password2')
-        password = validated_data.pop('password1')
+        """創建用戶 - 兼容 dj-rest-auth"""
+        cleaned_data = self.get_cleaned_data()
         
+        # 創建用戶
         user = User.objects.create_user(
-            password=password,
-            **validated_data
+            username=cleaned_data['username'],
+            email=cleaned_data['email'],
+            first_name=cleaned_data['first_name'],
+            last_name=cleaned_data['last_name'],
+            password=cleaned_data['password1']
         )
+        
+        # 創建用戶設置
+        from .models import UserSettings
+        UserSettings.objects.get_or_create(user=user)
+        
         return user 

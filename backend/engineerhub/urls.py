@@ -17,9 +17,10 @@ def health_check(request):
     """健康检查端点"""
     return HttpResponse('OK', content_type='text/plain')
 
-# 包裝 dj-rest-auth 的註冊視圖以免除 CSRF
-from dj_rest_auth.registration.views import RegisterView
-csrf_exempt_register_view = csrf_exempt(RegisterView.as_view())
+# 包裝簡化的註冊和登入視圖
+from accounts.views import SimpleRegistrationView, SimpleLoginView
+simple_register_view = csrf_exempt(SimpleRegistrationView.as_view())
+simple_login_view = csrf_exempt(SimpleLoginView.as_view())
 
 urlpatterns = [
     # 根路径 - 重定向到 API 文檔
@@ -41,11 +42,12 @@ urlpatterns = [
     path('api/posts/', include('posts.urls')),
     path('api/chat/', include('chat.urls')),
     
-    # 認證API
-    path('api/auth/', include('dj_rest_auth.urls')),
+    # 簡化的認證端點（免除 CSRF）
+    path('api/auth/login/', simple_login_view, name='simple_login'),
+    path('api/auth/registration/', simple_register_view, name='simple_register'),
     
-    # 自定義註冊端點（免除 CSRF）
-    path('api/auth/registration/', csrf_exempt_register_view, name='rest_register'),
+    # 其他認證API (dj-rest-auth)
+    path('api/auth/', include('dj_rest_auth.urls')),
     
     # 社交登入 (AllAuth)
     path('accounts/', include('allauth.urls')),
