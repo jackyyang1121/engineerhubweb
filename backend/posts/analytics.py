@@ -1,95 +1,28 @@
 """
-EngineerHub - 貼文分析模組
+EngineerHub 貼文分析系統
 
-包含用戶行為分析、推薦系統支援功能
+提供貼文相關的數據分析功能：
+1. 用戶瀏覽行為分析
+2. 用戶參與度計算
+3. 推薦系統日誌
+4. 內容偏好分析
 """
 
-import uuid
 import logging
+import uuid
 from django.db import models
 from django.contrib.auth import get_user_model
 from django.utils import timezone
-from datetime import timedelta
+from django.db.models.signals import post_save
+from django.dispatch import receiver
 
-logger = logging.getLogger('engineerhub.analytics')
+# 設置日誌記錄器
+logger = logging.getLogger('engineerhub.posts')
 
 User = get_user_model()
 
-
-class PostView(models.Model):
-    """
-    貼文瀏覽記錄模型
-    用於記錄用戶瀏覽貼文的行為，支援推薦系統分析
-    """
-    
-    id = models.UUIDField(
-        primary_key=True,
-        default=uuid.uuid4,
-        editable=False,
-        help_text="瀏覽記錄唯一標識符"
-    )
-    
-    user = models.ForeignKey(
-        User,
-        on_delete=models.CASCADE,
-        related_name='post_views',
-        help_text="瀏覽用戶"
-    )
-    
-    post = models.ForeignKey(
-        'posts.Post',
-        on_delete=models.CASCADE,
-        related_name='view_records',
-        help_text="被瀏覽的貼文"
-    )
-    
-    created_at = models.DateTimeField(
-        auto_now_add=True,
-        help_text="瀏覽時間"
-    )
-    
-    # 瀏覽時長（秒數），可用於分析用戶興趣度
-    duration = models.PositiveIntegerField(
-        default=0,
-        help_text="瀏覽時長（秒）"
-    )
-    
-    # 瀏覽來源（推薦、搜尋、直接訪問等）
-    source = models.CharField(
-        max_length=50,
-        choices=[
-            ('recommendation', '推薦'),
-            ('search', '搜尋'),
-            ('following', '關注'),
-            ('trending', '熱門'),
-            ('direct', '直接訪問'),
-            ('profile', '個人頁面'),
-        ],
-        default='direct',
-        help_text="瀏覽來源"
-    )
-    
-    class Meta:
-        db_table = 'posts_postview'
-        verbose_name = '貼文瀏覽記錄'
-        verbose_name_plural = '貼文瀏覽記錄'
-        unique_together = ['user', 'post']  # 每個用戶對每篇貼文只記錄一次瀏覽
-        indexes = [
-            models.Index(fields=['user', '-created_at']),
-            models.Index(fields=['post', '-created_at']),
-            models.Index(fields=['source', '-created_at']),
-        ]
-    
-    def __str__(self):
-        return f"{self.user.username} 瀏覽 {self.post.id}"
-    
-    def save(self, *args, **kwargs):
-        """保存時記錄瀏覽行為到推薦系統"""
-        is_new = self.pk is None
-        super().save(*args, **kwargs)
-        
-        if is_new:
-            logger.info(f"記錄用戶 {self.user.username} 瀏覽貼文 {self.post.id}")
+# PostView 模型已在 posts.models 中定義，這裡直接導入使用
+from .models import PostView
 
 
 class UserEngagement(models.Model):
@@ -373,9 +306,6 @@ class RecommendationLog(models.Model):
 
 
 # 添加信號處理器以自動創建和更新用戶參與度
-from django.db.models.signals import post_save
-from django.dispatch import receiver
-
 @receiver(post_save, sender=User)
 def create_user_engagement(sender, instance, created, **kwargs):
     """創建用戶時自動創建參與度記錄"""

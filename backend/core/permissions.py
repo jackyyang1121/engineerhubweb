@@ -162,12 +162,9 @@ class CanAccessPrivateContent(permissions.BasePermission):
             if obj.author == request.user:
                 return True
             
-            # 檢查是否為關注者
-            from users.models import UserFollowing
-            if UserFollowing.objects.filter(
-                user=request.user, 
-                following_user=obj.author
-            ).exists():
+            #檢查是否為關注者            
+            from accounts.models import Follow            
+            if Follow.objects.filter(follower=request.user,following=obj.author).exists():
                 return True
         
         return False

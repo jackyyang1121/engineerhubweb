@@ -14,7 +14,7 @@ from channels.auth import AuthMiddlewareStack
 from channels.security.websocket import AllowedHostsOriginValidator
 import chat.routing
 
-os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'engineerhub.settings')
+os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'engineerhub.settings.development')
 
 # 獲取 ASGI 應用
 application = ProtocolTypeRouter({

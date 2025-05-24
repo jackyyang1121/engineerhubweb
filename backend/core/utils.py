@@ -615,4 +615,21 @@ def cache_result(timeout: int = 3600, key_prefix: str = ''):
             return result
         
         return wrapper
-    return decorator 
+    return decorator
+
+def get_client_ip(request):
+    """
+    獲取客戶端真實IP地址
+    
+    Args:
+        request: Django request 對象
+    
+    Returns:
+        str: 客戶端IP地址
+    """
+    x_forwarded_for = request.META.get('HTTP_X_FORWARDED_FOR')
+    if x_forwarded_for:
+        ip = x_forwarded_for.split(',')[0].strip()
+    else:
+        ip = request.META.get('REMOTE_ADDR')
+    return ip or '127.0.0.1' 

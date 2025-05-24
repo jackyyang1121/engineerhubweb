@@ -15,11 +15,13 @@ from django.db.models import Q, Count, F, Avg, Case, When, IntegerField
 from django.contrib.auth import get_user_model
 from django.core.cache import cache
 from django.utils import timezone
-from sklearn.feature_extraction.text import TfidfVectorizer
-from sklearn.metrics.pairwise import cosine_similarity
-import numpy as np
-from .models import Post, Like, Comment, PostView
-from users.models import Follow
+# 暫時註釋掉 sklearn 依賴，避免導入錯誤
+# from sklearn.feature_extraction.text import TfidfVectorizer
+# from sklearn.metrics.pairwise import cosine_similarity
+# import numpy as np
+from .models import Post, Like, PostView
+from comments.models import Comment
+from accounts.models import Follow
 
 if TYPE_CHECKING:
     from django.contrib.auth.models import AbstractUser

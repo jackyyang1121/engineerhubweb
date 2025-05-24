@@ -1,0 +1,27 @@
+FROM python:3.11-slim
+
+WORKDIR /app
+
+# 安裝系統依賴
+RUN apt-get update && apt-get install -y \
+    postgresql-client \
+    libmagic1 \
+    && rm -rf /var/lib/apt/lists/*
+
+# 複製requirements文件
+COPY requirements.txt .
+
+# 安裝Python依賴
+RUN pip install --no-cache-dir -r requirements.txt
+
+# 複製應用代碼
+COPY . .
+
+# 設置環境變數
+ENV DJANGO_SETTINGS_MODULE=engineerhub.settings.development
+
+# 暴露端口
+EXPOSE 8000
+
+# 默認命令
+CMD ["python", "manage.py", "runserver", "0.0.0.0:8000"] 

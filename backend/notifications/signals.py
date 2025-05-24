@@ -10,7 +10,7 @@ from .services import NotificationService
 logger = logging.getLogger('engineerhub.notifications')
 
 
-@receiver(post_save, sender='users.CustomUser')
+@receiver(post_save, sender='accounts.User')
 def create_user_notification_settings(sender, instance, created, **kwargs):
     """
     為新用戶創建默認通知設置
@@ -23,7 +23,7 @@ def create_user_notification_settings(sender, instance, created, **kwargs):
             logger.error(f"創建用戶通知設置失敗: {str(e)}")
 
 
-@receiver(post_save, sender='users.UserFollowing')
+@receiver(post_save, sender='accounts.Follow')
 def handle_follow_notification(sender, instance, created, **kwargs):
     """
     處理關注通知
@@ -31,8 +31,8 @@ def handle_follow_notification(sender, instance, created, **kwargs):
     if created:
         try:
             NotificationService.create_follow_notification(
-                actor=instance.user,
-                recipient=instance.following_user
+                actor=instance.follower,
+                recipient=instance.following
             )
         except Exception as e:
             logger.error(f"創建關注通知失敗: {str(e)}")
@@ -130,10 +130,10 @@ def handle_mention_notification(post_instance=None, comment_instance=None, menti
         return
     
     try:
-        from users.models import CustomUser
+        from accounts.models import User
         
         # 獲取所有被提及的用戶
-        mentioned_users = CustomUser.objects.filter(username__in=mentions)
+        mentioned_users = User.objects.filter(username__in=mentions)
         
         for user in mentioned_users:
             if post_instance:
@@ -190,7 +190,7 @@ def clean_comment_notifications(sender, instance, **kwargs):
         logger.error(f"清理評論通知失敗: {str(e)}")
 
 
-@receiver(post_delete, sender='users.UserFollowing')
+@receiver(post_delete, sender='accounts.Follow')
 def clean_follow_notifications(sender, instance, **kwargs):
     """
     清理取消關注的通知
@@ -199,10 +199,10 @@ def clean_follow_notifications(sender, instance, **kwargs):
         # 刪除關注通知
         Notification.objects.filter(
             type=NotificationType.FOLLOW,
-            actor=instance.user,
-            recipient=instance.following_user
+            actor=instance.follower,
+            recipient=instance.following
         ).delete()
-        logger.info(f"已清理 {instance.user.username} 關注 {instance.following_user.username} 的通知")
+        logger.info(f"已清理 {instance.follower.username} 關注 {instance.following.username} 的通知")
     except Exception as e:
         logger.error(f"清理關注通知失敗: {str(e)}")
 
@@ -210,7 +210,7 @@ def clean_follow_notifications(sender, instance, **kwargs):
 @receiver(post_delete, sender='posts.Like')
 def clean_like_notifications(sender, instance, **kwargs):
     """
-    清理取消點讚的通知
+    清理已取消點讚的通知
     """
     try:
         if hasattr(instance, 'post') and instance.post:
@@ -222,6 +222,6 @@ def clean_like_notifications(sender, instance, **kwargs):
                 content_type=content_type,
                 object_id=instance.post.id
             ).delete()
-            logger.info(f"已清理 {instance.user.username} 對貼文 {instance.post.id} 的點讚通知")
+            logger.info(f"已清理用戶 {instance.user.username} 對貼文 {instance.post.id} 的點讚通知")
     except Exception as e:
         logger.error(f"清理點讚通知失敗: {str(e)}") 

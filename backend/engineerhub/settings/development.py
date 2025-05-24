@@ -3,6 +3,7 @@ EngineerHub - 開發環境設置
 """
 
 from .base import *
+from decouple import config
 
 # ==================== 開發環境設置 ====================
 DEBUG = True
@@ -11,7 +12,6 @@ ALLOWED_HOSTS = ['localhost', '127.0.0.1', '0.0.0.0']
 
 # ==================== 開發工具 ====================
 INSTALLED_APPS += [
-    'django_extensions',
     'debug_toolbar',
 ]
 
@@ -27,9 +27,6 @@ INTERNAL_IPS = [
 
 # ==================== 郵件設置 ====================
 EMAIL_BACKEND = 'django.core.mail.backends.console.EmailBackend'
-
-# ==================== 日誌設置 ====================
-LOGGING['loggers']['engineerhub']['level'] = 'DEBUG'
 
 # ==================== CORS 設置（開發環境） ====================
 CORS_ALLOW_ALL_ORIGINS = True  # 僅開發環境使用

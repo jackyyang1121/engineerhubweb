@@ -40,7 +40,7 @@ class NotificationAdmin(admin.ModelAdmin):
         """顯示接收者信息"""
         if obj.recipient:
             return format_html(
-                '<a href="/admin/users/customuser/{}/change/">{}</a>',
+                '<a href="/admin/accounts/user/{}/change/">{}</a>',
                 obj.recipient.id,
                 obj.recipient.username
             )
@@ -51,7 +51,7 @@ class NotificationAdmin(admin.ModelAdmin):
         """顯示觸發者信息"""
         if obj.actor:
             return format_html(
-                '<a href="/admin/users/customuser/{}/change/">{}</a>',
+                '<a href="/admin/accounts/user/{}/change/">{}</a>',
                 obj.actor.id,
                 obj.actor.username
             )
@@ -152,7 +152,7 @@ class NotificationSettingsAdmin(admin.ModelAdmin):
     def user_display(self, obj):
         """顯示用戶信息"""
         return format_html(
-            '<a href="/admin/users/customuser/{}/change/">{}</a>',
+            '<a href="/admin/accounts/user/{}/change/">{}</a>',
             obj.user.id,
             obj.user.username
         )

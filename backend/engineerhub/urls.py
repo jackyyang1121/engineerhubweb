@@ -4,33 +4,17 @@ from django.conf import settings
 from django.conf.urls.static import static
 from django.shortcuts import redirect
 from django.http import HttpResponse
-from rest_framework import permissions
-from drf_yasg.views import get_schema_view # type: ignore
-from drf_yasg import openapi # type: ignore
+from drf_spectacular.views import SpectacularAPIView, SpectacularSwaggerView, SpectacularRedocView
 
 # 根路径視圖 - 重定向到 API 文檔
 def root_view(request):
     """根路径视图，提供项目信息或重定向到API文档"""
-    return redirect('/swagger/')
+    return redirect('/api/docs/')
 
 # 健康檢查視圖
 def health_check(request):
     """健康检查端点"""
     return HttpResponse('OK', content_type='text/plain')
-
-# 創建Swagger視圖
-schema_view = get_schema_view(
-    openapi.Info(
-        title="EngineerHub API",
-        default_version='v1',
-        description="EngineerHub社群平台的API文檔",
-        terms_of_service="https://www.engineerhub.com/terms/",
-        contact=openapi.Contact(email="contact@engineerhub.com"),
-        license=openapi.License(name="MIT License"),
-    ),
-    public=True,
-    permission_classes=(permissions.AllowAny,),
-)
 
 urlpatterns = [
     # 根路径 - 重定向到 API 文檔
@@ -42,15 +26,15 @@ urlpatterns = [
     # 管理員界面
     path('admin/', admin.site.urls),
     
-    # API文檔
-    path('swagger/', schema_view.with_ui('swagger', cache_timeout=0), name='schema-swagger-ui'),
-    path('redoc/', schema_view.with_ui('redoc', cache_timeout=0), name='schema-redoc'),
+    # API文檔 (drf-spectacular)
+    path('api/schema/', SpectacularAPIView.as_view(), name='schema'),
+    path('api/docs/', SpectacularSwaggerView.as_view(url_name='schema'), name='swagger-ui'),
+    path('api/redoc/', SpectacularRedocView.as_view(url_name='schema'), name='redoc'),
     
     # 應用API
     path('', include('accounts.urls')),
     path('api/posts/', include('posts.urls')),
     path('api/chat/', include('chat.urls')),
-    path('api/profiles/', include('profiles.urls')),
     
     # 認證API
     path('api/auth/', include('dj_rest_auth.urls')),

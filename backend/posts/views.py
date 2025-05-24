@@ -267,7 +267,7 @@ class PostViewSet(viewsets.ModelViewSet):
         獲取關注用戶的貼文
         """
         try:
-            from profiles.models import Follow
+            from accounts.models import Follow
             
             # 獲取當前用戶關注的用戶
             following_users = Follow.objects.filter(follower=request.user).values_list('following', flat=True)

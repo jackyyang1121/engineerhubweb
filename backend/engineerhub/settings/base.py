@@ -32,35 +32,42 @@ DJANGO_APPS = [
     'django.contrib.messages',
     'django.contrib.staticfiles',
     'django.contrib.sites',
+    'django.contrib.humanize',
 ]
 
 THIRD_PARTY_APPS = [
-    # DRF
+    # DRF 相關
     'rest_framework',
+    'rest_framework.authtoken',
     'rest_framework_simplejwt',
     'rest_framework_simplejwt.token_blacklist',
+    'drf_spectacular',
     
-    # CORS
-    'corsheaders',
-    
-    # 認證
+    # 認證相關
+    'dj_rest_auth',
+    'dj_rest_auth.registration',
     'allauth',
     'allauth.account',
     'allauth.socialaccount',
     'allauth.socialaccount.providers.google',
     'allauth.socialaccount.providers.github',
     
+    # CORS
+    'corsheaders',
+    
     # WebSocket
     'channels',
     
-    # API 文檔
-    'drf_spectacular',
+    # 任務佇列
+    'django_celery_beat',
+    'django_celery_results',
     
     # 搜尋服務
     'algoliasearch_django',
     
     # 開發工具
     'django_extensions',
+    'django_filters',
 ]
 
 LOCAL_APPS = [
@@ -68,9 +75,8 @@ LOCAL_APPS = [
     'accounts',
     'posts',
     'comments',
-    'chats',
+    'chat',
     'notifications',
-    'search',
 ]
 
 INSTALLED_APPS = DJANGO_APPS + THIRD_PARTY_APPS + LOCAL_APPS
@@ -79,10 +85,12 @@ INSTALLED_APPS = DJANGO_APPS + THIRD_PARTY_APPS + LOCAL_APPS
 MIDDLEWARE = [
     'corsheaders.middleware.CorsMiddleware',
     'django.middleware.security.SecurityMiddleware',
+    'whitenoise.middleware.WhiteNoiseMiddleware',  # 靜態檔案服務
     'django.contrib.sessions.middleware.SessionMiddleware',
     'django.middleware.common.CommonMiddleware',
     'django.middleware.csrf.CsrfViewMiddleware',
     'django.contrib.auth.middleware.AuthenticationMiddleware',
+    'allauth.account.middleware.AccountMiddleware',
     'django.contrib.messages.middleware.MessageMiddleware',
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
 ]
@@ -116,13 +124,11 @@ DATABASES = {
     'default': {
         'ENGINE': 'django.db.backends.postgresql',
         'NAME': config('DB_NAME', default='engineerhub'),
-        'USER': config('DB_USER', default='postgres'),
-        'PASSWORD': config('DB_PASSWORD', default='password'),
+        'USER': config('DB_USER', default='engineerhub_user'),
+        'PASSWORD': config('DB_PASSWORD', default='123456789'),
         'HOST': config('DB_HOST', default='localhost'),
         'PORT': config('DB_PORT', default='5432'),
-        'OPTIONS': {
-            'init_command': "SET sql_mode='STRICT_TRANS_TABLES'",
-        },
+        'CONN_MAX_AGE': 600,  # 連接池配置
     }
 }
 
@@ -165,6 +171,9 @@ STATICFILES_DIRS = [
     BASE_DIR / 'static',
 ]
 
+# WhiteNoise 配置（生產環境靜態檔案服務）
+STATICFILES_STORAGE = 'whitenoise.storage.CompressedManifestStaticFilesStorage'
+
 # ==================== 媒體文件設置 ====================
 MEDIA_URL = '/media/'
 MEDIA_ROOT = BASE_DIR / 'media'
@@ -173,38 +182,63 @@ MEDIA_ROOT = BASE_DIR / 'media'
 FILE_UPLOAD_MAX_MEMORY_SIZE = 10 * 1024 * 1024  # 10MB
 DATA_UPLOAD_MAX_MEMORY_SIZE = 10 * 1024 * 1024  # 10MB
 
+# 允許的檔案格式
+ALLOWED_IMAGE_EXTENSIONS = ['.jpg', '.jpeg', '.png', '.gif', '.webp']
+ALLOWED_VIDEO_EXTENSIONS = ['.mp4', '.avi', '.mov', '.wmv', '.flv']
+MAX_IMAGE_SIZE = 5 * 1024 * 1024  # 5MB
+MAX_VIDEO_SIZE = 50 * 1024 * 1024  # 50MB
+
 # ==================== 默認主鍵設置 ====================
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 
 # ==================== 網站設置 ====================
 SITE_ID = 1
 
+# ==================== 認證後端設置 ====================
+AUTHENTICATION_BACKENDS = [
+    'django.contrib.auth.backends.ModelBackend',
+    'allauth.account.auth_backends.AuthenticationBackend',
+]
+
 # ==================== DRF 設置 ====================
 REST_FRAMEWORK = {
     'DEFAULT_AUTHENTICATION_CLASSES': [
-        'rest_framework_simplejwt.authentication.JWTAuthentication',
         'rest_framework.authentication.SessionAuthentication',
+        'rest_framework_simplejwt.authentication.JWTAuthentication',
     ],
     'DEFAULT_PERMISSION_CLASSES': [
         'rest_framework.permissions.IsAuthenticated',
     ],
-        'DEFAULT_PAGINATION_CLASS': 'core.pagination.CustomPageNumberPagination',
+    'DEFAULT_RENDERER_CLASSES': [
+        'rest_framework.renderers.JSONRenderer',
+    ],
+    'DEFAULT_PARSER_CLASSES': [
+        'rest_framework.parsers.JSONParser',
+        'rest_framework.parsers.FormParser',
+        'rest_framework.parsers.MultiPartParser',
+    ],
+    'DEFAULT_PAGINATION_CLASS': 'rest_framework.pagination.PageNumberPagination',
     'PAGE_SIZE': 20,
     'DEFAULT_FILTER_BACKENDS': [
         'django_filters.rest_framework.DjangoFilterBackend',
         'rest_framework.filters.SearchFilter',
         'rest_framework.filters.OrderingFilter',
     ],
-    'DEFAULT_SCHEMA_CLASS': 'drf_spectacular.openapi.AutoSchema',
-    'DEFAULT_RENDERER_CLASSES': [
-        'rest_framework.renderers.JSONRenderer',
+    'DEFAULT_THROTTLE_CLASSES': [
+        'rest_framework.throttling.AnonRateThrottle',
+        'rest_framework.throttling.UserRateThrottle'
     ],
+    'DEFAULT_THROTTLE_RATES': {
+        'anon': '100/hour',
+        'user': '1000/hour'
+    },
     'EXCEPTION_HANDLER': 'core.exceptions.custom_exception_handler',
+    'DEFAULT_SCHEMA_CLASS': 'drf_spectacular.openapi.AutoSchema',
 }
 
 # ==================== JWT 設置 ====================
 SIMPLE_JWT = {
-    'ACCESS_TOKEN_LIFETIME': timedelta(minutes=60),
+    'ACCESS_TOKEN_LIFETIME': timedelta(hours=1),
     'REFRESH_TOKEN_LIFETIME': timedelta(days=7),
     'ROTATE_REFRESH_TOKENS': True,
     'BLACKLIST_AFTER_ROTATION': True,
@@ -214,7 +248,10 @@ SIMPLE_JWT = {
     'SIGNING_KEY': SECRET_KEY,
     'VERIFYING_KEY': None,
     'AUDIENCE': None,
-    'ISSUER': None,
+    'ISSUER': 'engineerhub',
+    'JSON_ENCODER': None,
+    'JWK_URL': None,
+    'LEEWAY': 0,
     
     'AUTH_HEADER_TYPES': ('Bearer',),
     'AUTH_HEADER_NAME': 'HTTP_AUTHORIZATION',
@@ -224,14 +261,24 @@ SIMPLE_JWT = {
     
     'AUTH_TOKEN_CLASSES': ('rest_framework_simplejwt.tokens.AccessToken',),
     'TOKEN_TYPE_CLAIM': 'token_type',
+    'TOKEN_USER_CLASS': 'rest_framework_simplejwt.models.TokenUser',
+    
+    'JTI_CLAIM': 'jti',
+    
+    'SLIDING_TOKEN_REFRESH_EXP_CLAIM': 'refresh_exp',
+    'SLIDING_TOKEN_LIFETIME': timedelta(minutes=5),
+    'SLIDING_TOKEN_REFRESH_LIFETIME': timedelta(days=1),
 }
 
 # ==================== CORS 設置 ====================
-CORS_ALLOWED_ORIGINS = config(
-    'CORS_ALLOWED_ORIGINS',
-    default='http://localhost:3000,http://127.0.0.1:3000',
-    cast=lambda v: [s.strip() for s in v.split(',')]
-)
+CORS_ALLOWED_ORIGINS = [
+    "http://localhost:3000",  # React 開發服務器
+    "http://127.0.0.1:3000",
+    "http://localhost:5173",  # Vite 開發服務器
+    "http://127.0.0.1:5173",
+    "http://localhost:8000",  # Django 開發服務器
+    "http://127.0.0.1:8000",
+]
 
 CORS_ALLOW_CREDENTIALS = True
 
@@ -247,7 +294,32 @@ CORS_ALLOW_HEADERS = [
     'x-requested-with',
 ]
 
-# ==================== 社交登入設置 ====================
+# ==================== CSRF 配置 ====================
+CSRF_TRUSTED_ORIGINS = [
+    "http://localhost:3000",  # React 開發服務器
+    "http://127.0.0.1:3000",
+    "http://localhost:5173",  # Vite 開發服務器
+    "http://127.0.0.1:5173",
+    "http://localhost:8000",  # Django 開發服務器
+    "http://127.0.0.1:8000",
+]
+
+# ==================== AllAuth 和社交登入配置 ====================
+ACCOUNT_AUTHENTICATION_METHOD = 'email'
+ACCOUNT_EMAIL_REQUIRED = True
+ACCOUNT_USERNAME_REQUIRED = True
+ACCOUNT_EMAIL_VERIFICATION = 'mandatory'
+ACCOUNT_CONFIRM_EMAIL_ON_GET = True
+ACCOUNT_EMAIL_CONFIRMATION_EXPIRE_DAYS = 7
+ACCOUNT_LOGIN_ATTEMPTS_LIMIT = 5
+ACCOUNT_LOGIN_ATTEMPTS_TIMEOUT = 300
+ACCOUNT_LOGOUT_ON_GET = True
+ACCOUNT_SESSION_REMEMBER = True
+ACCOUNT_SIGNUP_PASSWORD_ENTER_TWICE = False
+ACCOUNT_UNIQUE_EMAIL = True
+ACCOUNT_USERNAME_MIN_LENGTH = 3
+
+# 社交認證配置
 SOCIALACCOUNT_PROVIDERS = {
     'google': {
         'SCOPE': [
@@ -257,20 +329,24 @@ SOCIALACCOUNT_PROVIDERS = {
         'AUTH_PARAMS': {
             'access_type': 'online',
         },
-        'APP': {
-            'client_id': config('GOOGLE_CLIENT_ID', default=''),
-            'secret': config('GOOGLE_CLIENT_SECRET', default=''),
-        }
+        'OAUTH_PKCE_ENABLED': True,
     },
     'github': {
         'SCOPE': [
             'user:email',
+            'read:user',
         ],
-        'APP': {
-            'client_id': config('GITHUB_CLIENT_ID', default=''),
-            'secret': config('GITHUB_CLIENT_SECRET', default=''),
-        }
     }
+}
+
+# ==================== dj-rest-auth 配置 ====================
+REST_AUTH = {
+    'USE_JWT': True,
+    'JWT_AUTH_COOKIE': 'auth-jwt',
+    'JWT_AUTH_REFRESH_COOKIE': 'auth-jwt-refresh',
+    'JWT_AUTH_HTTPONLY': False,  # 允許前端讀取 JWT cookie
+    'USER_DETAILS_SERIALIZER': 'accounts.serializers.UserSerializer',
+    'REGISTER_SERIALIZER': 'accounts.serializers.CustomRegisterSerializer',
 }
 
 # ==================== 郵件設置 ====================
@@ -284,11 +360,14 @@ DEFAULT_FROM_EMAIL = config('DEFAULT_FROM_EMAIL', default='noreply@engineerhub.c
 
 # ==================== Celery 設置 ====================
 CELERY_BROKER_URL = REDIS_URL
-CELERY_RESULT_BACKEND = REDIS_URL
-CELERY_ACCEPT_CONTENT = ['json']
+CELERY_RESULT_BACKEND = 'django-db'
+CELERY_CACHE_BACKEND = 'django-cache'
 CELERY_TASK_SERIALIZER = 'json'
 CELERY_RESULT_SERIALIZER = 'json'
-CELERY_TIMEZONE = TIME_ZONE
+CELERY_ACCEPT_CONTENT = ['json']
+CELERY_TIMEZONE = 'Asia/Taipei'
+CELERY_ENABLE_UTC = True
+CELERY_BEAT_SCHEDULER = 'django_celery_beat.schedulers:DatabaseScheduler'
 
 # ==================== Channels 設置 ====================
 CHANNEL_LAYERS = {
@@ -300,15 +379,42 @@ CHANNEL_LAYERS = {
     },
 }
 
-# ==================== API 文檔設置 ====================
+# ==================== API 文檔配置 (Spectacular) ====================
 SPECTACULAR_SETTINGS = {
     'TITLE': 'EngineerHub API',
-    'DESCRIPTION': '工程師社群平台 API 文檔',
+    'DESCRIPTION': 'EngineerHub社群平台的API文檔',
     'VERSION': '1.0.0',
     'SERVE_INCLUDE_SCHEMA': False,
     'COMPONENT_SPLIT_REQUEST': True,
     'SCHEMA_PATH_PREFIX': '/api/',
+    'SECURITY': [
+        {
+            'type': 'http',
+            'scheme': 'bearer',
+            'bearerFormat': 'JWT',
+        }
+    ],
 }
+
+# ==================== Algolia 搜索配置 ====================
+ALGOLIA_APPLICATION_ID = config('ALGOLIA_APPLICATION_ID', default='')
+ALGOLIA_API_KEY = config('ALGOLIA_API_KEY', default='')
+
+# 如果未配置 Algolia，將使用數據庫搜索作為備用方案
+USE_ALGOLIA = bool(ALGOLIA_APPLICATION_ID and ALGOLIA_API_KEY)
+
+ALGOLIA = {
+    'APPLICATION_ID': ALGOLIA_APPLICATION_ID,
+    'API_KEY': ALGOLIA_API_KEY,
+    'SEARCH_API_KEY': config('ALGOLIA_SEARCH_API_KEY', default=''),
+    'INDEX_PREFIX': config('ALGOLIA_INDEX_PREFIX', default='engineerhub'),
+    'ENABLED': USE_ALGOLIA,
+}
+
+# ==================== 安全設置 ====================
+SECURE_BROWSER_XSS_FILTER = True
+SECURE_CONTENT_TYPE_NOSNIFF = True
+X_FRAME_OPTIONS = 'DENY'
 
 # ==================== 日誌設置 ====================
 LOGGING = {
@@ -324,79 +430,90 @@ LOGGING = {
             'style': '{',
         },
     },
+    'filters': {
+        'require_debug_true': {
+            '()': 'django.utils.log.RequireDebugTrue',
+        },
+        'require_debug_false': {
+            '()': 'django.utils.log.RequireDebugFalse',
+        },
+    },
     'handlers': {
+        'console': {
+            'level': 'INFO',
+            'filters': ['require_debug_true'],
+            'class': 'logging.StreamHandler',
+            'formatter': 'simple'
+        },
         'file': {
             'level': 'INFO',
-            'class': 'logging.FileHandler',
-            'filename': BASE_DIR / 'logs' / 'django.log',
+            'class': 'logging.handlers.RotatingFileHandler',
+            'filename': BASE_DIR / 'logs' / 'engineerhub.log',
+            'maxBytes': 1024*1024*10,  # 10MB
+            'backupCount': 5,
             'formatter': 'verbose',
         },
-        'console': {
-            'level': 'DEBUG',
-            'class': 'logging.StreamHandler',
-            'formatter': 'simple',
+        'error_file': {
+            'level': 'ERROR',
+            'class': 'logging.handlers.RotatingFileHandler',
+            'filename': BASE_DIR / 'logs' / 'error.log',
+            'maxBytes': 1024*1024*10,  # 10MB
+            'backupCount': 5,
+            'formatter': 'verbose',
+        },
+        'mail_admins': {
+            'level': 'ERROR',
+            'filters': ['require_debug_false'],
+            'class': 'django.utils.log.AdminEmailHandler',
+            'formatter': 'verbose',
         },
     },
     'root': {
         'handlers': ['console'],
-        'level': 'WARNING',
     },
     'loggers': {
         'django': {
-            'handlers': ['file', 'console'],
+            'handlers': ['console', 'file', 'mail_admins'],
             'level': 'INFO',
-            'propagate': False,
         },
         'engineerhub': {
-            'handlers': ['file', 'console'],
+            'handlers': ['console', 'file', 'error_file'],
             'level': 'DEBUG',
+            'propagate': False,
+        },
+        'django.request': {
+            'handlers': ['file', 'error_file', 'mail_admins'],
+            'level': 'ERROR',
+            'propagate': False,
+        },
+        'django.security': {
+            'handlers': ['file', 'error_file', 'mail_admins'],
+            'level': 'ERROR',
             'propagate': False,
         },
     },
 }
 
-# ==================== 安全設置 ====================
-SECURE_BROWSER_XSS_FILTER = True
-SECURE_CONTENT_TYPE_NOSNIFF = True
-X_FRAME_OPTIONS = 'DENY'
+# 確保日誌目錄存在
+log_dir = BASE_DIR / 'logs'
+log_dir.mkdir(exist_ok=True)
 
-# ==================== 自定義設置 ====================
-# 文件上傳限制
-MAX_UPLOAD_SIZE = 100 * 1024 * 1024  # 100MB
-ALLOWED_IMAGE_TYPES = ['image/jpeg', 'image/png', 'image/gif', 'image/webp']
-ALLOWED_VIDEO_TYPES = ['video/mp4', 'video/webm']
-
-# 程式碼高亮設置
-PYGMENTS_STYLES = [
-    'default', 'emacs', 'friendly', 'colorful', 'autumn', 'murphy', 'manni', 
-    'monokai', 'perldoc', 'pastie', 'borland', 'trac', 'native', 'fruity', 
-    'bw', 'vim', 'vs', 'tango', 'rrt', 'xcode', 'igor', 'paraiso-light', 
-    'paraiso-dark', 'lovelace', 'algol', 'algol_nu', 'arduino', 'rainbow_dash', 
-    'abap'
+# ==================== 自定義配置 ====================
+# 程式碼高亮配置
+CODE_HIGHLIGHT_STYLES = [
+    'monokai', 'github', 'vs', 'xcode', 'default'
 ]
+DEFAULT_CODE_STYLE = 'monokai'
+MAX_CODE_LENGTH = 10000  # 最大程式碼長度（字符數）
 
-# 搜索設置 - Algolia
-ALGOLIA = {
-    'APPLICATION_ID': config('ALGOLIA_APPLICATION_ID', default=''),
-    'API_KEY': config('ALGOLIA_API_KEY', default=''),
-    'INDEX_PREFIX': config('ALGOLIA_INDEX_PREFIX', default='engineerhub'),
-    'AUTO_INDEXING': config('ALGOLIA_AUTO_INDEXING', default=True, cast=bool),
-}
-
-# 搜尋配置
+# 搜索配置
 SEARCH_RESULTS_PER_PAGE = 20
 MAX_SEARCH_QUERY_LENGTH = 200
-SEARCH_CACHE_TIMEOUT = 300  # 5分鐘
 
-# Sentry 設置 (生產環境監控)
-SENTRY_DSN = config('SENTRY_DSN', default='')
-if SENTRY_DSN:
-    import sentry_sdk # type: ignore
-    from sentry_sdk.integrations.django import DjangoIntegration # type: ignore
-    
-    sentry_sdk.init(
-        dsn=SENTRY_DSN,
-        integrations=[DjangoIntegration()],
-        traces_sample_rate=1.0,
-        send_default_pii=True
-    ) 
+# 通知配置
+NOTIFICATION_BATCH_SIZE = 50
+NOTIFICATION_RETENTION_DAYS = 30
+
+# 檔案清理配置
+TEMP_FILE_CLEANUP_HOURS = 24
+ORPHANED_FILE_CLEANUP_DAYS = 7 

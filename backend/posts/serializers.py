@@ -4,7 +4,7 @@ from django.db import transaction
 from django.utils.html import strip_tags
 from .models import Post, PostMedia, Like, Save, Report, PostShare
 from comments.models import Comment
-from users.serializers import UserSerializer
+from accounts.serializers import UserSerializer
 from django.db import models
 
 # 設置日誌記錄器

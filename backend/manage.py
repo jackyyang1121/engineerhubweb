@@ -24,7 +24,7 @@ import sys
 def main():
     """運行管理任務"""
     # 設置 Django 設置模塊
-    os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'engineerhub.settings')
+    os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'engineerhub.settings.development')
     
     try:
         from django.core.management import execute_from_command_line

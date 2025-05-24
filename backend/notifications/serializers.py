@@ -4,7 +4,7 @@ from django.contrib.contenttypes.models import ContentType
 from django.db import transaction
 
 from .models import Notification, NotificationSettings, NotificationTemplate, NotificationType
-from users.serializers import UserSerializer
+from accounts.serializers import UserSerializer
 
 # 設置日誌記錄器
 logger = logging.getLogger('engineerhub.notifications')

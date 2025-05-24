@@ -3,7 +3,7 @@ from rest_framework import serializers
 from django.db import transaction
 from django.utils import timezone
 from .models import Conversation, Message, UserConversationState
-from users.serializers import UserSerializer
+from accounts.serializers import UserSerializer
 
 # 設置日誌記錄器
 logger = logging.getLogger('engineerhub.chat')

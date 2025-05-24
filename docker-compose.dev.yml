@@ -38,6 +38,28 @@ services:
     networks:
       - engineerhub_network
 
+  django:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile.dev
+    container_name: engineerhub_django
+    ports:
+      - "8000:8000"
+    volumes:
+      - ./backend:/app
+    environment:
+      - DJANGO_SETTINGS_MODULE=engineerhub.settings.development
+      - DB_HOST=postgres
+      - REDIS_URL=redis://redis:6379/0
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    networks:
+      - engineerhub_network
+    command: python manage.py runserver 0.0.0.0:8000
+
   adminer:
     image: adminer:latest
     container_name: engineerhub_adminer

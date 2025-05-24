@@ -77,9 +77,9 @@ def batch_create_system_notification(recipient_ids, title, message, data=None, e
     批量創建系統通知
     """
     try:
-        from users.models import CustomUser
+        from accounts.models import User
         
-        recipients = CustomUser.objects.filter(id__in=recipient_ids)
+        recipients = User.objects.filter(id__in=recipient_ids)
         notifications = NotificationService.create_system_notification(
             recipients=recipients,
             title=title,
@@ -102,7 +102,7 @@ def send_weekly_digest():
     發送每週摘要通知
     """
     try:
-        from users.models import CustomUser
+        from accounts.models import User
         from posts.models import Post
         from comments.models import Comment
         
@@ -110,7 +110,7 @@ def send_weekly_digest():
         week_ago = timezone.now() - timedelta(days=7)
         
         # 活躍用戶
-        active_users = CustomUser.objects.filter(
+        active_users = User.objects.filter(
             last_login__gte=week_ago
         ).count()
         
@@ -125,7 +125,7 @@ def send_weekly_digest():
         ).count()
         
         # 給所有啟用週摘要的用戶發送通知
-        users = CustomUser.objects.filter(
+        users = User.objects.filter(
             notification_settings__system_notifications=True,
             is_active=True
         )
@@ -326,10 +326,10 @@ def send_scheduled_notification(user_id, notification_type, title, message, extr
     發送排程通知
     """
     try:
-        from users.models import CustomUser
+        from accounts.models import User
         from .services import NotificationService
         
-        user = CustomUser.objects.get(id=user_id)
+        user = User.objects.get(id=user_id)
         
         NotificationService.create_notification(
             recipient=user,
@@ -342,7 +342,7 @@ def send_scheduled_notification(user_id, notification_type, title, message, extr
         logger.info(f"排程通知發送成功: 用戶 {user.username}, 類型 {notification_type}")
         return True
         
-    except CustomUser.DoesNotExist:
+    except User.DoesNotExist:
         logger.error(f"排程通知發送失敗: 用戶 {user_id} 不存在")
         return False
     except Exception as e:
@@ -356,11 +356,11 @@ def generate_user_engagement_report():
     生成用戶參與度報告
     """
     try:
-        from users.models import CustomUser
+        from accounts.models import User
         from .services import NotificationAnalyzer, NotificationService
         
         # 獲取活躍用戶
-        active_users = CustomUser.objects.filter(
+        active_users = User.objects.filter(
             is_active=True,
             last_login__gte=timezone.now() - timedelta(days=30)
         )
@@ -379,7 +379,7 @@ def generate_user_engagement_report():
         
         # 向管理員發送報告
         if low_engagement_users:
-            admin_users = CustomUser.objects.filter(is_staff=True)
+            admin_users = User.objects.filter(is_staff=True)
             
             report_message = f"發現 {len(low_engagement_users)} 位用戶參與度較低，建議優化通知策略。"
             
@@ -410,11 +410,11 @@ def optimize_notification_delivery():
     優化通知投遞時間
     """
     try:
-        from users.models import CustomUser
+        from accounts.models import User
         from .services import NotificationScheduler, NotificationAnalyzer
         
         # 分析所有用戶的最佳通知時間
-        users = CustomUser.objects.filter(is_active=True)
+        users = User.objects.filter(is_active=True)
         optimization_data = {}
         
         for user in users:
@@ -444,14 +444,14 @@ def aggregate_daily_notifications():
     每日聚合相似通知
     """
     try:
-        from users.models import CustomUser
+        from accounts.models import User
         from .services import NotificationAggregator
         from .models import NotificationType
         
         aggregation_count = 0
         
         # 對所有活躍用戶進行通知聚合
-        active_users = CustomUser.objects.filter(is_active=True)
+        active_users = User.objects.filter(is_active=True)
         
         for user in active_users:
             # 聚合點讚通知
@@ -480,11 +480,11 @@ def send_personalized_digest():
     發送個性化摘要通知
     """
     try:
-        from users.models import CustomUser
+        from accounts.models import User
         from .services import NotificationService, NotificationPersonalizer, NotificationAnalyzer
         
         # 獲取啟用摘要通知的用戶
-        users = CustomUser.objects.filter(
+        users = User.objects.filter(
             notification_settings__system_notifications=True,
             is_active=True
         )

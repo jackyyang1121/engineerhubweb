@@ -410,9 +410,81 @@ class SocialAuthSerializer(serializers.Serializer):
     """
     
     access_token = serializers.CharField(required=True)
+    provider = serializers.CharField(required=True)
     
     def validate_access_token(self, value):
         """驗證訪問令牌"""
-        if not value:
+        if not value.strip():
             raise serializers.ValidationError('訪問令牌不能為空')
-        return value 
+        return value
+
+
+class CustomRegisterSerializer(serializers.ModelSerializer):
+    """
+    自定義註冊序列化器
+    用於dj-rest-auth註冊功能
+    """
+    
+    password1 = serializers.CharField(
+        write_only=True,
+        style={'input_type': 'password'}
+    )
+    password2 = serializers.CharField(
+        write_only=True,
+        style={'input_type': 'password'}
+    )
+    
+    class Meta:
+        model = User
+        fields = [
+            'username', 'email', 'first_name', 'last_name',
+            'password1', 'password2'
+        ]
+    
+    def validate_username(self, value):
+        """驗證用戶名"""
+        if not re.match(r'^[a-zA-Z0-9_]+$', value):
+            raise serializers.ValidationError('用戶名只能包含字母、數字和下劃線')
+        
+        if len(value) < 3:
+            raise serializers.ValidationError('用戶名至少需要3個字符')
+        
+        if len(value) > 30:
+            raise serializers.ValidationError('用戶名不能超過30個字符')
+        
+        # 檢查保留用戶名
+        reserved_usernames = [
+            'admin', 'api', 'www', 'mail', 'support', 'help',
+            'about', 'contact', 'terms', 'privacy', 'settings',
+            'profile', 'user', 'users', 'root', 'system'
+        ]
+        if value.lower() in reserved_usernames:
+            raise serializers.ValidationError('此用戶名不可用')
+        
+        return value
+    
+    def validate_email(self, value):
+        """驗證郵箱"""
+        if User.objects.filter(email=value).exists():
+            raise serializers.ValidationError('此郵箱已被註冊')
+        return value
+    
+    def validate(self, attrs):
+        """驗證密碼確認"""
+        if attrs['password1'] != attrs['password2']:
+            raise serializers.ValidationError({
+                'password2': '兩次密碼輸入不一致'
+            })
+        return attrs
+    
+    def save(self, request):
+        """創建用戶"""
+        validated_data = self.validated_data
+        validated_data.pop('password2')
+        password = validated_data.pop('password1')
+        
+        user = User.objects.create_user(
+            password=password,
+            **validated_data
+        )
+        return user 
