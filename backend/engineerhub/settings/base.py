@@ -522,75 +522,13 @@ def configure_algolia():
         print("   請設置 ALGOLIA_APPLICATION_ID 和 ALGOLIA_API_KEY 環境變數")
         return False
     
+    # 簡化處理：直接跳過連接測試，避免卡住
     try:
-        # 在 Windows 上使用 threading 替代 signal
-        if os.name == 'nt':  # Windows
-            from concurrent.futures import ThreadPoolExecutor, TimeoutError as FutureTimeoutError
-            import algoliasearch
-            
-            def test_algolia_connection():
-                # 嘗試不同版本的 Algolia API
-                try:
-                    # 新版本 API (v3+)
-                    from algoliasearch.search_client import SearchClient
-                    client = SearchClient.create(ALGOLIA_APPLICATION_ID, ALGOLIA_API_KEY)
-                    client.list_api_keys()
-                except (ImportError, AttributeError):
-                    # 舊版本 API (v2)
-                    client = algoliasearch.Client(ALGOLIA_APPLICATION_ID, ALGOLIA_API_KEY)
-                    client.list_api_keys()
-                return True
-            
-            # 使用線程池執行超時測試
-            with ThreadPoolExecutor() as executor:
-                future = executor.submit(test_algolia_connection)
-                try:
-                    future.result(timeout=3)  # 3 秒超時
-                    print("✅ Algolia 配置完整且連接成功")
-                    return True
-                except FutureTimeoutError:
-                    print("⚠️  Algolia 連接超時，已禁用搜尋功能")
-                    INSTALLED_APPS = [app for app in INSTALLED_APPS if app != 'algoliasearch_django']
-                    return False
-                except Exception as e:
-                    print(f"⚠️  Algolia 連接失敗: {e}")
-                    INSTALLED_APPS = [app for app in INSTALLED_APPS if app != 'algoliasearch_django']
-                    return False
-        else:
-            # Unix 系統使用 signal
-            import signal
-            import algoliasearch
-            
-            def timeout_handler(signum, frame):
-                raise TimeoutError("Algolia 連接超時")
-            
-            # 設置 3 秒超時
-            signal.signal(signal.SIGALRM, timeout_handler)
-            signal.alarm(3)
-            
-            try:
-                # 創建客戶端並測試連接（支援新舊版本 API）
-                try:
-                    # 新版本 API (v3+)
-                    from algoliasearch.search_client import SearchClient
-                    client = SearchClient.create(ALGOLIA_APPLICATION_ID, ALGOLIA_API_KEY)
-                    client.list_api_keys()
-                except (ImportError, AttributeError):
-                    # 舊版本 API (v2)
-                    client = algoliasearch.Client(ALGOLIA_APPLICATION_ID, ALGOLIA_API_KEY)
-                    client.list_api_keys()
-                    
-                signal.alarm(0)  # 取消超時
-                print("✅ Algolia 配置完整且連接成功")
-                return True
-                
-            except (TimeoutError, Exception) as e:
-                signal.alarm(0)  # 取消超時
-                print(f"⚠️  Algolia 連接失敗: {e}")
-                print("   已禁用 Algolia 搜尋功能，將使用數據庫搜尋作為備用方案")
-                INSTALLED_APPS = [app for app in INSTALLED_APPS if app != 'algoliasearch_django']
-                return False
-                
+        import algoliasearch
+        print("⚠️  Algolia 配置存在但跳過連接測試以避免卡住")
+        print("   如需啟用搜尋功能，請手動驗證 Algolia 配置")
+        INSTALLED_APPS = [app for app in INSTALLED_APPS if app != 'algoliasearch_django']
+        return False
     except ImportError:
         print("⚠️  algoliasearch 套件未安裝，已禁用搜尋功能")
         INSTALLED_APPS = [app for app in INSTALLED_APPS if app != 'algoliasearch_django']

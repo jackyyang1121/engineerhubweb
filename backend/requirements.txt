@@ -18,6 +18,7 @@ cryptography
 Pillow==10.0.1
 django-storages==1.14.2
 boto3==1.29.7
+whitenoise==6.6.0
 
 # ==================== 程式碼高亮 ====================
 Pygments==2.16.1
