@@ -9,7 +9,7 @@ EngineerHub - 貼文推薦系統
 
 import logging
 import random
-from typing import List, Dict, Any, Optional
+from typing import List, Dict, Any, Optional, TYPE_CHECKING
 from datetime import datetime, timedelta
 from django.db.models import Q, Count, F, Avg, Case, When, IntegerField
 from django.contrib.auth import get_user_model
@@ -20,6 +20,9 @@ from sklearn.metrics.pairwise import cosine_similarity
 import numpy as np
 from .models import Post, Like, Comment, PostView
 from users.models import Follow
+
+if TYPE_CHECKING:
+    from django.contrib.auth.models import AbstractUser
 
 # 設置日誌記錄器
 logger = logging.getLogger('engineerhub.recommendation')
@@ -48,7 +51,7 @@ class RecommendationEngine:
             'personalized': 0.2  # 個性化推薦權重
         }
     
-    def get_feed_recommendations(self, user: User, page: int = 1, 
+    def get_feed_recommendations(self, user: "AbstractUser", page: int = 1, 
                                page_size: int = 20) -> Dict[str, Any]:
         """
         獲取用戶個人化信息流推薦
@@ -129,7 +132,7 @@ class RecommendationEngine:
                 'error': str(e)
             }
     
-    def _get_following_posts(self, user: "User", limit: int) -> List[Dict[str, Any]]:
+    def _get_following_posts(self, user: "AbstractUser", limit: int) -> List[Dict[str, Any]]:
         """
         獲取追蹤用戶的貼文
         
@@ -160,7 +163,7 @@ class RecommendationEngine:
             logger.error(f"獲取追蹤用戶貼文失敗: {str(e)}")
             return []
     
-    def _get_trending_posts(self, user: "User", limit: int, exclude_ids: List[str] = None) -> List[Dict[str, Any]]:
+    def _get_trending_posts(self, user: "AbstractUser", limit: int, exclude_ids: List[str] = None) -> List[Dict[str, Any]]:
         """
         獲取熱門貼文
         
@@ -196,7 +199,7 @@ class RecommendationEngine:
             logger.error(f"獲取熱門貼文失敗: {str(e)}")
             return []
     
-    def _get_personalized_posts(self, user: "User", limit: int, exclude_ids: List[str] = None) -> List[Dict[str, Any]]:
+    def _get_personalized_posts(self, user: "AbstractUser", limit: int, exclude_ids: List[str] = None) -> List[Dict[str, Any]]:
         """
         獲取個性化推薦貼文
         
@@ -263,7 +266,7 @@ class RecommendationEngine:
             logger.error(f"獲取個性化推薦失敗: {str(e)}")
             return []
     
-    def _get_user_interactions(self, user: "User", days: int = 30) -> List[Dict[str, Any]]:
+    def _get_user_interactions(self, user: "AbstractUser", days: int = 30) -> List[Dict[str, Any]]:
         """
         獲取用戶最近的互動記錄
         
@@ -400,7 +403,7 @@ class RecommendationEngine:
             logger.error(f"序列化貼文失敗: {str(e)}")
             return []
     
-    def update_user_preferences(self, user: User, post: Post, action: str):
+    def update_user_preferences(self, user: "AbstractUser", post: Post, action: str):
         """
         更新用戶偏好（基於用戶行為）
         
@@ -515,7 +518,7 @@ class RecommendationAnalytics:
     """
     
     @staticmethod
-    def calculate_ctr(user: "User", days: int = 7) -> float:
+    def calculate_ctr(user: "AbstractUser", days: int = 7) -> float:
         """
         計算點擊率（Click-Through Rate）
         
