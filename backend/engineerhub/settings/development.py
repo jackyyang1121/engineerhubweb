@@ -33,6 +33,19 @@ try:
 except ImportError:
     print("⚠️  Debug Toolbar 未安裝，跳過")
 
+# ==================== 開發環境 CSRF 設置 ====================
+# 對於開發環境，我們可以放寬 CSRF 檢查以便於前端開發
+CSRF_COOKIE_SECURE = False
+CSRF_COOKIE_HTTPONLY = False
+CSRF_COOKIE_SAMESITE = 'Lax'
+CSRF_USE_SESSIONS = False
+
+# ==================== DRF 開發環境設置 ====================
+# 修改 dj-rest-auth 配置以便於開發
+REST_AUTH.update({
+    'SESSION_LOGIN': False,  # 禁用會話登入，只使用 JWT
+})
+
 # ==================== 郵件設置 ====================
 EMAIL_BACKEND = 'django.core.mail.backends.console.EmailBackend'
 

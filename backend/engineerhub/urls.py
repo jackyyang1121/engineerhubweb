@@ -4,6 +4,7 @@ from django.conf import settings
 from django.conf.urls.static import static
 from django.shortcuts import redirect
 from django.http import HttpResponse
+from django.views.decorators.csrf import csrf_exempt
 from drf_spectacular.views import SpectacularAPIView, SpectacularSwaggerView, SpectacularRedocView
 
 # 根路径視圖 - 重定向到 API 文檔
@@ -15,6 +16,10 @@ def root_view(request):
 def health_check(request):
     """健康检查端点"""
     return HttpResponse('OK', content_type='text/plain')
+
+# 包裝 dj-rest-auth 的註冊視圖以免除 CSRF
+from dj_rest_auth.registration.views import RegisterView
+csrf_exempt_register_view = csrf_exempt(RegisterView.as_view())
 
 urlpatterns = [
     # 根路径 - 重定向到 API 文檔
@@ -38,7 +43,9 @@ urlpatterns = [
     
     # 認證API
     path('api/auth/', include('dj_rest_auth.urls')),
-    path('api/auth/registration/', include('dj_rest_auth.registration.urls')),
+    
+    # 自定義註冊端點（免除 CSRF）
+    path('api/auth/registration/', csrf_exempt_register_view, name='rest_register'),
     
     # 社交登入 (AllAuth)
     path('accounts/', include('allauth.urls')),
