@@ -1,0 +1,3 @@
+#!/bin/bash
+# 快速修复卡住的终端机
+timeout 30s ./終端機卡住修復/fix_stuck_terminal.sh 

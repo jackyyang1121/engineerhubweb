@@ -510,7 +510,7 @@ ORPHANED_FILE_CLEANUP_DAYS = 7
 # ==================== Algolia 配置檢查和動態載入 ====================
 def configure_algolia():
     """
-    安全配置 Algolia，避免在配置不完整時卡住
+    安全配置 Algolia，啟用連接測試
     """
     global INSTALLED_APPS
     
@@ -522,19 +522,31 @@ def configure_algolia():
         print("   請設置 ALGOLIA_APPLICATION_ID 和 ALGOLIA_API_KEY 環境變數")
         return False
     
-    # 簡化處理：直接跳過連接測試，避免卡住
+    # 啟用真正的連接測試
     try:
-        import algoliasearch
-        print("⚠️  Algolia 配置存在但跳過連接測試以避免卡住")
-        print("   如需啟用搜尋功能，請手動驗證 Algolia 配置")
-        INSTALLED_APPS = [app for app in INSTALLED_APPS if app != 'algoliasearch_django']
-        return False
+        from algoliasearch.search_client import SearchClient
+        # 建立 Algolia 客戶端並測試連接
+        client = SearchClient.create(ALGOLIA_APPLICATION_ID, ALGOLIA_API_KEY)
+        
+        # 測試連接（列出索引，不需要特定索引存在）
+        print("🔍 正在測試 Algolia 連接...")
+        indices = client.list_indices()
+        print(f"✅ Algolia 連接成功！應用 ID: {ALGOLIA_APPLICATION_ID}")
+        print(f"   現有索引數量: {len(indices['items'])}")
+        
+        # 確保 algoliasearch_django 在 INSTALLED_APPS 中
+        if 'algoliasearch_django' not in INSTALLED_APPS:
+            INSTALLED_APPS.append('algoliasearch_django')
+        
+        return True
+        
     except ImportError:
         print("⚠️  algoliasearch 套件未安裝，已禁用搜尋功能")
         INSTALLED_APPS = [app for app in INSTALLED_APPS if app != 'algoliasearch_django']
         return False
     except Exception as e:
-        print(f"⚠️  Algolia 配置錯誤: {e}")
+        print(f"❌ Algolia 連接測試失敗: {e}")
+        print("   請檢查您的 ALGOLIA_APPLICATION_ID 和 ALGOLIA_API_KEY 是否正確")
         INSTALLED_APPS = [app for app in INSTALLED_APPS if app != 'algoliasearch_django']
         return False
 
@@ -550,8 +562,15 @@ try:
         'API_KEY': ALGOLIA_API_KEY,
         'SEARCH_API_KEY': config('ALGOLIA_SEARCH_API_KEY', default=''),
         'INDEX_PREFIX': config('ALGOLIA_INDEX_PREFIX', default='engineerhub'),
-        'ENABLED': USE_ALGOLIA,
+        'ENABLED': algolia_configured,  # 使用實際的連接測試結果
     }
+    
+    # 如果 Algolia 成功啟用，設置相關配置
+    if algolia_configured:
+        # Algolia 索引配置
+        ALGOLIA_INDEX_PREFIX = config('ALGOLIA_INDEX_PREFIX', default='engineerhub')
+        print(f"🔍 Algolia 搜尋功能已啟用，索引前綴: {ALGOLIA_INDEX_PREFIX}")
+    
 except Exception as e:
     print(f"⚠️  Algolia 配置過程發生錯誤: {e}")
     INSTALLED_APPS = [app for app in INSTALLED_APPS if app != 'algoliasearch_django']
