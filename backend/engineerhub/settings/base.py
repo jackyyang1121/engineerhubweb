@@ -62,7 +62,7 @@ THIRD_PARTY_APPS = [
     'django_celery_beat',
     'django_celery_results',
     
-    # 搜尋服務
+    # 搜尋服務（可能被動態移除）
     'algoliasearch_django',
     
     # 開發工具
@@ -400,17 +400,6 @@ SPECTACULAR_SETTINGS = {
 ALGOLIA_APPLICATION_ID = config('ALGOLIA_APPLICATION_ID', default='')
 ALGOLIA_API_KEY = config('ALGOLIA_API_KEY', default='')
 
-# 如果未配置 Algolia，將使用數據庫搜索作為備用方案
-USE_ALGOLIA = bool(ALGOLIA_APPLICATION_ID and ALGOLIA_API_KEY)
-
-ALGOLIA = {
-    'APPLICATION_ID': ALGOLIA_APPLICATION_ID,
-    'API_KEY': ALGOLIA_API_KEY,
-    'SEARCH_API_KEY': config('ALGOLIA_SEARCH_API_KEY', default=''),
-    'INDEX_PREFIX': config('ALGOLIA_INDEX_PREFIX', default='engineerhub'),
-    'ENABLED': USE_ALGOLIA,
-}
-
 # ==================== 安全設置 ====================
 SECURE_BROWSER_XSS_FILTER = True
 SECURE_CONTENT_TYPE_NOSNIFF = True
@@ -516,4 +505,123 @@ NOTIFICATION_RETENTION_DAYS = 30
 
 # 檔案清理配置
 TEMP_FILE_CLEANUP_HOURS = 24
-ORPHANED_FILE_CLEANUP_DAYS = 7 
+ORPHANED_FILE_CLEANUP_DAYS = 7
+
+# ==================== Algolia 配置檢查和動態載入 ====================
+def configure_algolia():
+    """
+    安全配置 Algolia，避免在配置不完整時卡住
+    """
+    global INSTALLED_APPS
+    
+    # 檢查 Algolia 配置是否完整
+    if not ALGOLIA_APPLICATION_ID or not ALGOLIA_API_KEY:
+        # Algolia 配置不完整，移除 algoliasearch_django 避免卡住
+        INSTALLED_APPS = [app for app in INSTALLED_APPS if app != 'algoliasearch_django']
+        print("⚠️  Algolia 配置不完整，已禁用搜尋功能")
+        print("   請設置 ALGOLIA_APPLICATION_ID 和 ALGOLIA_API_KEY 環境變數")
+        return False
+    
+    try:
+        # 在 Windows 上使用 threading 替代 signal
+        if os.name == 'nt':  # Windows
+            from concurrent.futures import ThreadPoolExecutor, TimeoutError as FutureTimeoutError
+            import algoliasearch
+            
+            def test_algolia_connection():
+                # 嘗試不同版本的 Algolia API
+                try:
+                    # 新版本 API (v3+)
+                    from algoliasearch.search_client import SearchClient
+                    client = SearchClient.create(ALGOLIA_APPLICATION_ID, ALGOLIA_API_KEY)
+                    client.list_api_keys()
+                except (ImportError, AttributeError):
+                    # 舊版本 API (v2)
+                    client = algoliasearch.Client(ALGOLIA_APPLICATION_ID, ALGOLIA_API_KEY)
+                    client.list_api_keys()
+                return True
+            
+            # 使用線程池執行超時測試
+            with ThreadPoolExecutor() as executor:
+                future = executor.submit(test_algolia_connection)
+                try:
+                    future.result(timeout=3)  # 3 秒超時
+                    print("✅ Algolia 配置完整且連接成功")
+                    return True
+                except FutureTimeoutError:
+                    print("⚠️  Algolia 連接超時，已禁用搜尋功能")
+                    INSTALLED_APPS = [app for app in INSTALLED_APPS if app != 'algoliasearch_django']
+                    return False
+                except Exception as e:
+                    print(f"⚠️  Algolia 連接失敗: {e}")
+                    INSTALLED_APPS = [app for app in INSTALLED_APPS if app != 'algoliasearch_django']
+                    return False
+        else:
+            # Unix 系統使用 signal
+            import signal
+            import algoliasearch
+            
+            def timeout_handler(signum, frame):
+                raise TimeoutError("Algolia 連接超時")
+            
+            # 設置 3 秒超時
+            signal.signal(signal.SIGALRM, timeout_handler)
+            signal.alarm(3)
+            
+            try:
+                # 創建客戶端並測試連接（支援新舊版本 API）
+                try:
+                    # 新版本 API (v3+)
+                    from algoliasearch.search_client import SearchClient
+                    client = SearchClient.create(ALGOLIA_APPLICATION_ID, ALGOLIA_API_KEY)
+                    client.list_api_keys()
+                except (ImportError, AttributeError):
+                    # 舊版本 API (v2)
+                    client = algoliasearch.Client(ALGOLIA_APPLICATION_ID, ALGOLIA_API_KEY)
+                    client.list_api_keys()
+                    
+                signal.alarm(0)  # 取消超時
+                print("✅ Algolia 配置完整且連接成功")
+                return True
+                
+            except (TimeoutError, Exception) as e:
+                signal.alarm(0)  # 取消超時
+                print(f"⚠️  Algolia 連接失敗: {e}")
+                print("   已禁用 Algolia 搜尋功能，將使用數據庫搜尋作為備用方案")
+                INSTALLED_APPS = [app for app in INSTALLED_APPS if app != 'algoliasearch_django']
+                return False
+                
+    except ImportError:
+        print("⚠️  algoliasearch 套件未安裝，已禁用搜尋功能")
+        INSTALLED_APPS = [app for app in INSTALLED_APPS if app != 'algoliasearch_django']
+        return False
+    except Exception as e:
+        print(f"⚠️  Algolia 配置錯誤: {e}")
+        INSTALLED_APPS = [app for app in INSTALLED_APPS if app != 'algoliasearch_django']
+        return False
+
+# 執行 Algolia 配置
+try:
+    algolia_configured = configure_algolia()
+    # 更新 USE_ALGOLIA 設定
+    USE_ALGOLIA = algolia_configured
+    
+    # 設置 Algolia 配置字典
+    ALGOLIA = {
+        'APPLICATION_ID': ALGOLIA_APPLICATION_ID,
+        'API_KEY': ALGOLIA_API_KEY,
+        'SEARCH_API_KEY': config('ALGOLIA_SEARCH_API_KEY', default=''),
+        'INDEX_PREFIX': config('ALGOLIA_INDEX_PREFIX', default='engineerhub'),
+        'ENABLED': USE_ALGOLIA,
+    }
+except Exception as e:
+    print(f"⚠️  Algolia 配置過程發生錯誤: {e}")
+    INSTALLED_APPS = [app for app in INSTALLED_APPS if app != 'algoliasearch_django']
+    USE_ALGOLIA = False
+    ALGOLIA = {
+        'APPLICATION_ID': '',
+        'API_KEY': '',
+        'SEARCH_API_KEY': '',
+        'INDEX_PREFIX': 'engineerhub',
+        'ENABLED': False,
+    } 
