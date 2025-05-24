@@ -25,7 +25,12 @@ export const register = async (userData: RegisterData): Promise<TokenResponse> =
 
 // 使用電子郵件和密碼登入
 export const login = async (credentials: LoginData): Promise<TokenResponse> => {
-  const response = await api.post('/auth/login/', credentials);
+  // 將 email 轉換為 username，因為 SimpleLoginView 期望 username 字段
+  const loginData = {
+    username: credentials.email,  // 後端用戶名字段可以接受郵箱
+    password: credentials.password
+  };
+  const response = await api.post('/auth/login/', loginData);
   return response.data;
 };
 

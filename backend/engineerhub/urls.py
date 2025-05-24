@@ -4,7 +4,8 @@ from django.conf import settings
 from django.conf.urls.static import static
 from django.shortcuts import redirect
 from django.http import HttpResponse
-from django.views.decorators.csrf import csrf_exempt
+from django.views.decorators.csrf import csrf_exempt, ensure_csrf_cookie
+from django.middleware.csrf import get_token
 from drf_spectacular.views import SpectacularAPIView, SpectacularSwaggerView, SpectacularRedocView
 
 # 根路径視圖 - 重定向到 API 文檔
@@ -17,6 +18,12 @@ def health_check(request):
     """健康检查端点"""
     return HttpResponse('OK', content_type='text/plain')
 
+# CSRF token 端點
+@ensure_csrf_cookie
+def csrf_token_view(request):
+    """提供 CSRF token 給前端"""
+    return HttpResponse('{"detail": "CSRF cookie set"}', content_type='application/json')
+
 # 包裝簡化的註冊和登入視圖
 from accounts.views import SimpleRegistrationView, SimpleLoginView
 simple_register_view = csrf_exempt(SimpleRegistrationView.as_view())
@@ -28,6 +35,9 @@ urlpatterns = [
     
     # 健康檢查
     path('health/', health_check, name='health-check'),
+    
+    # CSRF token 端點
+    path('api/csrf/', csrf_token_view, name='csrf-token'),
     
     # 管理員界面
     path('admin/', admin.site.urls),
@@ -42,11 +52,11 @@ urlpatterns = [
     path('api/posts/', include('posts.urls')),
     path('api/chat/', include('chat.urls')),
     
-    # 簡化的認證端點（免除 CSRF）
+    # 簡化的認證端點（免除 CSRF）- 推薦用於前端
     path('api/auth/login/', simple_login_view, name='simple_login'),
     path('api/auth/registration/', simple_register_view, name='simple_register'),
     
-    # 其他認證API (dj-rest-auth)
+    # 其他認證API (dj-rest-auth) - 需要 CSRF token
     path('api/auth/', include('dj_rest_auth.urls')),
     
     # 社交登入 (AllAuth)

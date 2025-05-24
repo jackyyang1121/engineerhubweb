@@ -158,6 +158,7 @@ class SimpleRegistrationView(generics.CreateAPIView):
 class SimpleLoginView(generics.GenericAPIView):
     """
     簡化的用戶登入視圖
+    支持郵箱或用戶名登入
     """
     permission_classes = [AllowAny]
     
@@ -165,22 +166,32 @@ class SimpleLoginView(generics.GenericAPIView):
         """處理登入請求"""
         data = request.data
         
-        username = data.get('username', '').strip()
+        # 支持 username 或 email 字段
+        username_or_email = data.get('username') or data.get('email', '').strip()
         password = data.get('password', '')
         
-        if not username or not password:
+        if not username_or_email or not password:
             return Response(
-                {'error': '用戶名和密碼是必填的'},
+                {'error': '用戶名/郵箱和密碼是必填的'},
                 status=status.HTTP_400_BAD_REQUEST
             )
         
-        # 嘗試驗證用戶
+        # 嘗試用戶名驗證
         from django.contrib.auth import authenticate
-        user = authenticate(username=username, password=password)
+        user = authenticate(username=username_or_email, password=password)
+        
+        # 如果用戶名驗證失敗，嘗試郵箱驗證
+        if user is None and '@' in username_or_email:
+            # 通過郵箱查找用戶
+            try:
+                user_by_email = User.objects.get(email=username_or_email)
+                user = authenticate(username=user_by_email.username, password=password)
+            except User.DoesNotExist:
+                pass
         
         if user is None:
             return Response(
-                {'error': '用戶名或密碼錯誤'},
+                {'error': '用戶名/郵箱或密碼錯誤'},
                 status=status.HTTP_401_UNAUTHORIZED
             )
         
