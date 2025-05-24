@@ -157,38 +157,77 @@ graph TB
 
 - **Node.js** >= 18.0
 - **Python** >= 3.9
-- **PostgreSQL** >= 13
-- **Redis** >= 6.0
-- **Elasticsearch** >= 8.0 (可選)
+- **Docker Desktop** >= 4.0 (推薦)
+- **PostgreSQL** >= 13 (或使用 Docker)
+- **Redis** >= 6.0 (或使用 Docker)
 
 ### 🔧 安裝步驟
 
-#### 1. 克隆專案
+> **⚠️ Windows Git Bash 用戶注意**
+> 
+> 如果您使用 **Windows Git Bash**，建議使用 **Docker 方式**或切換到 **PowerShell/CMD**，
+> 以避免與某些 Python 包的兼容性問題。
+
+#### 方式一：Docker 部署（推薦）
 
 ```bash
+# 1. 克隆專案
 git clone https://github.com/your-username/engineerhubweb.git
 cd engineerhubweb
+
+# 2. 啟動資料庫服務
+docker-compose -f docker-compose.dev.yml up -d postgres redis
+
+# 3. 後端設置（使用 Docker）
+# 複製環境變數範本
+cp backend/env_example.txt backend/.env
+# 編輯 backend/.env 文件，設置必要的配置
+
+# 執行資料庫遷移
+docker-compose -f docker-compose.dev.yml run --rm django python manage.py migrate
+
+# 創建超級用戶
+docker-compose -f docker-compose.dev.yml run --rm django python manage.py createsuperuser
+
+# 4. 前端設置
+cd frontend
+npm install
+
+# 5. 啟動服務
+# 啟動後端（使用 Docker）
+docker-compose -f docker-compose.dev.yml up django
+
+# 啟動前端（在新終端）
+cd frontend && npm run dev
 ```
 
-#### 2. 後端設置
+#### 方式二：本地環境部署
+
+> **適用於 PowerShell、CMD 或 Linux/macOS 終端**
 
 ```bash
-# 進入後端目錄
+# 1. 克隆專案
+git clone https://github.com/your-username/engineerhubweb.git
+cd engineerhubweb
+
+# 2. 啟動資料庫服務（使用 Docker）
+docker-compose -f docker-compose.dev.yml up -d postgres redis
+
+# 3. 後端設置
 cd backend
 
 # 創建虛擬環境
-python -m venv venv
-source venv/bin/activate  # Windows: venv\Scripts\activate
+conda create -n engineerhubweb python=3.11
+conda activate engineerhubweb
 
 # 安裝依賴
 pip install -r requirements.txt
 
 # 環境變量配置
-cp .env.example .env
+cp env_example.txt .env
 # 編輯 .env 文件，設置數據庫連接等配置
 
 # 數據庫遷移
-python manage.py makemigrations
 python manage.py migrate
 
 # 創建超級用戶
@@ -196,40 +235,62 @@ python manage.py createsuperuser
 
 # 啟動後端服務
 python manage.py runserver
-```
 
-#### 3. 前端設置
-
-```bash
-# 新開終端，進入前端目錄
+# 4. 前端設置（新開終端）
 cd frontend
-
-# 安裝依賴
 npm install
-
-# 啟動開發服務器
 npm run dev
 ```
 
-#### 4. 訪問應用
+#### 方式三：完全 Docker 部署
+
+```bash
+# 克隆專案
+git clone https://github.com/your-username/engineerhubweb.git
+cd engineerhubweb
+
+# 一鍵啟動所有服務
+docker-compose -f docker-compose.dev.yml up
+
+# 前端需要單獨啟動（在新終端）
+cd frontend
+npm install
+npm run dev
+```
+
+### 🌐 訪問應用
+
+完成安裝後，您可以訪問以下地址：
 
 - **前端應用**：http://localhost:5173
 - **後端API**：http://localhost:8000
 - **API文檔**：http://localhost:8000/api/docs/
-- **管理後台**：http://localhost:8000/admin/
+- **管理後台**：http://localhost:8000/admin/ （用戶名：admin，密碼：admin123）
+- **資料庫管理**：http://localhost:8080 (Adminer，僅 Docker 方式)
 
-### 🐳 Docker 部署
+### 🔧 常用 Docker 命令
 
 ```bash
-# 使用 Docker Compose 一鍵啟動
-docker-compose up -d
-
 # 查看服務狀態
-docker-compose ps
+docker-compose -f docker-compose.dev.yml ps
 
 # 查看日誌
-docker-compose logs -f
+docker-compose -f docker-compose.dev.yml logs django
+
+# 停止服務
+docker-compose -f docker-compose.dev.yml down
+
+# 重新啟動
+docker-compose -f docker-compose.dev.yml restart
+
+# 執行 Django 管理命令
+docker-compose -f docker-compose.dev.yml run --rm django python manage.py <command>
 ```
+
+### 📖 詳細安裝指南
+
+如需更詳細的安裝說明和故障排除，請參考：
+- 📋 [**完整安裝設置指南**](SETUP_GUIDE.md) - 包含詳細步驟和問題解決方案
 
 ---
 

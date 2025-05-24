@@ -103,38 +103,75 @@ search_service.search_posts(
 
 ## 🚀 快速開始
 
-### 📋 環境要求
+> **⚠️ Windows Git Bash 用戶注意**
+> 
+> 如果您使用 **Windows Git Bash**，建議使用 **Docker 方式**或切換到 **PowerShell/CMD**，
+> 以避免與某些 Python 包的兼容性問題。詳細說明請參考 [SETUP_GUIDE.md](SETUP_GUIDE.md)。
 
-- **Node.js** >= 18.0
-- **Python** >= 3.9
-- **PostgreSQL** >= 13
-- **Redis** >= 6.0
-- **Algolia 帳號**：需要 APPLICATION_ID 和 API_KEY
+### 方式一：Docker 部署（推薦）
 
-### 🔧 安裝步驟
-
-1. **克隆專案**
+1. **克隆專案並啟動資料庫**
    ```bash
    git clone <repository-url>
    cd engineerhubweb
+   
+   # 啟動資料庫服務
+   docker-compose -f docker-compose.dev.yml up -d postgres redis
+   ```
+
+2. **後端設置（使用 Docker）**
+   ```bash
+   # 配置環境變數
+   cp backend/env_example.txt backend/.env
+   # 編輯 backend/.env 文件，添加 Algolia 配置：
+   # ALGOLIA_APPLICATION_ID=your_app_id
+   # ALGOLIA_API_KEY=your_admin_api_key
+   
+   # 執行資料庫遷移
+   docker-compose -f docker-compose.dev.yml run --rm django python manage.py migrate
+   
+   # 建立搜尋索引
+   docker-compose -f docker-compose.dev.yml run --rm django python manage.py algolia_reindex
+   
+   # 啟動後端服務
+   docker-compose -f docker-compose.dev.yml up django
+   ```
+
+3. **前端設置**
+   ```bash
+   cd frontend
+   npm install
+   npm run dev
+   ```
+
+### 方式二：本地環境部署
+
+> **適用於 PowerShell、CMD 或 Linux/macOS 終端**
+
+1. **克隆專案並啟動資料庫**
+   ```bash
+   git clone <repository-url>
+   cd engineerhubweb
+   
+   # 啟動資料庫服務（使用 Docker）
+   docker-compose -f docker-compose.dev.yml up -d postgres redis
    ```
 
 2. **後端設置**
    ```bash
    cd backend
-   conda create -n engineerhubweb 
+   conda create -n engineerhubweb python=3.11
    conda activate engineerhubweb
    pip install -r requirements.txt
    
    # 配置環境變數
-   cp .env.example .env
+   cp env_example.txt .env
    # 編輯 .env 文件，添加 Algolia 配置：
    # ALGOLIA_APPLICATION_ID=your_app_id
    # ALGOLIA_API_KEY=your_admin_api_key
    
-   python manage.py makemigrations
    python manage.py migrate
-   python manage.py algolia_reindex --verbose  # 建立搜尋索引
+   python manage.py algolia_reindex
    python manage.py runserver
    ```
 
@@ -149,12 +186,41 @@ search_service.search_posts(
    - 前端：http://localhost:5173
    - 後端API：http://localhost:8000
    - API文檔：http://localhost:8000/api/docs/
+   - 資料庫管理：http://localhost:8080 (Adminer，僅 Docker 方式)
 
 ## 🔍 搜尋系統管理
 
 ### 🛠️ 索引管理命令
 
+#### 使用 Docker 執行（推薦）
+
 ```bash
+# 重新建立所有索引
+docker-compose -f docker-compose.dev.yml run --rm django python manage.py algolia_reindex
+
+# 只重新索引貼文
+docker-compose -f docker-compose.dev.yml run --rm django python manage.py algolia_reindex --model Post
+
+# 只重新索引用戶
+docker-compose -f docker-compose.dev.yml run --rm django python manage.py algolia_reindex --model User
+
+# 清除現有索引後重建
+docker-compose -f docker-compose.dev.yml run --rm django python manage.py algolia_reindex --clear
+
+# 批次處理（預設1000筆）
+docker-compose -f docker-compose.dev.yml run --rm django python manage.py algolia_reindex --batchsize 500
+
+# 顯示詳細過程
+docker-compose -f docker-compose.dev.yml run --rm django python manage.py algolia_reindex -v 2
+```
+
+#### 本地環境執行
+
+> **注意**：需要在兼容的終端（PowerShell/CMD/Linux/macOS）中執行
+
+```bash
+cd backend
+
 # 重新建立所有索引
 python manage.py algolia_reindex
 
@@ -168,10 +234,10 @@ python manage.py algolia_reindex --model User
 python manage.py algolia_reindex --clear
 
 # 批次處理（預設1000筆）
-python manage.py algolia_reindex --batch-size 500
+python manage.py algolia_reindex --batchsize 500
 
 # 顯示詳細過程
-python manage.py algolia_reindex --verbose
+python manage.py algolia_reindex -v 2
 ```
 
 ### 📊 搜尋 API 端點
@@ -275,9 +341,16 @@ SEARCH_CACHE_TIMEOUT = 300  # 5分鐘
 ## 🆘 常見問題
 
 ### Q: 如何重置搜尋索引？
+
+**使用 Docker（推薦）：**
+```bash
+docker-compose -f docker-compose.dev.yml run --rm django python manage.py algolia_reindex --clear -v 2
+```
+
+**本地環境：**
 ```bash
 cd backend
-python manage.py algolia_reindex --clear --verbose
+python manage.py algolia_reindex --clear -v 2
 ```
 
 ### Q: 搜尋功能不工作？
@@ -285,12 +358,29 @@ python manage.py algolia_reindex --clear --verbose
 1. Algolia 配置是否正確
 2. 索引是否已建立
 3. API 金鑰權限是否足夠
+
+**使用 Docker 測試連接：**
 ```bash
-# 測試 Algolia 連接
+docker-compose -f docker-compose.dev.yml run --rm django python manage.py shell
+>>> from core.search import search_service
+>>> search_service.posts_index.search('test')
+```
+
+**本地環境測試：**
+```bash
+cd backend
 python manage.py shell
 >>> from core.search import search_service
 >>> search_service.posts_index.search('test')
 ```
+
+### Q: 在 Windows Git Bash 中遇到兼容性問題？
+**解決方案：**
+1. **使用 Docker 方式**（強烈推薦）
+2. **切換到 PowerShell 或 CMD**
+3. **在 VS Code 中使用集成終端**
+
+詳細解決方案請參考 [SETUP_GUIDE.md](SETUP_GUIDE.md#windows-git-bash-兼容性問題解決)
 
 ### Q: 如何監控搜尋性能？
 1. 查看 Algolia Dashboard 的分析頁面
@@ -299,7 +389,9 @@ python manage.py shell
 
 ### Q: 如何添加新的搜尋欄位？
 1. 更新模型的搜尋索引配置 (`posts/search_indexes.py`)
-2. 重新建立索引 (`python manage.py algolia_reindex`)
+2. 重新建立索引：
+   - Docker: `docker-compose -f docker-compose.dev.yml run --rm django python manage.py algolia_reindex`
+   - 本地: `python manage.py algolia_reindex`
 3. 更新前端搜尋界面
 
 ## 💡 進階功能

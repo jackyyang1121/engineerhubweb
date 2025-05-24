@@ -26,8 +26,8 @@
 3. 創建新的應用程式
 4. 記錄以下資訊：
    - `Application ID`
-   - `Admin API Key`
-
+   - `Search API Key`
+   - `Write API Key`
 ### 2. Google OAuth 認證
 1. 前往 [Google Cloud Console](https://console.cloud.google.com/)
 2. 創建新專案或選擇現有專案
@@ -298,9 +298,50 @@ CORS_ALLOWED_ORIGINS=http://localhost:3000,http://127.0.0.1:3000,http://localhos
 ```
 
 #### 3.4 資料庫遷移
+
+> **⚠️ 重要提醒：Git Bash 兼容性問題**
+> 
+> 如果您在 **Windows Git Bash** 環境中遇到以下錯誤：
+> - `TP_NUM_C_BUFS too small: 50`
+> - Django 啟動後卡住或異常終止
+> 
+> 這是 Git Bash (MSYS2) 與某些 Python 包（如 `redis`, `psycopg2`, `algoliasearch`）的已知兼容性問題。
+> 
+> **解決方案**：使用 Docker 方式或切換到 Windows PowerShell/CMD。
+
+**方式一：使用 Docker 執行（推薦，避免兼容性問題）**
+
 ```bash
+# 確保資料庫容器運行
+docker-compose -f docker-compose.dev.yml up -d postgres redis
+
+# 使用 Docker 執行 Django 命令
+cd 到專案根目錄
+
+# 執行資料庫遷移
+docker-compose -f docker-compose.dev.yml run --rm django python manage.py makemigrations
+docker-compose -f docker-compose.dev.yml run --rm django python manage.py migrate
+
+# 創建超級用戶
+docker-compose -f docker-compose.dev.yml run --rm django python manage.py createsuperuser
+
+# 批次處理（預設1000筆）
+docker-compose -f docker-compose.dev.yml run --rm django python manage.py algolia_reindex --batchsize 500
+
+# 顯示詳細過程
+docker-compose -f docker-compose.dev.yml run --rm django python manage.py algolia_reindex -v 2
+```
+
+**方式二：本地環境執行（需要兼容的終端）**
+
+如果您使用 **Windows PowerShell**、**CMD** 或 **Linux/macOS 終端**：
+
+```bash
+# 切換到後端目錄
+cd backend
+
 # 測試資料庫連接
-python manage.py dbshell --version
+python manage.py check
 
 # 執行資料庫遷移
 python manage.py makemigrations
@@ -309,8 +350,20 @@ python manage.py migrate
 # 創建超級用戶
 python manage.py createsuperuser
 
-# 建立搜尋索引
-python manage.py algolia_reindex --verbose
+# 批次處理（預設1000筆）
+python manage.py algolia_reindex --batchsize 500
+
+# 顯示詳細過程
+python manage.py algolia_reindex -v 2
+```
+
+**環境變數設置提醒**
+
+如果遇到啟動檢查過慢，可以在 `.env` 文件中添加：
+```env
+# 跳過啟動檢查（加快啟動速度）
+SKIP_STARTUP_CHECKS=true
+CHECK_SERVICES=false
 ```
 
 ### 步驟 4：前端設置
@@ -354,17 +407,37 @@ docker-compose -f docker-compose.dev.yml logs -f postgres redis
 ```
 
 #### 2. 後端啟動
+
+**方式一：使用 Docker 運行（推薦）**
+
+```bash
+# 啟動完整的開發環境（包括資料庫）
+docker-compose -f docker-compose.dev.yml up
+
+# 或者只啟動後端服務
+docker-compose -f docker-compose.dev.yml up django
+
+# 後端將運行在：http://localhost:8000
+```
+
+**方式二：本地環境運行**
+
 ```bash
 cd backend
 
 # 確保環境已激活
 conda activate engineerhubweb
 
+# 確保資料庫容器運行
+docker-compose -f docker-compose.dev.yml up -d postgres redis
+
 # 啟動 Django 開發伺服器
 python manage.py runserver
 
 # 後端將運行在：http://localhost:8000
 ```
+
+> **💡 提示**：如果在 Git Bash 中遇到兼容性問題，建議使用 Docker 方式或切換到 PowerShell/CMD。
 
 #### 3. 前端啟動
 ```bash
@@ -482,8 +555,19 @@ docker-compose -f docker-compose.dev.yml restart redis
 ### Django Admin 管理介面
 
 #### 訪問 Admin
-- URL：http://localhost:8000/admin/
-- 使用之前創建的超級用戶帳號登入
+- **URL**：http://localhost:8000/admin/
+- **用戶名**:admin
+- **密碼**：admin123
+- **說明**：使用上述超級用戶帳號登入管理後台
+
+> **💡 提示**：如需創建其他管理員用戶，可執行：
+> ```bash
+> # Docker 方式
+> docker-compose -f docker-compose.dev.yml run --rm django python manage.py createsuperuser
+> 
+> # 本地方式（需兼容終端）
+> python manage.py createsuperuser
+> ```
 
 #### 主要管理功能
 1. **用戶管理**
@@ -537,8 +621,11 @@ python manage.py algolia_reindex --model User
 # 清除現有索引後重建
 python manage.py algolia_reindex --clear
 
-# 批次處理
-python manage.py algolia_reindex --batch-size 500 --verbose
+# 批次處理（預設1000筆）
+docker-compose -f docker-compose.dev.yml run --rm django python manage.py algolia_reindex --batchsize 500
+
+# 顯示詳細過程
+docker-compose -f docker-compose.dev.yml run --rm django python manage.py algolia_reindex -v 2
 ```
 
 #### Algolia Dashboard
@@ -546,6 +633,110 @@ python manage.py algolia_reindex --batch-size 500 --verbose
 - 查看搜尋分析
 - 調整搜尋設置
 - 監控搜尋性能
+
+---
+
+## 🎛️ Windows Git Bash 兼容性問題解決
+
+### 問題描述
+
+在 **Windows Git Bash** 環境中，由於 MSYS2 與某些 Python C 擴展包的兼容性問題，可能會遇到：
+
+1. **錯誤訊息**：
+   ```
+   TP_NUM_C_BUFS too small: 50
+   Internal error: TP_NUM_C_BUFS too small: 50
+   ```
+
+2. **症狀**：
+   - Django 啟動檢查完成後程序異常終止
+   - `python manage.py` 命令執行到一半卡住
+   - 遷移命令無法正常完成
+
+3. **問題來源**：
+   - `redis` 包的 C 擴展
+   - `psycopg2-binary` PostgreSQL 驅動
+   - `algoliasearch-django` 搜索包
+   - `channels` WebSocket 包
+
+### 解決方案
+
+#### 方案 1：使用 Docker（強烈推薦）
+
+**優點**：完全隔離環境，避免所有兼容性問題
+
+```bash
+# 所有 Django 管理命令都通過 Docker 執行
+docker-compose -f docker-compose.dev.yml run --rm django python manage.py <command>
+
+# 常用命令範例：
+docker-compose -f docker-compose.dev.yml run --rm django python manage.py migrate
+docker-compose -f docker-compose.dev.yml run --rm django python manage.py createsuperuser
+docker-compose -f docker-compose.dev.yml run --rm django python manage.py collectstatic
+docker-compose -f docker-compose.dev.yml run --rm django python manage.py shell
+```
+
+#### 方案 2：切換終端環境
+
+**選項 A：使用 Windows PowerShell**
+```powershell
+# 在 PowerShell 中執行
+cd C:\Users\你的用戶名\Documents\Github\engineerhubweb\backend
+conda activate engineerhubweb
+python manage.py migrate
+```
+
+**選項 B：使用 Windows CMD**
+```cmd
+# 在 CMD 中執行
+cd /d C:\Users\你的用戶名\Documents\Github\engineerhubweb\backend
+conda activate engineerhubweb
+python manage.py migrate
+```
+
+**選項 C：在 VS Code 中使用集成終端**
+1. 打開 VS Code
+2. 打開專案文件夾
+3. 使用 `Ctrl + Shift + \`` 打開終端
+4. 在終端右上角選擇 "PowerShell" 或 "Command Prompt"
+
+#### 方案 3：暫時禁用問題檢查
+
+在 `backend/.env` 文件中添加：
+```env
+# 跳過啟動檢查，減少兼容性問題
+SKIP_STARTUP_CHECKS=true
+CHECK_SERVICES=false
+
+# 使用虛擬緩存（避免 Redis 連接問題）
+USE_DUMMY_CACHE=true
+```
+
+### 推薦的開發工作流
+
+#### 混合方式（推薦）
+
+1. **使用 Docker 執行管理命令**：
+   ```bash
+   # 資料庫操作
+   docker-compose -f docker-compose.dev.yml run --rm django python manage.py migrate
+   
+   # 創建用戶
+   docker-compose -f docker-compose.dev.yml run --rm django python manage.py createsuperuser
+   ```
+
+2. **使用本地環境開發**：
+   ```bash
+   # 在 PowerShell 或支持的終端中
+   cd backend
+   python manage.py runserver
+   ```
+
+3. **前端始終在本地運行**：
+   ```bash
+   cd frontend
+   npm run dev
+   ```
 
 ---
 
@@ -679,26 +870,94 @@ python manage.py algolia_reindex
 
 ### 🎯 開發工作流
 
+#### 方式一：完全 Docker 方式（推薦，避免兼容性問題）
+
 1. **開始開發**：
    ```bash
-   docker-compose -f docker-compose.dev.yml up -d  # 啟動資料庫
-   conda activate engineerhubweb                   # 激活 Python 環境
-   cd backend && python manage.py runserver        # 啟動後端
-   cd frontend && npm run dev                       # 啟動前端
+   # 啟動所有服務（資料庫 + 後端）
+   docker-compose -f docker-compose.dev.yml up
+   
+   # 在另一個終端啟動前端
+   cd frontend && npm run dev
    ```
 
-2. **結束開發**：
+2. **執行 Django 管理命令**：
+   ```bash
+   # 在新終端中執行
+   docker-compose -f docker-compose.dev.yml run --rm django python manage.py <command>
+   ```
+
+3. **結束開發**：
+   ```bash
+   # 停止所有服務（Ctrl+C）
+   docker-compose -f docker-compose.dev.yml down
+   ```
+
+#### 方式二：混合方式（本地開發 + Docker 資料庫）
+
+1. **開始開發**：
+   ```bash
+   # 只啟動資料庫服務
+   docker-compose -f docker-compose.dev.yml up -d postgres redis
+   
+   # 激活 Python 環境並啟動後端（在 PowerShell/CMD 中）
+   conda activate engineerhubweb
+   cd backend && python manage.py runserver
+   
+   # 啟動前端
+   cd frontend && npm run dev
+   ```
+
+2. **執行 Django 管理命令**：
+   ```bash
+   # 使用 Docker（推薦）
+   docker-compose -f docker-compose.dev.yml run --rm django python manage.py <command>
+   
+   # 或在本地執行（需要兼容的終端）
+   cd backend && python manage.py <command>
+   ```
+
+3. **結束開發**：
    ```bash
    # 停止前後端服務（Ctrl+C）
    docker-compose -f docker-compose.dev.yml stop   # 停止資料庫（可選）
    ```
 
-3. **清理環境**（需要時）：
-   ```bash
-   docker-compose -f docker-compose.dev.yml down   # 停止並移除容器
-   ```
+#### 方式三：快速測試（僅資料庫 Docker）
 
-開始享受開發吧！🚀
+```bash
+# 快速啟動資料庫
+docker-compose -f docker-compose.dev.yml up -d postgres redis
+
+# 本地運行（確保使用兼容的終端）
+cd backend && python manage.py runserver
+cd frontend && npm run dev
+```
+
+### 💡 開發提示
+
+- **Git Bash 用戶**：建議使用方式一（完全 Docker）
+- **PowerShell/CMD 用戶**：可以使用方式二（混合方式）
+- **Linux/macOS 用戶**：任何方式都可以
+
+### 🔧 常用 Docker 命令速查
+
+```bash
+# 查看服務狀態
+docker-compose -f docker-compose.dev.yml ps
+
+# 查看日誌
+docker-compose -f docker-compose.dev.yml logs django
+
+# 進入容器 shell
+docker-compose -f docker-compose.dev.yml exec django bash
+
+# 重啟特定服務
+docker-compose -f docker-compose.dev.yml restart django
+
+# 清理並重新啟動
+docker-compose -f docker-compose.dev.yml down && docker-compose -f docker-compose.dev.yml up -d
+```
 
 ---
 
@@ -711,4 +970,6 @@ python manage.py algolia_reindex
 4. 查看 Django 和 React 的官方文檔
 5. 檢查 Docker 和 Algolia 文檔
 
-**祝你開發愉快！** 🎊 
+**祝你開發愉快！**
+
+**開始享受開發吧！** 🚀 
