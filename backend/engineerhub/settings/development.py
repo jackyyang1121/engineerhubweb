@@ -41,11 +41,12 @@ CSRF_COOKIE_SAMESITE = 'Lax'
 CSRF_USE_SESSIONS = False
 
 # ==================== AllAuth 開發環境設置 ====================
-# 在開發環境中禁用郵件驗證以便於測試
+# 在開發環境中使用用戶名或郵件登入，並禁用郵件驗證以便於測試
+ACCOUNT_LOGIN_METHODS = {'username', 'email'}  # 支持用戶名或郵件登入
+ACCOUNT_SIGNUP_FIELDS = ['username*', 'email*', 'password1*']  # 開發環境簡化註冊
 ACCOUNT_EMAIL_VERIFICATION = 'none'  # 禁用郵件驗證
-ACCOUNT_EMAIL_REQUIRED = False       # 不強制要求郵件
+ACCOUNT_EMAIL_REQUIRED = True        # 保持郵件要求（因為要支持郵件登入）
 ACCOUNT_USERNAME_REQUIRED = True     # 保持用戶名要求
-ACCOUNT_SIGNUP_PASSWORD_ENTER_TWICE = False  # 不需要確認密碼
 
 # ==================== DRF 開發環境設置 ====================
 # 修改 dj-rest-auth 配置以便於開發

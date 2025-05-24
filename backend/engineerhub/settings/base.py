@@ -305,19 +305,26 @@ CSRF_TRUSTED_ORIGINS = [
 ]
 
 # ==================== AllAuth 和社交登入配置 ====================
-ACCOUNT_AUTHENTICATION_METHOD = 'email'
+# 使用新的設置格式（django-allauth 65.x+）
+ACCOUNT_LOGIN_METHODS = {'email'}  # 支持郵件登入
+ACCOUNT_SIGNUP_FIELDS = ['username*', 'email*', 'password1*', 'password2*']  # 註冊必填字段
 ACCOUNT_EMAIL_REQUIRED = True
 ACCOUNT_USERNAME_REQUIRED = True
 ACCOUNT_EMAIL_VERIFICATION = 'mandatory'
 ACCOUNT_CONFIRM_EMAIL_ON_GET = True
 ACCOUNT_EMAIL_CONFIRMATION_EXPIRE_DAYS = 7
-ACCOUNT_LOGIN_ATTEMPTS_LIMIT = 5
-ACCOUNT_LOGIN_ATTEMPTS_TIMEOUT = 300
 ACCOUNT_LOGOUT_ON_GET = True
 ACCOUNT_SESSION_REMEMBER = True
-ACCOUNT_SIGNUP_PASSWORD_ENTER_TWICE = False
 ACCOUNT_UNIQUE_EMAIL = True
 ACCOUNT_USERNAME_MIN_LENGTH = 3
+
+# 速率限制配置（新格式）
+ACCOUNT_RATE_LIMITS = {
+    "login_failed": "5/5m",      # 5次失敗登入/5分鐘
+    "signup": "20/m",            # 20次註冊/分鐘
+    "add_email": "5/h",          # 5次添加郵件/小時
+    "confirm_email": "5/h",      # 5次確認郵件/小時
+}
 
 # 社交認證配置
 SOCIALACCOUNT_PROVIDERS = {
