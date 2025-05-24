@@ -3,8 +3,8 @@ from django.urls import path, include
 from django.conf import settings
 from django.conf.urls.static import static
 from rest_framework import permissions
-from drf_yasg.views import get_schema_view
-from drf_yasg import openapi
+from drf_yasg.views import get_schema_view # type: ignore
+from drf_yasg import openapi # type: ignore
 
 # 創建Swagger視圖
 schema_view = get_schema_view(
@@ -34,9 +34,12 @@ urlpatterns = [
     path('api/chat/', include('chat.urls')),
     path('api/profiles/', include('profiles.urls')),
     
-    # 第三方API
+    # 認證API
     path('api/auth/', include('dj_rest_auth.urls')),
     path('api/auth/registration/', include('dj_rest_auth.registration.urls')),
+    
+    # 社交登入 (AllAuth)
+    path('accounts/', include('allauth.urls')),
 ]
 
 # 在開發環境中添加媒體文件的URL

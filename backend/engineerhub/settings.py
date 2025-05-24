@@ -599,19 +599,22 @@ if ENVIRONMENT == 'production':
     # Sentry 配置（需要安裝 sentry-sdk）
     SENTRY_DSN = os.environ.get('SENTRY_DSN')
     if SENTRY_DSN:
-        import sentry_sdk
-        from sentry_sdk.integrations.django import DjangoIntegration
-        from sentry_sdk.integrations.celery import CeleryIntegration
-        
-        sentry_sdk.init(
-            dsn=SENTRY_DSN,
-            integrations=[
-                DjangoIntegration(),
-                CeleryIntegration(),
-            ],
-            traces_sample_rate=0.1,
-            send_default_pii=True
-        )
+        try:
+            import sentry_sdk # type: ignore
+            from sentry_sdk.integrations.django import DjangoIntegration # type: ignore
+            from sentry_sdk.integrations.celery import CeleryIntegration # type: ignore
+            
+            sentry_sdk.init(
+                dsn=SENTRY_DSN,
+                integrations=[
+                    DjangoIntegration(),
+                    CeleryIntegration(),
+                ],
+                traces_sample_rate=0.1,
+                send_default_pii=True
+            )
+        except ImportError:
+            pass  # Sentry SDK not installed
 
 # 資料庫查詢調試（僅開發環境）
 if DEBUG:
