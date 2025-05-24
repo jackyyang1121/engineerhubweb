@@ -8,7 +8,7 @@ Django 基礎設置文件
 
 import os
 from pathlib import Path
-from decouple import config
+from decouple import config # type: ignore
 from datetime import timedelta
 
 # ==================== 基礎路徑設置 ====================
@@ -55,6 +55,9 @@ THIRD_PARTY_APPS = [
     
     # API 文檔
     'drf_spectacular',
+    
+    # 搜尋服務
+    'algoliasearch_django',
     
     # 開發工具
     'django_extensions',
@@ -386,18 +389,24 @@ PYGMENTS_STYLES = [
     'abap'
 ]
 
-# 搜索設置
-ELASTICSEARCH_DSL = {
-    'default': {
-        'hosts': config('ELASTICSEARCH_URL', default='localhost:9200')
-    },
+# 搜索設置 - Algolia
+ALGOLIA = {
+    'APPLICATION_ID': config('ALGOLIA_APPLICATION_ID', default=''),
+    'API_KEY': config('ALGOLIA_API_KEY', default=''),
+    'INDEX_PREFIX': config('ALGOLIA_INDEX_PREFIX', default='engineerhub'),
+    'AUTO_INDEXING': config('ALGOLIA_AUTO_INDEXING', default=True, cast=bool),
 }
+
+# 搜尋配置
+SEARCH_RESULTS_PER_PAGE = 20
+MAX_SEARCH_QUERY_LENGTH = 200
+SEARCH_CACHE_TIMEOUT = 300  # 5分鐘
 
 # Sentry 設置 (生產環境監控)
 SENTRY_DSN = config('SENTRY_DSN', default='')
 if SENTRY_DSN:
-    import sentry_sdk
-    from sentry_sdk.integrations.django import DjangoIntegration
+    import sentry_sdk # type: ignore
+    from sentry_sdk.integrations.django import DjangoIntegration # type: ignore
     
     sentry_sdk.init(
         dsn=SENTRY_DSN,

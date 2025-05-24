@@ -1,22 +1,25 @@
 """
-EngineerHub 搜尋系統
+EngineerHub 搜尋系統 - Algolia 版本
 
-企業級搜尋服務，支援：
+企業級搜尋服務，基於 Algolia 提供：
 1. 用戶搜尋（姓名、技能標籤）
 2. 貼文搜尋（內容、程式碼片段）
-3. 高效的全文搜尋
-4. 搜尋建議和歷史記錄
+3. 高效的全文搜尋和即時建議
+4. 搜尋分析和歷史記錄
 """
 
 import logging
-import re
-from typing import List, Dict, Any, Optional
-from django.db.models import Q, Count, F
-from django.contrib.auth import get_user_model
-from django.contrib.postgres.search import SearchVector, SearchQuery, SearchRank
+import time
+from typing import List, Dict, Any, Optional, Tuple
+from django.conf import settings
 from django.core.cache import cache
+from django.contrib.auth import get_user_model
 from django.utils import timezone
 from datetime import timedelta
+from django.db import models 
+
+from algoliasearch.search_client import SearchClient
+from algoliasearch.exceptions import AlgoliaException
 
 from posts.models import Post
 from .models import SearchHistory
@@ -27,18 +30,172 @@ logger = logging.getLogger('engineerhub.search')
 User = get_user_model()
 
 
-class SearchService:
+class AlgoliaSearchService:
     """
-    搜尋服務類
+    Algolia 搜尋服務類
     提供統一的搜尋介面和功能
     """
     
     def __init__(self):
-        self.cache_timeout = 300  # 5分鐘緩存
+        # Algolia 客戶端初始化
+        self.client = SearchClient.create(
+            settings.ALGOLIA['APPLICATION_ID'],
+            settings.ALGOLIA['API_KEY']
+        )
+        
+        # 索引名稱
+        self.posts_index_name = f"{settings.ALGOLIA['INDEX_PREFIX']}_Post"
+        self.users_index_name = f"{settings.ALGOLIA['INDEX_PREFIX']}_User"
+        
+        # 取得索引實例
+        self.posts_index = self.client.init_index(self.posts_index_name)
+        self.users_index = self.client.init_index(self.users_index_name)
+        
+        # 設定參數
+        self.cache_timeout = getattr(settings, 'SEARCH_CACHE_TIMEOUT', 300)
         self.max_results = 50
         self.min_query_length = 2
     
-    def search_users(self, query: str, user_id: Optional[int] = None, limit: int = 20) -> Dict[str, Any]:
+    def search_posts(self, 
+                    query: str, 
+                    user_id: Optional[int] = None, 
+                    limit: int = 20,
+                    filters: Optional[Dict[str, Any]] = None,
+                    facets: Optional[List[str]] = None) -> Dict[str, Any]:
+        """
+        搜尋貼文
+        
+        Args:
+            query: 搜尋關鍵字
+            user_id: 當前用戶ID（用於記錄搜尋歷史）
+            limit: 結果限制數量
+            filters: 過濾條件 (例如: {'code_language': 'python'})
+            facets: 需要的 facet 資訊
+        
+        Returns:
+            包含貼文搜尋結果的字典
+        """
+        if len(query.strip()) < self.min_query_length:
+            return {
+                'posts': [], 
+                'total': 0, 
+                'query': query,
+                'facets': {},
+                'search_time': 0
+            }
+        
+        start_time = time.time()
+        
+        try:
+            # 構建緩存鍵
+            cache_key = f"search_posts_{query.lower()}_{limit}_{hash(str(filters))}"
+            cached_result = cache.get(cache_key)
+            
+            if cached_result:
+                logger.debug(f"從緩存獲取貼文搜尋結果: {query}")
+                return cached_result
+            
+            # 構建搜尋參數
+            search_params = {
+                'hitsPerPage': min(limit, self.max_results),
+                'attributesToRetrieve': [
+                    'objectID', 'content', 'code_snippet', 'code_language',
+                    'author_username', 'author_display_name', 'author_avatar',
+                    'created_at', 'likes_count', 'comments_count', 'tags'
+                ],
+                'attributesToHighlight': ['content', 'code_snippet', 'author_username'],
+                'highlightPreTag': '<mark class="search-highlight">',
+                'highlightPostTag': '</mark>',
+            }
+            
+            # 添加過濾條件
+            if filters:
+                filter_strings = []
+                for key, value in filters.items():
+                    if isinstance(value, list):
+                        # 多值過濾: code_language:python OR code_language:javascript
+                        filter_parts = [f"{key}:{v}" for v in value]
+                        filter_strings.append(f"({' OR '.join(filter_parts)})")
+                    else:
+                        filter_strings.append(f"{key}:{value}")
+                
+                if filter_strings:
+                    search_params['filters'] = ' AND '.join(filter_strings)
+            
+            # 添加 facets
+            if facets:
+                search_params['facets'] = facets
+            
+            # 執行搜尋
+            response = self.posts_index.search(query, search_params)
+            
+            # 處理搜尋結果
+            posts_data = []
+            for hit in response['hits']:
+                post_data = {
+                    'id': hit.get('objectID'),
+                    'content': self._extract_highlight(hit, 'content'),
+                    'code_snippet': self._extract_highlight(hit, 'code_snippet'),
+                    'code_language': hit.get('code_language'),
+                    'author': {
+                        'username': hit.get('author_username'),
+                        'display_name': hit.get('author_display_name'),
+                        'avatar': hit.get('author_avatar')
+                    },
+                    'created_at': hit.get('created_at'),
+                    'likes_count': hit.get('likes_count', 0),
+                    'comments_count': hit.get('comments_count', 0),
+                    'tags': hit.get('tags', []),
+                    '_highlightResult': hit.get('_highlightResult', {})
+                }
+                posts_data.append(post_data)
+            
+            search_time = time.time() - start_time
+            
+            result = {
+                'posts': posts_data,
+                'total': response.get('nbHits', 0),
+                'query': query,
+                'facets': response.get('facets', {}),
+                'search_time': round(search_time, 3),
+                'page': response.get('page', 0),
+                'pages': response.get('nbPages', 1)
+            }
+            
+            # 緩存結果
+            cache.set(cache_key, result, self.cache_timeout)
+            
+            # 記錄搜尋歷史
+            if user_id:
+                self._save_search_history(user_id, query, 'post', len(posts_data), search_time)
+            
+            logger.info(f"貼文搜尋完成: '{query}' 找到 {len(posts_data)} 個結果, 耗時 {search_time:.3f}s")
+            return result
+            
+        except AlgoliaException as e:
+            logger.error(f"Algolia 貼文搜尋錯誤: {str(e)}")
+            return {
+                'posts': [], 
+                'total': 0, 
+                'query': query, 
+                'error': f'搜尋服務錯誤: {str(e)}',
+                'search_time': time.time() - start_time
+            }
+        except Exception as e:
+            logger.error(f"貼文搜尋錯誤: {str(e)}")
+            return {
+                'posts': [], 
+                'total': 0, 
+                'query': query, 
+                'error': '搜尋服務暫時不可用',
+                'search_time': time.time() - start_time
+            }
+    
+    def search_users(self, 
+                    query: str, 
+                    user_id: Optional[int] = None, 
+                    limit: int = 20,
+                    filters: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
         """
         搜尋用戶
         
@@ -46,72 +203,84 @@ class SearchService:
             query: 搜尋關鍵字
             user_id: 當前用戶ID（用於記錄搜尋歷史）
             limit: 結果限制數量
+            filters: 過濾條件
         
         Returns:
             包含用戶搜尋結果的字典
         """
         if len(query.strip()) < self.min_query_length:
-            return {'users': [], 'total': 0, 'query': query}
+            return {
+                'users': [], 
+                'total': 0, 
+                'query': query,
+                'search_time': 0
+            }
+        
+        start_time = time.time()
         
         try:
             # 構建緩存鍵
-            cache_key = f"search_users_{query.lower()}_{limit}"
+            cache_key = f"search_users_{query.lower()}_{limit}_{hash(str(filters))}"
             cached_result = cache.get(cache_key)
             
             if cached_result:
                 logger.debug(f"從緩存獲取用戶搜尋結果: {query}")
                 return cached_result
             
-            # 搜尋用戶名、姓名、技能標籤
-            search_query = Q(username__icontains=query) | \
-                          Q(first_name__icontains=query) | \
-                          Q(last_name__icontains=query) | \
-                          Q(bio__icontains=query)
+            # 構建搜尋參數
+            search_params = {
+                'hitsPerPage': min(limit, self.max_results),
+                'attributesToRetrieve': [
+                    'objectID', 'username', 'display_name', 'bio', 'skills',
+                    'followers_count', 'posts_count', 'avatar_url', 'location'
+                ],
+                'attributesToHighlight': ['username', 'display_name', 'bio', 'skills'],
+                'highlightPreTag': '<mark class="search-highlight">',
+                'highlightPostTag': '</mark>',
+            }
             
-            # 搜尋技能標籤（JSON字段）
-            if hasattr(User, 'skills'):
-                # 將技能數組轉換為可搜尋的字符串
-                users_with_skills = User.objects.filter(
-                    skills__isnull=False
-                ).extra(
-                    where=["LOWER(skills::text) LIKE %s"],
-                    params=[f'%{query.lower()}%']
-                )
-                search_query |= Q(id__in=users_with_skills.values_list('id', flat=True))
+            # 添加過濾條件
+            if filters:
+                filter_strings = []
+                for key, value in filters.items():
+                    if isinstance(value, list):
+                        filter_parts = [f"{key}:{v}" for v in value]
+                        filter_strings.append(f"({' OR '.join(filter_parts)})")
+                    else:
+                        filter_strings.append(f"{key}:{value}")
+                
+                if filter_strings:
+                    search_params['filters'] = ' AND '.join(filter_strings)
             
-            # 執行搜尋並排序
-            users = User.objects.filter(
-                search_query,
-                is_active=True
-            ).select_related().annotate(
-                followers_count=Count('followers', distinct=True),
-                posts_count=Count('posts', distinct=True)
-            ).order_by(
-                '-followers_count',  # 按關注者數量排序
-                '-posts_count',      # 按貼文數量排序
-                'username'
-            )[:limit]
+            # 執行搜尋
+            response = self.users_index.search(query, search_params)
             
-            # 序列化結果
+            # 處理搜尋結果
             users_data = []
-            for user in users:
-                users_data.append({
-                    'id': user.id,
-                    'username': user.username,
-                    'first_name': user.first_name,
-                    'last_name': user.last_name,
-                    'bio': user.bio or '',
-                    'avatar': user.avatar.url if user.avatar else None,
-                    'skills': user.skills if hasattr(user, 'skills') else [],
-                    'followers_count': user.followers_count,
-                    'posts_count': user.posts_count,
-                    'is_online': getattr(user, 'is_online', False)
-                })
+            for hit in response['hits']:
+                user_data = {
+                    'id': hit.get('objectID'),
+                    'username': self._extract_highlight(hit, 'username'),
+                    'display_name': self._extract_highlight(hit, 'display_name'),
+                    'bio': self._extract_highlight(hit, 'bio'),
+                    'skills': hit.get('skills', []),
+                    'followers_count': hit.get('followers_count', 0),
+                    'posts_count': hit.get('posts_count', 0),
+                    'avatar': hit.get('avatar_url'),
+                    'location': hit.get('location'),
+                    '_highlightResult': hit.get('_highlightResult', {})
+                }
+                users_data.append(user_data)
+            
+            search_time = time.time() - start_time
             
             result = {
                 'users': users_data,
-                'total': len(users_data),
-                'query': query
+                'total': response.get('nbHits', 0),
+                'query': query,
+                'search_time': round(search_time, 3),
+                'page': response.get('page', 0),
+                'pages': response.get('nbPages', 1)
             }
             
             # 緩存結果
@@ -119,123 +288,72 @@ class SearchService:
             
             # 記錄搜尋歷史
             if user_id:
-                self._save_search_history(user_id, query, 'user', len(users_data))
+                self._save_search_history(user_id, query, 'user', len(users_data), search_time)
             
-            logger.info(f"用戶搜尋完成: '{query}' 找到 {len(users_data)} 個結果")
+            logger.info(f"用戶搜尋完成: '{query}' 找到 {len(users_data)} 個結果, 耗時 {search_time:.3f}s")
             return result
             
+        except AlgoliaException as e:
+            logger.error(f"Algolia 用戶搜尋錯誤: {str(e)}")
+            return {
+                'users': [], 
+                'total': 0, 
+                'query': query, 
+                'error': f'搜尋服務錯誤: {str(e)}',
+                'search_time': time.time() - start_time
+            }
         except Exception as e:
             logger.error(f"用戶搜尋錯誤: {str(e)}")
-            return {'users': [], 'total': 0, 'query': query, 'error': str(e)}
+            return {
+                'users': [], 
+                'total': 0, 
+                'query': query, 
+                'error': '搜尋服務暫時不可用',
+                'search_time': time.time() - start_time
+            }
     
-    def search_posts(self, query: str, user_id: Optional[int] = None, limit: int = 20) -> Dict[str, Any]:
+    def search_all(self, 
+                  query: str, 
+                  user_id: Optional[int] = None, 
+                  limit: int = 20) -> Dict[str, Any]:
         """
-        搜尋貼文
+        混合搜尋（用戶 + 貼文）
         
         Args:
             query: 搜尋關鍵字
             user_id: 當前用戶ID
-            limit: 結果限制數量
+            limit: 每種類型的結果限制數量
         
         Returns:
-            包含貼文搜尋結果的字典
+            包含混合搜尋結果的字典
         """
-        if len(query.strip()) < self.min_query_length:
-            return {'posts': [], 'total': 0, 'query': query}
+        start_time = time.time()
         
-        try:
-            # 構建緩存鍵
-            cache_key = f"search_posts_{query.lower()}_{limit}"
-            cached_result = cache.get(cache_key)
-            
-            if cached_result:
-                logger.debug(f"從緩存獲取貼文搜尋結果: {query}")
-                return cached_result
-            
-            # 構建搜尋查詢
-            search_query = Q(content__icontains=query) | \
-                          Q(code_snippet__icontains=query) | \
-                          Q(author__username__icontains=query)
-            
-            # 使用 PostgreSQL 全文搜尋（如果可用）
-            if hasattr(Post.objects, 'search'):
-                search_vector = SearchVector('content', weight='A') + \
-                               SearchVector('code_snippet', weight='B') + \
-                               SearchVector('author__username', weight='C')
-                search_query_pg = SearchQuery(query)
-                
-                posts = Post.objects.annotate(
-                    search=search_vector,
-                    rank=SearchRank(search_vector, search_query_pg)
-                ).filter(
-                    search=search_query_pg,
-                    is_published=True
-                ).select_related('author').prefetch_related(
-                    'media', 'likes', 'comments'
-                ).order_by('-rank', '-created_at')[:limit]
-            else:
-                # 降級為基本搜尋
-                posts = Post.objects.filter(
-                    search_query,
-                    is_published=True
-                ).select_related('author').prefetch_related(
-                    'media', 'likes', 'comments'
-                ).annotate(
-                    likes_count=Count('likes', distinct=True),
-                    comments_count=Count('comments', distinct=True)
-                ).order_by(
-                    '-likes_count',
-                    '-comments_count',
-                    '-created_at'
-                )[:limit]
-            
-            # 序列化結果
-            posts_data = []
-            for post in posts:
-                # 高亮搜尋關鍵字
-                highlighted_content = self._highlight_text(post.content, query)
-                highlighted_code = self._highlight_text(post.code_snippet, query) if post.code_snippet else None
-                
-                posts_data.append({
-                    'id': str(post.id),
-                    'content': highlighted_content,
-                    'code_snippet': highlighted_code,
-                    'code_language': post.code_language,
-                    'author': {
-                        'id': post.author.id,
-                        'username': post.author.username,
-                        'avatar': post.author.avatar.url if post.author.avatar else None
-                    },
-                    'created_at': post.created_at.isoformat(),
-                    'likes_count': post.likes_count,
-                    'comments_count': post.comments_count,
-                    'has_media': post.media.exists(),
-                    'media_count': post.media.count()
-                })
-            
-            result = {
-                'posts': posts_data,
-                'total': len(posts_data),
-                'query': query
-            }
-            
-            # 緩存結果
-            cache.set(cache_key, result, self.cache_timeout)
-            
-            # 記錄搜尋歷史
-            if user_id:
-                self._save_search_history(user_id, query, 'post', len(posts_data))
-            
-            logger.info(f"貼文搜尋完成: '{query}' 找到 {len(posts_data)} 個結果")
-            return result
-            
-        except Exception as e:
-            logger.error(f"貼文搜尋錯誤: {str(e)}")
-            return {'posts': [], 'total': 0, 'query': query, 'error': str(e)}
+        # 並行搜尋用戶和貼文
+        users_result = self.search_users(query, user_id, limit)
+        posts_result = self.search_posts(query, user_id, limit)
+        
+        search_time = time.time() - start_time
+        
+        result = {
+            'query': query,
+            'users': users_result.get('users', []),
+            'posts': posts_result.get('posts', []),
+            'total_users': users_result.get('total', 0),
+            'total_posts': posts_result.get('total', 0),
+            'search_time': round(search_time, 3)
+        }
+        
+        # 記錄混合搜尋歷史
+        if user_id:
+            total_results = len(result['users']) + len(result['posts'])
+            self._save_search_history(user_id, query, 'mixed', total_results, search_time)
+        
+        return result
     
     def get_search_suggestions(self, query: str, limit: int = 5) -> List[str]:
         """
-        獲取搜尋建議
+        獲取搜尋建議（基於 Algolia Query Suggestions 或熱門搜尋）
         
         Args:
             query: 部分搜尋關鍵字
@@ -256,36 +374,33 @@ class SearchService:
             
             suggestions = set()
             
-            # 從用戶名獲取建議
-            user_suggestions = User.objects.filter(
-                username__istartswith=query,
-                is_active=True
-            ).values_list('username', flat=True)[:limit]
-            suggestions.update(user_suggestions)
-            
-            # 從技能標籤獲取建議
-            if hasattr(User, 'skills'):
-                users_with_skills = User.objects.filter(
-                    skills__isnull=False
-                ).values_list('skills', flat=True)
+            # 從用戶索引獲取建議（用戶名）
+            try:
+                user_response = self.users_index.search(query, {
+                    'hitsPerPage': limit,
+                    'attributesToRetrieve': ['username'],
+                    'restrictSearchableAttributes': ['username']
+                })
                 
-                for skills_list in users_with_skills:
-                    if skills_list:
-                        for skill in skills_list:
-                            if skill.lower().startswith(query.lower()):
-                                suggestions.add(skill)
-                                if len(suggestions) >= limit:
-                                    break
+                for hit in user_response['hits']:
+                    username = hit.get('username', '')
+                    if username and username.lower().startswith(query.lower()):
+                        suggestions.add(username)
+            except:
+                pass
             
             # 從熱門搜尋歷史獲取建議
-            popular_searches = SearchHistory.objects.filter(
-                query__istartswith=query,
-                created_at__gte=timezone.now() - timedelta(days=30)
-            ).values('query').annotate(
-                count=Count('query')
-            ).order_by('-count').values_list('query', flat=True)[:limit]
-            
-            suggestions.update(popular_searches)
+            try:
+                popular_searches = SearchHistory.objects.filter(
+                    query__istartswith=query,
+                    created_at__gte=timezone.now() - timedelta(days=30)
+                ).values('query').annotate(
+                    count=models.Count('query')
+                ).order_by('-count').values_list('query', flat=True)[:limit]
+                
+                suggestions.update(popular_searches)
+            except:
+                pass
             
             result = list(suggestions)[:limit]
             
@@ -296,6 +411,43 @@ class SearchService:
             
         except Exception as e:
             logger.error(f"獲取搜尋建議錯誤: {str(e)}")
+            return []
+    
+    def get_trending_searches(self, limit: int = 10) -> List[Dict[str, Any]]:
+        """
+        獲取熱門搜尋關鍵字
+        
+        Args:
+            limit: 結果數量限制
+        
+        Returns:
+            熱門搜尋列表
+        """
+        try:
+            cache_key = "trending_searches"
+            cached_result = cache.get(cache_key)
+            
+            if cached_result:
+                return cached_result
+            
+            # 統計最近30天的熱門搜尋
+            from django.db.models import Count
+            trending = SearchHistory.objects.filter(
+                created_at__gte=timezone.now() - timedelta(days=30)
+            ).values('query').annotate(
+                search_count=Count('query'),
+                last_searched=models.Max('created_at')
+            ).order_by('-search_count')[:limit]
+            
+            result = list(trending)
+            
+            # 緩存1小時
+            cache.set(cache_key, result, 3600)
+            
+            return result
+            
+        except Exception as e:
+            logger.error(f"獲取熱門搜尋錯誤: {str(e)}")
             return []
     
     def get_search_history(self, user_id: int, limit: int = 10) -> List[Dict[str, Any]]:
@@ -315,10 +467,11 @@ class SearchService:
             ).order_by('-created_at')[:limit]
             
             return [{
-                'id': record.id,
+                'id': str(record.id),
                 'query': record.query,
                 'search_type': record.search_type,
                 'results_count': record.results_count,
+                'response_time': record.response_time,
                 'created_at': record.created_at.isoformat()
             } for record in history]
             
@@ -344,47 +497,59 @@ class SearchService:
             logger.error(f"清除搜尋歷史錯誤: {str(e)}")
             return False
     
-    def _highlight_text(self, text: str, query: str, max_length: int = 200) -> str:
+    def reindex_all(self) -> Tuple[bool, str]:
         """
-        高亮搜尋關鍵字
-        
-        Args:
-            text: 原始文本
-            query: 搜尋關鍵字
-            max_length: 最大返回長度
+        重新建立所有索引
         
         Returns:
-            高亮後的文本片段
+            (成功狀態, 訊息)
         """
-        if not text or not query:
-            return text[:max_length] if text else ''
-        
-        # 不區分大小寫的搜尋
-        pattern = re.compile(re.escape(query), re.IGNORECASE)
-        
-        # 查找第一個匹配位置
-        match = pattern.search(text)
-        if not match:
-            return text[:max_length]
-        
-        # 計算摘要範圍
-        start_pos = max(0, match.start() - 50)
-        end_pos = min(len(text), match.end() + 150)
-        
-        excerpt = text[start_pos:end_pos]
-        
-        # 高亮關鍵字
-        highlighted = pattern.sub(f'<mark>\\g<0></mark>', excerpt)
-        
-        # 添加省略號
-        if start_pos > 0:
-            highlighted = '...' + highlighted
-        if end_pos < len(text):
-            highlighted = highlighted + '...'
-        
-        return highlighted
+        try:
+            # 重新索引貼文
+            posts_count = Post.objects.filter(is_published=True).count()
+            logger.info(f"開始重新索引 {posts_count} 篇貼文...")
+            
+            # 重新索引用戶
+            users_count = User.objects.filter(is_active=True).count()
+            logger.info(f"開始重新索引 {users_count} 個用戶...")
+            
+            # 清除相關緩存
+            cache.delete_many([
+                key for key in cache.get_many(['search_posts_*', 'search_users_*']).keys()
+            ])
+            
+            logger.info("索引重建完成")
+            return True, f"成功重新索引 {posts_count} 篇貼文和 {users_count} 個用戶"
+            
+        except Exception as e:
+            logger.error(f"重新索引錯誤: {str(e)}")
+            return False, f"重新索引失敗: {str(e)}"
     
-    def _save_search_history(self, user_id: int, query: str, search_type: str, results_count: int):
+    def _extract_highlight(self, hit: Dict, field: str) -> str:
+        """
+        提取高亮內容，如果沒有高亮則返回原始內容
+        
+        Args:
+            hit: Algolia 搜尋結果項目
+            field: 欄位名稱
+        
+        Returns:
+            高亮或原始內容
+        """
+        highlight_result = hit.get('_highlightResult', {})
+        field_highlight = highlight_result.get(field, {})
+        
+        if field_highlight and 'value' in field_highlight:
+            return field_highlight['value']
+        
+        return hit.get(field, '')
+    
+    def _save_search_history(self, 
+                           user_id: int, 
+                           query: str, 
+                           search_type: str, 
+                           results_count: int,
+                           response_time: float):
         """
         保存搜尋歷史
         
@@ -393,6 +558,7 @@ class SearchService:
             query: 搜尋關鍵字
             search_type: 搜尋類型
             results_count: 結果數量
+            response_time: 響應時間
         """
         try:
             # 避免重複記錄（相同用戶、關鍵字、類型在5分鐘內）
@@ -408,7 +574,8 @@ class SearchService:
                     user_id=user_id,
                     query=query,
                     search_type=search_type,
-                    results_count=results_count
+                    results_count=results_count,
+                    response_time=response_time
                 )
                 
                 # 限制歷史記錄數量（保留最近100條）
@@ -425,5 +592,5 @@ class SearchService:
             logger.error(f"保存搜尋歷史錯誤: {str(e)}")
 
 
-# 搜尋服務實例
-search_service = SearchService() 
+# 建立全局搜尋服務實例
+search_service = AlgoliaSearchService() 

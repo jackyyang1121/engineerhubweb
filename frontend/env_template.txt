@@ -1,0 +1,75 @@
+# ====================================
+# EngineerHub 前端環境變數配置範本
+# ====================================
+# 複製此文件為 .env.local 並填入實際的值
+
+# ==================== API 設定 ====================
+# 後端 API 基礎 URL
+VITE_API_URL=http://localhost:8000/api
+
+# WebSocket 連接 URL (用於即時聊天和通知)
+VITE_WS_URL=ws://localhost:8000/ws
+
+# ==================== Algolia 搜尋設定 ====================
+# Algolia 應用 ID (從 dashboard 獲取)
+VITE_ALGOLIA_APP_ID=your_algolia_app_id_here
+
+# Algolia 搜尋專用 API Key (只讀權限)
+VITE_ALGOLIA_SEARCH_KEY=your_algolia_search_only_key_here
+
+# 搜尋索引前綴
+VITE_ALGOLIA_INDEX_PREFIX=engineerhub_dev
+
+# ==================== 社交登入設定 ====================
+# Google 客戶端 ID (用於前端 OAuth)
+VITE_GOOGLE_CLIENT_ID=your_google_client_id_here
+
+# GitHub 應用程式 ID (如果需要)
+VITE_GITHUB_CLIENT_ID=your_github_client_id_here
+
+# ==================== 第三方服務設定 ====================
+# 文件上傳服務 (如 Cloudinary, AWS S3)
+VITE_UPLOAD_SERVICE_URL=
+VITE_UPLOAD_PRESET=
+
+# 分析服務 (如 Google Analytics)
+VITE_GA_TRACKING_ID=
+
+# 錯誤監控 (如 Sentry)
+VITE_SENTRY_DSN=
+
+# ==================== 功能開關 ====================
+# 是否啟用開發工具
+VITE_ENABLE_DEVTOOLS=true
+
+# 是否啟用 Mock 數據模式
+VITE_ENABLE_MOCK=false
+
+# 是否顯示調試信息
+VITE_DEBUG_MODE=true
+
+# ==================== 應用程式設定 ====================
+# 應用程式名稱
+VITE_APP_NAME=EngineerHub
+
+# 應用程式版本
+VITE_APP_VERSION=1.0.0
+
+# 預設分頁大小
+VITE_DEFAULT_PAGE_SIZE=20
+
+# 最大文件上傳大小 (MB)
+VITE_MAX_FILE_SIZE=10
+
+# ==================== 使用說明 ====================
+# 1. 複製此文件：cp env_template.txt .env.local
+# 2. 編輯 .env.local 並填入實際的值
+# 3. Vite 會自動載入 .env.local 文件
+# 4. 只有以 VITE_ 開頭的變數會暴露給前端
+# 5. 敏感信息請勿放在前端環境變數中
+
+# ==================== 重要提醒 ====================
+# - .env.local 文件不會被版本控制
+# - 生產環境請使用 .env.production
+# - 前端環境變數會暴露給用戶，不要放敏感數據
+# - API 金鑰應該使用只讀權限的版本 

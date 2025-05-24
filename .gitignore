@@ -1,0 +1,303 @@
+# ====================================
+# EngineerHub 專案 .gitignore 文件
+# ====================================
+
+# ==================== 環境變數和配置文件 ====================
+# Django 環境變數
+backend/.env
+backend/.env.local
+backend/.env.production
+backend/.env.staging
+
+# React 環境變數
+frontend/.env
+frontend/.env.local
+frontend/.env.production
+frontend/.env.staging
+
+# 其他配置文件
+.env
+.env.*
+!.env.example
+!.env.template
+
+# ==================== Python/Django ====================
+# Python 編譯文件
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+
+# Django 相關
+backend/db.sqlite3
+backend/db.sqlite3-journal
+backend/staticfiles/
+backend/static/
+backend/media/
+backend/logs/
+*.log
+
+# Django 遷移檔案（可選，根據需求調整）
+# backend/*/migrations/*.py
+# backend/*/migrations/*.pyc
+# !backend/*/migrations/__init__.py
+
+# 虛擬環境
+venv/
+env/
+ENV/
+env.bak/
+venv.bak/
+.venv/
+engineerhubweb/
+
+# Conda 環境
+.conda/
+
+# pytest
+.pytest_cache/
+.coverage
+htmlcov/
+.tox/
+.nox/
+
+# mypy
+.mypy_cache/
+.dmypy.json
+dmypy.json
+
+# ==================== Node.js/React ====================
+# 依賴
+node_modules/
+frontend/node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+lerna-debug.log*
+
+# 編譯輸出
+frontend/build/
+frontend/dist/
+frontend/.next/
+frontend/out/
+
+# 緩存
+.npm
+.eslintcache
+.parcel-cache
+
+# Runtime data
+pids
+*.pid
+*.seed
+*.pid.lock
+
+# nyc test coverage
+.nyc_output
+
+# ==================== Docker ====================
+# Docker 相關（本地開發）
+.dockerignore
+docker-compose.override.yml
+
+# 不要忽略開發用的 docker-compose 文件
+# docker-compose.dev.yml
+
+# ==================== IDE/編輯器 ====================
+# VS Code
+.vscode/
+!.vscode/settings.json.example
+!.vscode/extensions.json
+!.vscode/launch.json.example
+
+# PyCharm
+.idea/
+*.iws
+*.iml
+*.ipr
+
+# Sublime Text
+*.tmlanguage.cache
+*.tmPreferences.cache
+*.stTheme.cache
+*.sublime-workspace
+*.sublime-project
+
+# Vim
+*.swp
+*.swo
+*~
+
+# Emacs
+*~
+\#*\#
+/.emacs.desktop
+/.emacs.desktop.lock
+*.elc
+
+# ==================== 作業系統 ====================
+# macOS
+.DS_Store
+.AppleDouble
+.LSOverride
+Icon
+._*
+.DocumentRevisions-V100
+.fseventsd
+.Spotlight-V100
+.TemporaryItems
+.Trashes
+.VolumeIcon.icns
+.com.apple.timemachine.donotpresent
+
+# Windows
+Thumbs.db
+Thumbs.db:encryptable
+ehthumbs.db
+ehthumbs_vista.db
+*.stackdump
+[Dd]esktop.ini
+$RECYCLE.BIN/
+*.cab
+*.msi
+*.msix
+*.msm
+*.msp
+*.lnk
+
+# Linux
+*~
+.fuse_hidden*
+.directory
+.Trash-*
+.nfs*
+
+# ==================== 備份和暫存文件 ====================
+# 備份文件
+*.bak
+*.backup
+*.orig
+*.tmp
+*.temp
+*.old
+*backup*
+backup_*
+*.sql
+
+# 壓縮文件
+*.7z
+*.dmg
+*.gz
+*.iso
+*.jar
+*.rar
+*.tar
+*.zip
+
+# ==================== 日誌和監控 ====================
+# 日誌文件
+logs/
+*.log
+log/
+log*.txt
+
+# 錯誤報告
+crash.log
+error.log
+
+# ==================== 測試和覆蓋率 ====================
+# 測試覆蓋率
+coverage/
+*.cover
+*.py,cover
+.coverage.*
+
+# Jest 測試
+coverage/
+jest_results/
+
+# ==================== 搜尋和索引 ====================
+# Algolia 相關（如果有本地索引文件）
+algolia_cache/
+
+# Elasticsearch 本地資料
+elasticsearch_data/
+
+# ==================== 資料庫 ====================
+# 本地資料庫文件
+*.db
+*.sqlite
+*.sqlite3
+
+# 資料庫備份
+*.dump
+*.sql
+
+# ==================== SSL 憑證 ====================
+# SSL 憑證和金鑰
+*.pem
+*.key
+*.crt
+*.p12
+ssl/
+certs/
+
+# ==================== 暫存和快取 ====================
+# 各種暫存文件
+.cache/
+cache/
+tmp/
+temp/
+
+# Webpack 快取
+.cache-loader/
+
+# ==================== 專案特定 ====================
+# 開發時的測試文件
+test_data/
+sample_data/
+dummy_data/
+
+# 上傳的媒體文件（開發環境）
+uploads/
+user_uploads/
+
+# 生成的文件
+generated/
+auto_generated/
+
+# API 文檔生成文件
+docs/_build/
+docs/build/
+
+# ==================== 其他 ====================
+# 暫時文件
+*.tmp
+*.temp
+.temporary
+
+# 系統文件
+.DS_Store?
+Icon?
+
+# 開發筆記和待辦事項
+TODO.md
+NOTES.md
+*.notes
+
+# 個人配置
+personal_settings.json
+local_config.json
+
+# 效能分析
+*.prof
+*.profile
+
+# ==================== 重要提醒 ====================
+# 以下文件應該保留在版本控制中：
+# - requirements.txt
+# - package.json
+# - docker-compose.dev.yml
+# - README.md
+# - SETUP_GUIDE.md
+# - 任何 .example 或 .template 文件 

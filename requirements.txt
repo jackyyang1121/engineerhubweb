@@ -11,7 +11,7 @@ django-filter==23.2
 drf-yasg==1.21.7
 
 # 數據庫
-psycopg2-binary==2.9.7
+psycopg2-binary>=2.9.9  # 更新版本支援 Python 3.13
 
 # 實時通信
 channels==4.0.0
@@ -26,6 +26,6 @@ algoliasearch-django==3.0.0
 
 # 工具
 python-dotenv==1.0.0
-Pillow==10.0.1
+Pillow==10.1.0
 whitenoise==6.5.0
 gunicorn==21.2.0 

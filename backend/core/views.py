@@ -10,6 +10,7 @@ EngineerHub 核心API視圖
 
 import logging
 import time
+from django.conf import settings
 from rest_framework import status, permissions
 from rest_framework.decorators import api_view, permission_classes
 from rest_framework.response import Response
@@ -18,8 +19,8 @@ from rest_framework.pagination import PageNumberPagination
 from django.db.models import Q, Count
 from django.utils import timezone
 from django.core.cache import cache
-from drf_yasg.utils import swagger_auto_schema
-from drf_yasg import openapi
+from drf_yasg.utils import swagger_auto_schema # type: ignore
+from drf_yasg import openapi # type: ignore
 
 from .search import search_service
 from .models import Notification, ReportedContent, PlatformStatistics
@@ -36,8 +37,8 @@ logger = logging.getLogger('engineerhub.core')
 
 class SearchAPIView(APIView):
     """
-    統一搜尋API
-    支援用戶搜尋、貼文搜尋和混合搜尋
+    統一搜尋API - Algolia 版本
+    支援用戶搜尋、貼文搜尋和混合搜尋，並提供進階過濾功能
     """
     permission_classes = [permissions.IsAuthenticated]
     
@@ -64,6 +65,24 @@ class SearchAPIView(APIView):
                 type=openapi.TYPE_INTEGER,
                 default=20
             ),
+            openapi.Parameter(
+                'code_language',
+                openapi.IN_QUERY,
+                description="程式語言過濾 (例如: python,javascript)",
+                type=openapi.TYPE_STRING
+            ),
+            openapi.Parameter(
+                'skills',
+                openapi.IN_QUERY,
+                description="技能標籤過濾 (例如: react,vue)",
+                type=openapi.TYPE_STRING
+            ),
+            openapi.Parameter(
+                'location',
+                openapi.IN_QUERY,
+                description="地點過濾",
+                type=openapi.TYPE_STRING
+            ),
         ],
         responses={
             200: openapi.Response(
@@ -72,12 +91,41 @@ class SearchAPIView(APIView):
                     "application/json": {
                         "query": "python",
                         "type": "all",
-                        "users": [],
-                        "posts": [],
-                        "total_users": 0,
-                        "total_posts": 0,
+                        "users": [
+                            {
+                                "id": "123",
+                                "username": "john_doe",
+                                "display_name": "John Doe",
+                                "bio": "Python developer",
+                                "skills": ["python", "django"],
+                                "followers_count": 100,
+                                "posts_count": 50,
+                                "avatar": "https://example.com/avatar.jpg"
+                            }
+                        ],
+                        "posts": [
+                            {
+                                "id": "456",
+                                "content": "Learning <mark>Python</mark> basics",
+                                "code_snippet": "print('hello world')",
+                                "code_language": "python",
+                                "author": {
+                                    "username": "jane_doe",
+                                    "display_name": "Jane Doe"
+                                },
+                                "likes_count": 10,
+                                "comments_count": 5
+                            }
+                        ],
+                        "total_users": 1,
+                        "total_posts": 1,
                         "search_time": 0.123,
-                        "suggestions": []
+                        "facets": {
+                            "code_language": {
+                                "python": 15,
+                                "javascript": 8
+                            }
+                        }
                     }
                 }
             )
@@ -92,7 +140,7 @@ class SearchAPIView(APIView):
         # 獲取搜尋參數
         query = request.GET.get('q', '').strip()
         search_type = request.GET.get('type', 'all')
-        limit = min(int(request.GET.get('limit', 20)), 50)  # 最大50個結果
+        limit = min(int(request.GET.get('limit', 20)), 50)
         
         if not query or len(query) < 2:
             return Response({
@@ -108,32 +156,55 @@ class SearchAPIView(APIView):
                 'posts': [],
                 'total_users': 0,
                 'total_posts': 0,
-                'suggestions': []
+                'facets': {},
+                'search_time': 0
             }
             
             user_id = request.user.id
             
+            # 構建過濾條件
+            filters = {}
+            facets = []
+            
+            # 程式語言過濾
+            code_language = request.GET.get('code_language')
+            if code_language:
+                languages = [lang.strip() for lang in code_language.split(',')]
+                filters['code_language'] = languages
+                facets.append('code_language')
+            else:
+                facets.append('code_language')  # 總是包含此 facet
+            
+            # 技能過濾（僅用於用戶搜尋）
+            skills = request.GET.get('skills')
+            if skills and search_type in ['users', 'all']:
+                skills_list = [skill.strip() for skill in skills.split(',')]
+                filters['skills'] = skills_list
+            
+            # 地點過濾（僅用於用戶搜尋）
+            location = request.GET.get('location')
+            if location and search_type in ['users', 'all']:
+                filters['location'] = location
+            
             # 根據搜尋類型執行搜尋
             if search_type in ['users', 'all']:
-                user_results = search_service.search_users(query, user_id, limit)
+                user_filters = {k: v for k, v in filters.items() if k in ['skills', 'location']}
+                user_results = search_service.search_users(query, user_id, limit, user_filters)
                 response_data['users'] = user_results.get('users', [])
                 response_data['total_users'] = user_results.get('total', 0)
             
             if search_type in ['posts', 'all']:
-                post_results = search_service.search_posts(query, user_id, limit)
+                post_filters = {k: v for k, v in filters.items() if k in ['code_language']}
+                post_results = search_service.search_posts(query, user_id, limit, post_filters, facets)
                 response_data['posts'] = post_results.get('posts', [])
                 response_data['total_posts'] = post_results.get('total', 0)
+                response_data['facets'] = post_results.get('facets', {})
             
-            # 獲取搜尋建議
-            if search_type == 'all':
-                suggestions = search_service.get_search_suggestions(query, 5)
-                response_data['suggestions'] = suggestions
+            # 計算總搜尋時間
+            total_search_time = time.time() - start_time
+            response_data['search_time'] = round(total_search_time, 3)
             
-            # 計算搜尋時間
-            search_time = time.time() - start_time
-            response_data['search_time'] = round(search_time, 3)
-            
-            logger.info(f"用戶 {request.user.username} 搜尋 '{query}' 類型 {search_type}, 耗時 {search_time:.3f}s")
+            logger.info(f"用戶 {request.user.username} 搜尋 '{query}' 類型 {search_type}, 耗時 {total_search_time:.3f}s")
             
             return Response(response_data, status=status.HTTP_200_OK)
             
@@ -141,14 +212,15 @@ class SearchAPIView(APIView):
             logger.error(f"搜尋錯誤: {str(e)}")
             return Response({
                 'error': '搜尋服務暫時不可用',
-                'query': query
+                'query': query,
+                'details': str(e) if settings.DEBUG else None
             }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 
 class SearchSuggestionsAPIView(APIView):
     """
-    搜尋建議API
-    提供即時搜尋建議
+    搜尋建議API - Algolia 版本
+    提供即時搜尋建議和熱門搜尋
     """
     permission_classes = [permissions.IsAuthenticated]
     
@@ -161,13 +233,27 @@ class SearchSuggestionsAPIView(APIView):
                 type=openapi.TYPE_STRING,
                 required=True
             ),
+            openapi.Parameter(
+                'limit',
+                openapi.IN_QUERY,
+                description="建議數量限制",
+                type=openapi.TYPE_INTEGER,
+                default=5
+            ),
         ],
         responses={
             200: openapi.Response(
                 description="搜尋建議列表",
                 examples={
                     "application/json": {
-                        "suggestions": ["python", "javascript", "react"]
+                        "suggestions": ["python", "javascript", "react"],
+                        "trending": [
+                            {
+                                "query": "machine learning",
+                                "search_count": 45,
+                                "last_searched": "2024-01-15T10:30:00Z"
+                            }
+                        ]
                     }
                 }
             )
@@ -175,46 +261,60 @@ class SearchSuggestionsAPIView(APIView):
     )
     def get(self, request):
         """
-        獲取搜尋建議
+        獲取搜尋建議和熱門搜尋
         """
         query = request.GET.get('q', '').strip()
-        
-        if len(query) < 2:
-            return Response({'suggestions': []}, status=status.HTTP_200_OK)
+        limit = min(int(request.GET.get('limit', 5)), 10)
         
         try:
-            suggestions = search_service.get_search_suggestions(query, 10)
-            return Response({
-                'suggestions': suggestions
-            }, status=status.HTTP_200_OK)
+            response_data = {
+                'suggestions': [],
+                'trending': []
+            }
+            
+            if len(query) >= 2:
+                # 獲取搜尋建議
+                suggestions = search_service.get_search_suggestions(query, limit)
+                response_data['suggestions'] = suggestions
+            
+            # 獲取熱門搜尋（如果沒有查詢或建議不足）
+            if len(query) < 2 or len(response_data['suggestions']) < limit:
+                trending = search_service.get_trending_searches(limit)
+                response_data['trending'] = trending
+            
+            return Response(response_data, status=status.HTTP_200_OK)
             
         except Exception as e:
             logger.error(f"獲取搜尋建議錯誤: {str(e)}")
-            return Response({'suggestions': []}, status=status.HTTP_200_OK)
+            return Response({
+                'suggestions': [],
+                'trending': []
+            }, status=status.HTTP_200_OK)
 
 
 class SearchHistoryAPIView(APIView):
     """
-    搜尋歷史API
-    管理用戶的搜尋歷史
+    搜尋歷史API - 增強版
     """
     permission_classes = [permissions.IsAuthenticated]
     
     @swagger_auto_schema(
         responses={
             200: openapi.Response(
-                description="搜尋歷史列表",
+                description="用戶搜尋歷史",
                 examples={
                     "application/json": {
                         "history": [
                             {
-                                "id": "uuid",
-                                "query": "python",
-                                "search_type": "all",
+                                "id": "123e4567-e89b-12d3-a456-426614174000",
+                                "query": "python tutorial",
+                                "search_type": "posts",
                                 "results_count": 15,
-                                "created_at": "2024-01-01T00:00:00Z"
+                                "response_time": 0.123,
+                                "created_at": "2024-01-15T10:30:00Z"
                             }
-                        ]
+                        ],
+                        "total": 1
                     }
                 }
             )
@@ -225,16 +325,21 @@ class SearchHistoryAPIView(APIView):
         獲取用戶搜尋歷史
         """
         try:
-            history = search_service.get_search_history(request.user.id, 20)
+            limit = min(int(request.GET.get('limit', 10)), 50)
+            history = search_service.get_search_history(request.user.id, limit)
+            
             return Response({
-                'history': history
+                'history': history,
+                'total': len(history)
             }, status=status.HTTP_200_OK)
             
         except Exception as e:
             logger.error(f"獲取搜尋歷史錯誤: {str(e)}")
             return Response({
-                'history': []
-            }, status=status.HTTP_200_OK)
+                'history': [],
+                'total': 0,
+                'error': '無法獲取搜尋歷史'
+            }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
     
     @swagger_auto_schema(
         responses={
@@ -247,6 +352,7 @@ class SearchHistoryAPIView(APIView):
         """
         try:
             success = search_service.clear_search_history(request.user.id)
+            
             if success:
                 return Response({
                     'message': '搜尋歷史已清除'
