@@ -47,7 +47,7 @@ urlpatterns = [
     path('redoc/', schema_view.with_ui('redoc', cache_timeout=0), name='schema-redoc'),
     
     # 應用API
-    path('api/users/', include('users.urls')),
+    path('', include('accounts.urls')),
     path('api/posts/', include('posts.urls')),
     path('api/chat/', include('chat.urls')),
     path('api/profiles/', include('profiles.urls')),

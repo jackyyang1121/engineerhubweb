@@ -132,7 +132,7 @@ search_service.search_posts(
    # ALGOLIA_APPLICATION_ID=your_app_id
    # ALGOLIA_API_KEY=your_admin_api_key
    
-   python manage.py makemigration
+   python manage.py makemigrations
    python manage.py migrate
    python manage.py algolia_reindex --verbose  # 建立搜尋索引
    python manage.py runserver

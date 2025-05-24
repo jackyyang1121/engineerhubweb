@@ -18,7 +18,6 @@ from django.utils import timezone
 from sklearn.feature_extraction.text import TfidfVectorizer
 from sklearn.metrics.pairwise import cosine_similarity
 import numpy as np
-
 from .models import Post, Like, Comment, PostView
 from users.models import Follow
 
@@ -130,7 +129,7 @@ class RecommendationEngine:
                 'error': str(e)
             }
     
-    def _get_following_posts(self, user: User, limit: int) -> List[Dict[str, Any]]:
+    def _get_following_posts(self, user: "User", limit: int) -> List[Dict[str, Any]]:
         """
         獲取追蹤用戶的貼文
         
@@ -161,7 +160,7 @@ class RecommendationEngine:
             logger.error(f"獲取追蹤用戶貼文失敗: {str(e)}")
             return []
     
-    def _get_trending_posts(self, user: User, limit: int, exclude_ids: List[str] = None) -> List[Dict[str, Any]]:
+    def _get_trending_posts(self, user: "User", limit: int, exclude_ids: List[str] = None) -> List[Dict[str, Any]]:
         """
         獲取熱門貼文
         
@@ -197,7 +196,7 @@ class RecommendationEngine:
             logger.error(f"獲取熱門貼文失敗: {str(e)}")
             return []
     
-    def _get_personalized_posts(self, user: User, limit: int, exclude_ids: List[str] = None) -> List[Dict[str, Any]]:
+    def _get_personalized_posts(self, user: "User", limit: int, exclude_ids: List[str] = None) -> List[Dict[str, Any]]:
         """
         獲取個性化推薦貼文
         
@@ -264,7 +263,7 @@ class RecommendationEngine:
             logger.error(f"獲取個性化推薦失敗: {str(e)}")
             return []
     
-    def _get_user_interactions(self, user: User, days: int = 30) -> List[Dict[str, Any]]:
+    def _get_user_interactions(self, user: "User", days: int = 30) -> List[Dict[str, Any]]:
         """
         獲取用戶最近的互動記錄
         
@@ -516,7 +515,7 @@ class RecommendationAnalytics:
     """
     
     @staticmethod
-    def calculate_ctr(user: User, days: int = 7) -> float:
+    def calculate_ctr(user: "User", days: int = 7) -> float:
         """
         計算點擊率（Click-Through Rate）
         

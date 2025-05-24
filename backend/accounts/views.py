@@ -25,7 +25,7 @@ from .serializers import (
     UserSettingsSerializer, CustomTokenObtainPairSerializer,
     PasswordChangeSerializer, UserSearchSerializer
 )
-from core.pagination import StandardResultsSetPagination
+from core.pagination import CustomPageNumberPagination
 from core.permissions import IsOwnerOrReadOnly
 from core.utils import get_client_ip
 
@@ -87,7 +87,7 @@ class UserViewSet(ModelViewSet):
     queryset = User.objects.all()
     serializer_class = UserSerializer
     permission_classes = [IsAuthenticated]
-    pagination_class = StandardResultsSetPagination
+    pagination_class = CustomPageNumberPagination
     filter_backends = [DjangoFilterBackend, filters.SearchFilter, filters.OrderingFilter]
     search_fields = ['username', 'first_name', 'last_name', 'bio']
     ordering_fields = ['created_at', 'followers_count', 'posts_count']
@@ -356,7 +356,7 @@ class PortfolioProjectViewSet(ModelViewSet):
     """
     serializer_class = PortfolioProjectSerializer
     permission_classes = [IsAuthenticated]
-    pagination_class = StandardResultsSetPagination
+    pagination_class = CustomPageNumberPagination
 
     def get_queryset(self):
         if hasattr(self, 'kwargs') and 'username' in self.kwargs:
