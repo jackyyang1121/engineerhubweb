@@ -1,3 +1,0 @@
-#!/bin/bash
-# 快速检查卡住的进程
-timeout 10s ./終端機卡住修復/kill_stuck_processes.sh 
