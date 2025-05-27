@@ -36,5 +36,32 @@ DEFAULT_FROM_EMAIL=noreply@engineerhub.com
 # Sentry 監控 (生產環境)
 SENTRY_DSN=your-sentry-dsn
 
-# CORS 配置
-CORS_ALLOWED_ORIGINS=http://localhost:3000,http://127.0.0.1:3000 
+# CORS 設置
+CORS_ALLOWED_ORIGINS=http://localhost:3000,http://127.0.0.1:3000,http://localhost:5173,http://127.0.0.1:5173
+
+
+
+# ==================== 其他設置 ====================
+# 時區設置
+TIME_ZONE=Asia/Taipei
+
+# 語言設置
+LANGUAGE_CODE=zh-hant
+
+# 文件上傳大小限制 (MB)
+MAX_UPLOAD_SIZE=100
+
+# ==================== 使用說明 ====================
+# 1. 複製此文件到 backend 目錄並重新命名：
+#    cp env_template.txt backend/.env
+# 2. 編輯 backend/.env 並填入實際的 API 金鑰和密碼
+# 3. 不要將 .env 文件提交到版本控制系統
+# 4. 生產環境請更改所有密鑰和密碼
+
+# ==================== 快速設置步驟 ====================
+# 1. 複製：cp env_template.txt backend/.env
+# 2. 編輯：nano backend/.env  # 或使用你喜歡的編輯器
+# 3. 獲取 Algolia API 金鑰：https://www.algolia.com/dashboard
+# 4. 設置 Google OAuth：https://console.cloud.google.com/
+# 5. 設置 GitHub OAuth：https://github.com/settings/developers
+# 6. 啟動 Docker 容器：docker-compose -f docker-compose.dev.yml up -d 
