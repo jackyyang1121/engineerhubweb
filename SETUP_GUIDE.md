@@ -117,7 +117,7 @@ cd engineerhubweb
 ```
 
 ### 2.2 準備 `docker-compose.dev.yml`
-在專案根目錄 (`engineerhubweb`) 創建 `docker-compose.dev.yml` 文件，內容如下。此文件定義了 PostgreSQL、Redis 和 Adminer（可選的資料庫管理工具）服務。
+在專案根目錄 (`engineerhubweb`) 的 `docker-compose.dev.yml` 文件應包含以下內容。此文件定義了 PostgreSQL、Redis、Django (用於執行管理命令或運行開發服務器) 和 Adminer（可選的資料庫管理工具）服務。
 ```yaml
 version: '3.8'
 
@@ -128,7 +128,7 @@ services:
     environment:
       POSTGRES_DB: engineerhub
       POSTGRES_USER: engineerhub_user
-      POSTGRES_PASSWORD: your_strong_password_here # 重要：請設置一個安全的密碼，並在後端 .env 中使用相同密碼
+      POSTGRES_PASSWORD: your_POSTGRES_PASSWORD
       POSTGRES_HOST_AUTH_METHOD: trust # 簡化本地開發連接，生產環境請勿使用 trust
     ports:
       - "5432:5432"
@@ -141,6 +141,8 @@ services:
       interval: 10s
       timeout: 5s
       retries: 5
+    networks:
+      - engineerhub_network
 
   redis:
     image: redis:7-alpine
@@ -155,6 +157,33 @@ services:
       interval: 10s
       timeout: 5s
       retries: 5
+    networks:
+      - engineerhub_network
+
+  django:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile.dev # 使用 backend 目錄下的 Dockerfile.dev
+    container_name: engineerhub_django
+    ports:
+      - "8000:8000" # 映射 Django 開發服務器端口
+    volumes:
+      - ./backend:/app # 掛載本地 backend 目錄到容器的 /app 目錄，方便代碼熱重載
+    environment:
+      - DJANGO_SETTINGS_MODULE=engineerhub.settings.development
+      - DB_HOST=postgres # Django 容器內通過服務名 'postgres' 連接數據庫
+      - REDIS_URL=redis://redis:6379/0 # Django 容器內通過服務名 'redis' 連接 Redis
+      # 注意：此處的環境變數會覆蓋 backend/.env 文件中的同名變數 (當在 Docker 中運行 Django 時)
+      # 其他如 API 金鑰等敏感配置仍建議放在 backend/.env 中，並確保 Dockerfile 或啟動腳本能正確加載它們
+      # 或者，您可以將所有環境變數都定義在此處或通過 env_file 加載
+    depends_on:
+      postgres:
+        condition: service_healthy # 確保 postgres 健康後再啟動 django
+      redis:
+        condition: service_healthy # 確保 redis 健康後再啟動 django
+    networks:
+      - engineerhub_network
+    command: python manage.py runserver 0.0.0.0:8000 # 容器啟動時運行的默認命令
 
   adminer: # 資料庫 Web 管理工具 (可選，但推薦用於開發)
     image: adminer:latest
@@ -163,43 +192,56 @@ services:
       - "8080:8080"
     environment:
       ADMINER_DEFAULT_SERVER: postgres # 默認連接到此 compose 文件中的 postgres 服務
+      ADMINER_DESIGN: hydra # 設置 Adminer 佈景主題
+      ADMINER_PLUGINS: tables-filter tinymce # 啟用插件
     depends_on:
       postgres:
         condition: service_healthy # 確保 postgres 啟動並健康後再啟動 adminer
-
-  # Django 服務定義 (用於執行 manage.py 命令)
-  # 這個服務不會用 `up` 命令長時間運行，而是用 `run --rm` 執行一次性命令
-  django: 
-    build:
-      context: ./backend # 假設 backend 目錄下有 Dockerfile
-      # 如果沒有 Dockerfile 或想用本地 Python 環境，可考慮用一個基礎 Python 鏡像並掛載代碼
-    volumes:
-      - ./backend:/app # 掛載本地 backend 目錄到容器的 /app 目錄
-    working_dir: /app   # 設定容器內的工作目錄
-    env_file:
-      - ./backend/.env # 加載後端環境變數
-    depends_on:
-      postgres:
-        condition: service_healthy
-      redis:
-        condition: service_healthy
-    # command: ["tail", "-f", "/dev/null"] # 可以用一個空命令讓容器保持運行，但不建議用於 run --rm
+    networks:
+      - engineerhub_network
 
 volumes:
   postgres_data: # 用於持久化 PostgreSQL 數據
+    driver: local
   redis_data:    # 用於持久化 Redis 數據
+    driver: local
+
+networks:
+  engineerhub_network: # 定義自定義橋接網絡
+    driver: bridge
 ```
-*確保您的 `backend` 目錄下有一個 `Dockerfile` 供 `django` 服務構建，或者調整 `django` 服務的定義以適應您的專案結構（例如，如果沒有 Dockerfile，可能需要使用一個預構建的 Python 鏡像並確保您的代碼和依賴可用）。如果 `backend/Dockerfile` 不存在，一個簡單的示例可能是：*
+*上述 `django` 服務配置了 `build` 指令，它會使用您 `backend` 目錄下的 `Dockerfile.dev` 文件來構建 Django 應用鏡像。它還掛載了 `backend` 目錄到容器的 `/app`，方便本地代碼更改能即時反映到容器中（如果您的 Django 開發服務器支持熱重載）。此服務既可以用於通過 `docker compose -f docker-compose.dev.yml run --rm django python manage.py <command>` 執行一次性的管理命令（如遷移、創建超級用戶），也可以通過 `docker compose -f docker-compose.dev.yml up django` 來運行開發服務器（儘管指南主要推薦在本地直接運行 Django 開發服務器，並使用 Docker 運行 `postgres` 和 `redis` 等依賴）。*
+
+*以下是 `backend/Dockerfile.dev` 的一個示例 (請確保它與您專案中的實際文件一致)：*
 ```Dockerfile
-# backend/Dockerfile 示例
+# backend/Dockerfile.dev 示例
 FROM python:3.11-slim
-ENV PYTHONUNBUFFERED 1
+
 WORKDIR /app
+
+# 安裝系統依賴
+RUN apt-get update && apt-get install -y \
+    postgresql-client \
+    libmagic1 \
+    && rm -rf /var/lib/apt/lists/*
+
+# 複製requirements文件
 COPY requirements.txt .
+
+# 安裝Python依賴
 RUN pip install --no-cache-dir -r requirements.txt
+
+# 複製應用代碼
 COPY . .
-CMD ["python", "manage.py", "runserver", "0.0.0.0:8000"] 
-# 這個 CMD 主要用於 compose up django，對於 run --rm 不是必需的
+
+# 設置環境變數
+ENV DJANGO_SETTINGS_MODULE=engineerhub.settings.development
+
+# 暴露端口
+EXPOSE 8000
+
+# 默認命令 (在 docker-compose.yml 中可以被覆寫)
+CMD ["python", "manage.py", "runserver", "0.0.0.0:8000"]
 ```
 
 ### 2.3 啟動核心基礎服務 (PostgreSQL & Redis)

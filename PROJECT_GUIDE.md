@@ -912,7 +912,8 @@ function PostsPage() {
   );
 }
 ```
-*   **教學**：`useQuery` 用於獲取貼文列表，`queryKey` 是 `'posts'`，`queryFn` 是 `fetchPosts`。它會自動管理加載狀態 (`isLoading`) 和錯誤狀態 (`isError`, `error`)。`useMutation` 用於創建新貼文，`mutationFn` 是 `createPost`。在 `onSuccess` 回調中，我們使用 `queryClient.invalidateQueries` 來使貼文列表查詢失效以重新獲取。
+*   **教學**：
+`useQuery` 用於獲取貼文列表，`queryKey` 是 `'posts'`，`queryFn` 是 `fetchPosts`。它會自動管理加載狀態 (`isLoading`) 和錯誤狀態 (`isError`, `error`)。`useMutation` 用於創建新貼文，`mutationFn` 是 `createPost`。在 `onSuccess` 回調中，我們使用 `queryClient.invalidateQueries` 來使貼文列表查詢失效以重新獲取。
 
 **學習重點**：
 *   理解 `queryKey` 的重要性和設計原則。
@@ -1174,10 +1175,377 @@ frontend/
 *   **Context API (謹慎使用)**：用於深層次的 props 穿透。`ThemeProvider` 或 `QueryClientProvider` 就是例子。對於應用級別的全局狀態，優先考慮 Zustand 或 React Query。
 *   **通過 Store 共享**：不直接相關的組件可以通過 Zustand store 訂閱和更新共享狀態。
 
+
 #### 3.3.4 組件開發建議
 
-*   **單一職責原則**：每個組件盡可能只做一件事情。如果一個組件過
+*   **單一職責原則**：每個組件盡可能只做一件事情。如果一個組件過於複雜，承擔了太多職責，就應該考慮將其拆分成更小、更專注的組件。
+*   **保持組件純淨**：盡可能使展示型組件為純函數，對於相同的 props 始終渲染相同的輸出。副作用應由 `useEffect` 或數據獲取庫（如 React Query）處理。
+*   **明確 Props 接口**：使用 TypeScript 為組件的 props 定義清晰的類型，並提供必要的註釋。這有助於理解組件的預期用途和數據需求。
+*   **可測試性**：在設計組件時考慮其可測試性。避免組件內部包含過多難以模擬的外部依賴或複雜的內部邏輯，可以通過 props 傳入依賴或將邏輯提取到 Hooks 中。
+*   **善用 Hooks 封裝邏輯**：對於可重用的組件邏輯（例如，表單處理、訂閱事件、API 調用相關的 UI 邏輯），應將其提取到自定義 Hooks 中，以保持組件的簡潔和可維護性。
+*   **避免 Prop Drilling**：對於需要在組件樹中深層傳遞的狀態，應使用 React Context、Zustand 或其他狀態管理方案，而不是逐層手動傳遞 props。
+
+#### 3.3.5 頁面組件結構範例
+
+一個典型的頁面組件 (`src/pages/`) 可能遵循以下結構，以組織其狀態、邏輯和渲染：
+
+```typescript
+// src/pages/ExplorePage.tsx (概念範例)
+import React, { useState } from 'react';
+import { useQuery } from '@tanstack/react-query';
+// 假設有以下組件和 API 函數
+// import { Header, TabNavigation, LoadingSpinner, ErrorMessage, ContentDisplay } from '../components';
+// import { fetchTrendingData } from '../api/explore';
+
+const ExplorePage: React.FC = () => {
+// 1. 狀態管理 (本地 UI 狀態)
+const [activeTab, setActiveTab] = useState('trending');
+
+// 2. API 查詢 (使用 React Query)
+// const { data, isLoading, error } = useQuery({
+//   queryKey: ['trendingPosts', activeTab], // 查詢鍵應依賴於會影響數據的變量
+//   queryFn: () => fetchTrendingData(activeTab) // 假設 API 函數接受 activeTab
+// });
+
+// 3. 事件處理函數
+const handleTabChange = (tab: string) => {
+   setActiveTab(tab);
+};
+
+// 4. 渲染輔助函數 (可選，用於複雜渲染邏輯)
+const renderContent = () => {
+   // if (isLoading) return <LoadingSpinner />;
+   // if (error) return <ErrorMessage message={error.message} />;
+   // return <ContentDisplay data={data} />;
+   return <p>內容區域 (根據 activeTab 和 API 數據渲染)</p>; // 簡化示意
+};
+
+// 5. 主渲染
+return (
+   <div className="container mx-auto px-4 py-8">
+      {/* <Header /> */}
+      {/* <TabNavigation 
+      tabs={[{id: 'trending', label: '熱門'}, {id: 'newest', label: '最新'}]} 
+      activeTab={activeTab} 
+      onTabChange={handleTabChange} 
+      /> */}
+      <div className="mt-6">
+      {renderContent()}
+      </div>
+   </div>
+);
+};
+
+export default ExplorePage;
 ```
+**結構說明**：
+*   **狀態管理**：使用 `useState` 管理本地 UI 狀態，如當前選中的標籤。全局或跨組件狀態使用 Zustand。
+*   **API 查詢**：使用 React Query (`useQuery`) 處理數據獲取、加載狀態和錯誤狀態。
+*   **事件處理函數**：定義處理用戶交互的函數。
+*   **渲染函數**：將複雜的渲染邏輯提取到單獨的函數或子組件中，使主渲染部分更清晰。
+*   **主渲染**：組合佈局和內容組件，呈現最終的 UI。
+
+### 3.4 API 整合模式
+
+前端與後端 API 的交互是應用程式的核心。以下是如何組織 API 請求和相關邏輯的建議。
+
+#### 3.4.1 API 服務層
+
+**位置**：`src/api/`
+
+**設計原則**：
+*   **職責分離**：將所有 API 請求邏輯集中到 API 服務層，使組件保持純淨。
+*   **Axios 實例**：在 `src/api/axiosConfig.ts` 中配置一個共享的 Axios 實例，用於統一處理基礎 URL、請求頭 (如 `Authorization` token)、攔截器 (用於請求/響應處理、錯誤處理) 等。
+*   **類型安全**：為 API 請求的參數和響應數據定義 TypeScript 類型 (`src/types/api.ts` 或各功能模塊的 `types.ts`)。
+*   **錯誤處理**：在 API 函數中捕獲錯誤，並可以拋出一個標準化的 `APIError` 類型，方便上層調用者處理。
+
+**範例 (`src/api/posts.ts`)**:
+```typescript
+// 假設在 src/api/axiosConfig.ts 中配置了 axiosInstance
+// import axiosInstance from './axiosConfig';
+// 假設在 src/types/post.ts 中定義了 Post 和 PaginatedResponse 類型
+// import type { Post, CreatePostData, PaginatedResponse } from '../types/post';
+// 假設有 APIError 類型
+// import { APIError } from '../utils/errors'; // 假設的錯誤類型
+
+class PostAPIService {
+private baseURL = '/api/posts'; // 後端 API 的基礎路徑
+
+async getPosts(page: number = 1, limit: number = 10): Promise<any /* PaginatedResponse<Post> */> {
+   try {
+      // const response = await axiosInstance.get<PaginatedResponse<Post>>(`${this.baseURL}/`, {
+      //   params: { page, limit }
+      // });
+      // return response.data;
+      console.log(`模擬獲取貼文: page=${page}, limit=${limit}`);
+      return { results: [], count: 0, next: null, previous: null }; // 簡化示意
+   } catch (error: any) {
+      // throw new APIError('獲取貼文列表失敗', error.response?.status, error.response?.data);
+      throw new Error('獲取貼文列表失敗'); // 簡化示意
+   }
+}
+
+async getPostById(postId: string): Promise<any /* Post */> {
+   try {
+      // const response = await axiosInstance.get<Post>(`${this.baseURL}/${postId}/`);
+      // return response.data;
+      console.log(`模擬獲取單個貼文: id=${postId}`);
+      return { id: postId, title: '示例貼文', content: '...' }; // 簡化示意
+   } catch (error: any) {
+      // throw new APIError(`獲取貼文 (ID: ${postId}) 失敗`, error.response?.status, error.response?.data);
+      throw new Error('獲取單個貼文失敗'); // 簡化示意
+   }
+}
+
+async createPost(data: any /* CreatePostData */): Promise<any /* Post */> {
+   try {
+      // const response = await axiosInstance.post<Post>(this.baseURL + '/', data);
+      // return response.data;
+      console.log('模擬創建貼文:', data);
+      return { ...data, id: 'new-post-id' }; // 簡化示意
+   } catch (error: any) {
+      // throw new APIError('創建貼文失敗', error.response?.status, error.response?.data);
+      throw new Error('創建貼文失敗'); // 簡化示意
+   }
+}
+// ... 其他 API 方法 (updatePost, deletePost 等)
+}
+
+// 導出服務實例
+export const postAPI = new PostAPIService();
+```
+
+#### 3.4.2 使用 React Query 整合 API 服務
+
+React Query (`@tanstack/react-query`) 是處理伺服器狀態的首選。它與 API 服務層協同工作：
+
+*   **`queryFn`**：在 `useQuery` 的 `queryFn` 中調用 API 服務層的方法來獲取數據。
+*   **`mutationFn`**：在 `useMutation` 的 `mutationFn` 中調用 API 服務層的方法來創建、更新或刪除數據。
+
+```typescript
+// 在組件中使用 (概念性)
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { postAPI } from '../api/posts'; // 引入 API 服務
+// import { useNavigate } from 'react-router-dom';
+
+function PostCreationComponent() {
+const queryClient = useQueryClient();
+// const navigate = useNavigate();
+
+const createPostMutation = useMutation({
+   mutationFn: postAPI.createPost, // 直接傳遞 API 服務的方法
+   onSuccess: (createdPost) => {
+      // 使相關查詢失效以重新獲取數據
+      queryClient.invalidateQueries({ queryKey: ['posts'] });
+      // queryClient.setQueryData(['post', createdPost.id], createdPost); // 也可以選擇性地直接更新快取
+      console.log('貼文創建成功:', createdPost);
+      // navigate(`/posts/${createdPost.id}`);
+   },
+   onError: (error: any) => {
+      console.error('創建貼文失敗:', error.message);
+      // 可以在此處顯示錯誤通知給用戶
+   }
+});
+
+const handleCreatePost = () => {
+   const newPostData = { title: '我的新貼文', content: '這是一篇精彩的內容...' };
+   createPostMutation.mutate(newPostData);
+};
+
+return (
+   <button onClick={handleCreatePost} disabled={createPostMutation.isPending}>
+      {createPostMutation.isPending ? '發布中...' : '創建新貼文'}
+   </button>
+);
+}
+```
+將 API 請求邏輯封裝在 `src/api/` 中，並通過 React Query 進行調用和狀態管理，是一種清晰且可擴展的模式。
+
+### 3.5 樣式設計系統 (Tailwind CSS)
+
+本專案使用 Tailwind CSS 作為主要的 CSS 框架，輔以可能的全局樣式和組件級樣式。
+
+#### 3.5.1 設計原則
+
+*   **原子化/實用優先 (Utility-First)**：Tailwind CSS 的核心理念是通過組合大量預定義的、單一用途的實用工具類來構建 UI，而不是編寫自定義 CSS。例如 `text-blue-500`, `bg-gray-100`, `p-4`, `flex items-center`。
+*   **響應式設計**：Tailwind 內建了易於使用的響應式修飾符 (如 `sm:`, `md:`, `lg:`)，可以直接在 HTML/JSX 中應用於不同屏幕尺寸的樣式。
+   ```css
+   /* Tailwind 預設響應式斷點 (可在 tailwind.config.ts 中自定義) */
+   sm:  640px  /* 小屏幕設備 */
+   md:  768px  /* 中等屏幕設備 */
+   lg:  1024px /* 大屏幕設備 */
+   xl:  1280px /* 超大屏幕設備 */
+   2xl: 1536px /* 更超大屏幕設備 */
+   ```
+   使用範例：`<div class="w-full md:w-1/2 lg:w-1/3">...</div>`
+*   **主題與自定義 (`tailwind.config.ts`)**：
+   *   **色彩系統**：可以在 `tailwind.config.ts` 的 `theme.extend.colors` 中定義專案的品牌顏色、語義顏色等。
+      ```typescript
+      // frontend/tailwind.config.ts (部分範例)
+      export default {
+         content: ['./index.html', './src/**/*.{js,ts,jsx,tsx}'],
+         theme: {
+            extend: {
+            colors: {
+               primary: {
+                  light: '#60a5fa', // 例如：藍色 400
+                  DEFAULT: '#3b82f6', // 例如：藍色 500 (預設 primary)
+                  dark: '#2563eb',  // 例如：藍色 600
+               },
+               secondary: '#10B981', // 綠色
+               // ... 其他自定義顏色
+            },
+            // 可以擴展間距、字體、邊框等
+            },
+         },
+         plugins: [],
+      }
+      ```
+   *   **組件提取 (`@apply`)**：對於重複使用的樣式組合，可以在 CSS 文件中使用 `@apply` 指令創建自定義的組件類，但應謹慎使用，避免過度偏離 Tailwind 的實用優先原則。
+      ```css
+      /* src/styles/index.css (或相關 CSS 文件) */
+      .btn-primary {
+         @apply py-2 px-4 bg-blue-500 text-white font-semibold rounded-lg shadow-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-400 focus:ring-opacity-75;
+      }
+      ```
+      然後在 JSX 中使用：`<button className="btn-primary">主要按鈕</button>`。
+*   **狀態修飾符**：Tailwind 提供了針對不同狀態 (如 `hover:`, `focus:`, `active:`, `disabled:`) 的修飾符。
+
+#### 3.5.2 全局樣式與字體
+
+*   **全局樣式入口**：`src/styles/index.css` (或 `src/main.css`) 是引入 Tailwind 基礎樣式、組件樣式和工具類的地方。
+   ```css
+   /* src/styles/index.css */
+   @tailwind base;
+   @tailwind components;
+   @tailwind utilities;
+
+   /* 可以在此處定義全局基礎樣式或覆蓋 */
+   body {
+      font-family: 'Inter', sans-serif; /* 假設使用 Inter 字體 */
+      @apply antialiased text-gray-800; /* 抗鋸齒和預設文字顏色 */
+   }
+   ```
+*   **字體引入**：如果使用自定義字體，需要在 `public/index.html` 中通過 `<link>` 標籤引入 (例如從 Google Fonts)，或者在 CSS 中使用 `@font-face`。
+
+通過遵循這些原則並有效利用 Tailwind CSS 的配置能力，可以創建出既美觀又易於維護的前端界面。
+
+### 3.6 前端學習建議
+
+#### 3.6.1 新手學習路徑 (針對本專案)
+
+1.  **第一階段：熟悉基礎**
+   *   **瀏覽專案結構**：仔細閱讀 `frontend/` 目錄結構解說 (本指南 3.2 節)，了解各文件夾的用途。
+   *   **運行專案**：確保前端開發環境能成功運行 (`npm run dev`)。
+   *   **理解核心技術棧**：回顧本指南 3.1 節中對 React, TypeScript, Vite, Tailwind CSS, Zustand, React Query 的介紹。
+   *   **從簡單組件入手**：找到 `src/components/common/` 下的基礎組件 (如 `Button.tsx`, `InputField.tsx`)，閱讀其源碼，理解其 props 設計和 Tailwind CSS 的使用。
+
+2.  **第二階段：掌握核心模式**
+   *   **頁面與路由**：查看 `src/pages/` 目錄，選擇一個簡單的頁面 (如 `HomePage.tsx` 或 `LoginPage.tsx`)。跟蹤其如何在 `src/App.tsx` (或路由配置文件) 中被註冊和渲染。
+   *   **狀態管理 (Zustand)**：找到 `src/store/` (例如 `authStore.ts`)，理解全局狀態是如何定義和更新的。在組件中查找如何使用這些 store。
+   *   **數據獲取 (React Query)**：識別使用 `useQuery` 或 `useMutation` 的組件或自定義 Hooks。理解 `queryKey`, `queryFn`, `mutationFn` 的作用，以及如何處理加載和錯誤狀態。
+   *   **API 服務層**：查看 `src/api/` 目錄下的文件，了解 API 請求是如何被封裝的。
+
+3.  **第三階段：深入特定功能**
+   *   **選擇一個功能模組**：例如貼文系統 (`posts/`) 或用戶認證 (`auth/`)。
+   *   **追蹤數據流**：從用戶交互開始 (例如點擊按鈕)，跟蹤事件如何觸發狀態變更或 API 請求，數據如何從後端獲取並最終渲染到 UI。
+   *   **理解組件協作**：分析該功能涉及到的不同組件 (通用組件、功能組件、頁面組件) 是如何協同工作的。
+   *   **自定義 Hooks**：查看 `src/hooks/` 中是否有與該功能相關的 Hooks，理解其封裝的邏輯。
+
+#### 3.6.2 動手實踐建議
+
+「做中學」是掌握前端開發的最佳途徑。
+
+1.  **修改現有組件**：
+   *   嘗試修改 `Button.tsx` 的樣式，添加新的 `variant` 或 `size`。
+   *   為 `PostCard.tsx` 添加一個新的顯示欄位 (例如，閱讀時長估計)。
+   *   調整現有頁面的 Tailwind CSS 佈局。
+
+2.  **創建新組件**：
+   *   實現一個簡單的 `Alert.tsx` 組件，用於顯示成功或錯誤訊息。
+   *   創建一個 `TagList.tsx` 組件，用於展示一組標籤。
+   *   開發一個 `SearchBar.tsx` 組件 (僅 UI，暫不實現搜索邏權)。
+
+3.  **添加小功能或頁面**：
+   *   嘗試在用戶個人檔案頁面添加一個「關注」按鈕 (僅 UI)。
+   *   創建一個靜態的「關於我們」頁面 (`src/pages/AboutPage.tsx`) 並添加到路由中。
+   *   在現有表單中添加一個新的輸入欄位並處理其狀態。
+
+4.  **Debug 與提問**：
+   *   學會使用瀏覽器開發者工具 (Console, Network, Components inspector) 進行調試。
+   *   遇到問題時，嘗試自己解決，然後查閱官方文檔或搜索相關問題。
+   *   如果卡住，可以向社群 (如 Stack Overflow) 或導師提問，但要確保問題描述清晰並提供相關代碼和錯誤信息。
+
+### 3.7 前端開發工具與效能優化
+
+#### 3.7.1 VS Code 推薦設置 (示例)
+
+良好的編輯器配置可以提升開發效率。以下是一些針對 VS Code 的推薦插件和設置 (通常在專案的 `.vscode/extensions.json` 和 `.vscode/settings.json` 中共享)：
+
+*   **推薦插件 (`.vscode/extensions.json`)**：
+   ```json
+   {
+      "recommendations": [
+      "dbaeumer.vscode-eslint",         // ESLint 整合
+      "esbenp.prettier-vscode",         // Prettier 格式化
+      "bradlc.vscode-tailwindcss",      // Tailwind CSS 智能提示
+      "ms-vscode.vscode-typescript-next", // 官方 TypeScript 支持
+      "styled-components.vscode-styled-components", // (如果使用 Styled Components)
+      "VisualStudioExptTeam.vscodeintellicode", // AI 輔助開發
+      "eamodio.gitlens"                 // 增強 Git 功能
+      ]
+   }
+   ```
+*   **工作區設置 (`.vscode/settings.json`)**：
+   ```json
+   {
+      "editor.formatOnSave": true,             // 保存時自動格式化
+      "editor.defaultFormatter": "esbenp.prettier-vscode", // 設置 Prettier 為預設格式化器
+      "editor.codeActionsOnSave": {
+      "source.fixAll.eslint": "explicit"     // 保存時自動修復 ESLint 問題 (explicit 可以設為 true for auto)
+      },
+      "typescript.typescriptPath": "node_modules/typescript/lib", // 使用專案本地的 TypeScript 版本
+      "typescript.preferences.importModuleSpecifier": "relative", // 偏好相對路徑導入
+      "tailwindCSS.includeLanguages": {      // 讓 Tailwind 插件識別 .tsx 文件
+      "typescriptreact": "html"
+      }
+   }
+   ```
+
+#### 3.7.2 前端效能優化考量點
+
+雖然本專案可能未深度實施所有優化，但了解這些概念對前端開發者很重要：
+
+1.  **組件渲染優化**：
+   *   **`React.memo`**: 用於對函數組件進行淺層比較 props，避免不必要的重渲染。
+   *   **`useMemo`**: 用於緩存計算成本高的值。
+   *   **`useCallback`**: 用於緩存函數實例，通常與 `React.memo` 配合使用，防止因回調函數重新創建導致子組件重渲染。
+   *   **列表渲染的 `key`**: 為列表中的每個元素提供穩定且唯一的 `key`。
+   *   **虛擬化列表 (Virtualization)**：對於非常長的列表，使用如 `react-window` 或 `react-virtualized` 來只渲染可見區域的項目。
+
+2.  **代碼分割 (Code Splitting)**：
+   *   **路由級別**：使用 `React.lazy` 和 `Suspense` 按需加載不同頁面的組件，減少初始包體積。Vite 通常對此有良好支持。
+   *   **組件級別**：對於非首屏必需且較大的組件，也可以考慮懶加載。
+
+3.  **資源優化**：
+   *   **圖片優化**：使用合適的圖片格式 (如 WebP)，壓縮圖片大小，使用響應式圖片 (`<picture>` 元素或 `srcset` 屬性)。
+   *   **靜態資源壓縮**：Vite 在生產打包 (`npm run build`) 時會自動壓縮 JS 和 CSS。
+   *   **CDN 加速**：將靜態資源部署到 CDN。
+
+4.  **網路請求優化**：
+   *   **減少請求次數**：例如，合併 API 請求 (如果後端支持 GraphQL 或自定義端點)。
+   *   **React Query 的快取**：充分利用 React Query 的快取機制，避免重複請求相同數據 (`staleTime`, `cacheTime`)。
+   *   **預取 (Prefetching)**：在用戶可能需要數據之前，提前加載數據 (React Query 支持)。
+
+5.  **Tree Shaking**：
+   *   Vite (使用 Rollup) 在生產打包時會自動進行 Tree Shaking，移除未使用的代碼。確保編寫的代碼是 Tree Shaking 友好的 (例如，避免有副作用的頂層導入)。
+
+6.  **監控與分析**：
+   *   **React Developer Tools Profiler**: 分析組件渲染耗時。
+   *   **Lighthouse / PageSpeed Insights**: 檢測網頁性能並提供優化建議。
+   *   **Bundle Analyzers** (如 `rollup-plugin-visualizer` for Vite): 分析打包後的模塊大小，找出可優化的點。
+
+了解並在適當時候應用這些優化技巧，可以顯著提升應用程式的性能和用戶體驗。
 
 ---
 
@@ -1797,6 +2165,82 @@ CI/CD 是一套旨在縮短開發週期、提高軟體質量的實踐。
             7.  在原專案中創建一個 Pull Request (PR)，詳細描述您的修改內容和原因。
             8.  等待專案維護者審查您的 PR。
 
+*   **Q12: 前端組件庫推薦**：除了 Headless UI，還有哪些流行的 React 組件庫？
+    *   **A12**: 有很多優秀的 React 組件庫，例如：
+        *   **Material-UI (MUI)**：提供一套遵循 Material Design 設計規範的組件，功能豐富，社區龐大。
+        *   **Ant Design (AntD)**：阿里巴巴出品，設計精美，組件全面，適合企業級後台應用。
+        *   **Chakra UI**: 提供一套可訪問性良好、易於定制的組件，開發體驗不錯。
+        *   **React Bootstrap**: 將 Bootstrap 的組件重寫為 React 組件。
+        選擇哪個取決於專案需求、設計風格偏好和團隊熟悉度。
+
+*   **Q13: 如何處理前端的表單驗證？**
+    *   **A13**: 前端表單驗證有多種方式：
+        1.  **HTML5 內建驗證**: 利用 `<input>` 標籤的 `required`, `type="email"`, `pattern` 等屬性。簡單方便，但提示樣式不易定制。
+        2.  **手動 JavaScript 驗證**: 在提交時或輸入變化時編寫 JavaScript 邏輯進行驗證。靈活但繁瑣。
+        3.  **表單庫 (推薦)**: 使用如 `React Hook Form`, `Formik` 等庫。它們能極大簡化表單狀態管理、驗證邏輯 (通常配合 `Yup` 或 `Zod` 等 schema 驗證庫) 和提交處理，並提供更好的性能和用戶體驗。
+            *   **React Hook Form**: 輕量、高性能、基於 Hooks，易於上手。
+            *   **Formik**: 功能更全面，但相對重一些。
+        本專案如果包含複雜表單，推薦使用 `React Hook Form` + `Zod` (或 `Yup`)。
+
+*   **Q14: 前端項目如何進行國際化 (i18n) 和本地化 (l10n)？**
+    *   **A14**: 國際化是使應用程式能夠適應不同語言和地區的過程。
+        *   **庫選擇**: `react-i18next` (基於 `i18next`) 是 React 應用中非常流行的 i18n 解決方案。
+        *   **流程**: 
+            1.  將所有需要翻譯的文本字符串提取出來，放到語言資源文件 (例如 JSON 格式，每個語言一個文件 `en.json`, `zh.json`)。
+            2.  配置 `i18next` 實例，加載語言資源，設置當前語言。
+            3.  在組件中使用 `useTranslation` Hook (來自 `react-i18next`) 來獲取翻譯函數 `t`，並用 `t('your_key')` 替換硬編碼文本。
+            4.  提供語言切換功能，讓用戶可以選擇語言。
+        *   **本地化**: 除了文本翻譯，還包括日期、時間、數字、貨幣格式等的本地化，可以使用如 `date-fns` 或 `moment.js` (配合 i18n 庫的 locale 設置) 處理。
+
+*   **Q15: Vite 與 Webpack 的主要區別是什麼？為什麼選擇 Vite？**
+    *   **A15**: 
+        *   **開發環境**: 
+            *   **Webpack**: 在啟動開發服務器時，會先打包整個應用程式，然後再提供服務。對於大型專案，冷啟動可能很慢。
+            *   **Vite**: 利用瀏覽器原生的 ES 模塊 (ESM) 支持，開發時按需編譯模塊。請求到達時，Vite 才轉換和提供源碼，所以冷啟動非常快。熱模塊更新 (HMR) 也更快。
+        *   **生產環境打包**: 
+            *   **Webpack**: 仍然是功能非常強大且生態完善的打包工具。
+            *   **Vite**: 使用 Rollup 進行生產打包，Rollup 更擅長打包庫，生成的代碼更簡潔高效。
+        *   **為什麼選擇 Vite**: 
+            *   **極致的開發體驗**: 快速的冷啟動和 HMR。
+            *   **簡潔的配置**: 許多功能開箱即用。
+            *   **現代化**: 擁抱原生 ESM 等現代 Web 標準。
+            對於新專案，尤其是 React 和 Vue 專案，Vite 因其出色的開發體驗而備受青睞。
+
+
+#### 6.1.5 後端特定 FAQ (Django)
+
+*   **Q16: `manage.py` 命令有哪些常用的？**
+    *   **A16**: 
+        *   `python manage.py runserver`: 啟動開發伺服器。
+        *   `python manage.py makemigrations [app_name]`: 根據模型更改創建遷移文件。
+        *   `python manage.py migrate [app_name] [migration_name]`: 應用遷移到數據庫。
+        *   `python manage.py createsuperuser`: 創建超級管理員帳號。
+        *   `python manage.py shell`: 進入 Django 環境的 Python Shell，方便調試和操作模型。
+        *   `python manage.py test [app_name]`: 運行測試。
+        *   `python manage.py collectstatic`: 收集所有靜態文件到指定目錄 (生產環境用)。
+        *   `python manage.py dbshell`: 進入當前配置的數據庫的命令行客戶端。
+        *   特定 app 可能還會提供自定義的 `manage.py` 命令 (如本專案的 `algolia_reindex`)。
+
+*   **Q17: Django Signals 是什麼？什麼時候使用？**
+    *   **A17**: Django Signals 是一種解耦的通知系統，允許某些發送者 (senders) 在特定動作發生時通知一組接收者 (receivers)。
+        *   **常見內建 Signals**: 
+            *   模型 Signals: `pre_save`, `post_save`, `pre_delete`, `post_delete` (在模型實例保存或刪除前後觸發)。
+            *   請求/響應 Signals: `request_started`, `request_finished`。
+        *   **使用場景**: 
+            *   當一個模型保存後，自動更新另一個模型 (例如，用戶註冊成功 `post_save` User 模型後，自動創建 Profile)。
+            *   數據更改後清除快取。
+            *   發送通知 (例如，新評論 `post_save` Comment 後，通知貼文作者)。
+            *   與 Algolia 集成，在模型保存後自動更新索引。
+        *   **注意**: 過度使用 Signals 可能會使代碼邏輯難以追蹤。對於簡單的、直接相關的邏輯，直接在模型的方法或視圖中處理可能更清晰。只有當需要在不同 app 之間解耦地觸發行為時，Signals 才顯得特別有用。
+
+*   **Q18: Django REST Framework 中的 Serializer, ViewSet, Router 之間是什麼關係？**
+    *   **A18**: 
+        *   **Serializer (序列化器)**: 負責將複雜數據類型 (如 Django 模型實例、查詢集) 轉換為 Python 原生數據類型，以便渲染成 JSON, XML 等格式 (序列化)。反之，也負責將接收到的數據轉換回複雜類型 (反序列化)，並進行數據驗證。
+        *   **View/ViewSet (視圖/視圖集)**: 處理 HTTP 請求並返回 HTTP 響應。`ViewSet` 是一組視圖邏輯的集合，通常與一個模型相關聯，可以方便地實現 CRUD (創建、讀取、更新、刪除) 操作的 API 端點。例如，`ModelViewSet` 為一個模型提供了 `list()`, `retrieve()`, `create()`, `update()`, `destroy()` 等動作。
+        *   **Router (路由器)**: 自動將 ViewSet 映射到 URL 配置。你只需要向 Router 註冊 ViewSet，它就會自動生成對應的 URL 模式。這樣就無需手動編寫 `urls.py` 中的每一條路由規則。
+        **關係**: Router 根據 URL 將請求分發給合適的 ViewSet 中的 action (方法)。ViewSet 中的 action 通常會使用 Serializer 來處理請求數據的驗證和輸入 (反序列化)，以及準備響應數據的格式化 (序列化)。
+
+
 ### 6.2 推薦學習資源
 
 掌握 EngineerHub 專案所使用的技術棧需要持續學習。以下是一些高質量的學習資源，可以幫助您深入理解各個組件並提升您的開發技能：
@@ -1844,6 +2288,18 @@ CI/CD 是一套旨在縮短開發週期、提高軟體質量的實踐。
 
 *   **Testing Playground**: [https://testing-playground.com/](https://testing-playground.com/) (輔助編寫 React Testing Library 測試)
 *   **RegExr**: [https://regexr.com/](https://regexr.com/) (學習和測試正則表達式)
+*   **BundlePhobia**: [https://bundlephobia.com/](https://bundlephobia.com/) (檢查 npm 包的大小)
+*   **Can I use...**: [https://caniuse.com/](https://caniuse.com/) (查詢瀏覽器對 Web 技術的兼容性)
+
+#### 前端進階主題 (拓展視野)
+
+*   **React Server Components (RSC)**: React 的一種新架構，允許組件在服務器端運行，減少客戶端 JavaScript 負載，提升性能。
+*   **微前端 (Microfrontends)**: 將大型前端應用拆分成多個獨立的、可獨立部署和管理的子應用，由一個主應用聚合。
+*   **狀態機 (State Machines - XState)**: 用於管理複雜的組件或應用程式狀態，使狀態轉換更可預測和可視化。
+*   **WebAssembly (Wasm)**: 允許在瀏覽器中以接近原生的速度運行 C++, Rust 等語言編譯的代碼，適用於性能敏感的計算密集型任務。
+*   **漸進式 Web 應用 (PWA - Progressive Web Apps)**: 利用現代 Web 技術使網站具有類似原生應用的體驗，如離線訪問、推播通知、添加到主屏幕等。
+*   **前端可觀測性 (Observability)**: 包括日誌、指標 (metrics)、追蹤 (tracing)，用於更好地理解和監控前端應用的健康狀況和用戶體驗。
+*   **Web 性能優化深入**: 學習瀏覽器渲染原理、Critical Rendering Path、Core Web Vitals 等，進行更細緻的性能調優。
 
 透過本指南的學習，結合這些優質資源，相信您能更全面地掌握 EngineerHub 專案所涉及的全端技術，並在您的開發之路上不斷進步。祝您學習愉快，編程順利！
 
@@ -1851,4 +2307,3 @@ CI/CD 是一套旨在縮短開發週期、提高軟體質量的實踐。
 
 希望這份《EngineerHub 學習指南》能夠成為您探索全端開發世界的一位得力助手！
 
-</rewritten_file>
