@@ -180,7 +180,7 @@ graph TB
 | **Django REST Framework** | 3.14+ | RESTful API開發 |
 | **PostgreSQL** | 13+ | 主要數據庫 |
 | **Redis** | 6.0+ | 緩存和會話存儲 |
-| **Elasticsearch** | 8.0+ | 搜索引擎 |
+| **Algolia** | - | 搜索引擎 |
 | **Celery** | 5.3+ | 異步任務處理 |
 | **Django Channels** | 4.0+ | WebSocket支援 |
 | **Pygments** | 2.16+ | 程式碼語法高亮 |
