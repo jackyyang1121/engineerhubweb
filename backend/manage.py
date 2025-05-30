@@ -10,11 +10,6 @@ EngineerHub Django Management Script
 - 收集靜態文件
 等等...
 
-使用方法：
-    python manage.py runserver
-    python manage.py migrate
-    python manage.py createsuperuser
-    python manage.py collectstatic
 """
 
 import os
