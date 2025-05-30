@@ -91,6 +91,8 @@ export const getPostById = async (postId: string): Promise<Post> => {
 // 創建貼文
 export const createPost = async (postData: CreatePostData): Promise<Post> => {
   try {
+    console.log('🚀 創建貼文 - 前端數據:', postData);
+    
     // 使用 FormData 上傳文件
     const formData = new FormData();
     formData.append('content', postData.content);
@@ -99,12 +101,21 @@ export const createPost = async (postData: CreatePostData): Promise<Post> => {
       formData.append('code_snippet', postData.code_snippet);
     }
     
-    // 添加媒體文件
+    // 只在有媒體文件時才添加媒體相關字段
     if (postData.media && postData.media.length > 0) {
-      postData.media.forEach((file, index) => {
-        formData.append(`media[${index}]`, file);
-        formData.append(`media_types[${index}]`, file.type.startsWith('image/') ? 'image' : 'video');
+      console.log('🚀 添加媒體文件:', postData.media.length, '個');
+      postData.media.forEach((file) => {
+        formData.append('media_files', file);
+        formData.append('media_types', file.type.startsWith('image/') ? 'image' : 'video');
       });
+    } else {
+      console.log('🚀 沒有媒體文件');
+    }
+    
+    // 調試：打印 FormData 內容
+    console.log('🚀 FormData 內容:');
+    for (let [key, value] of formData.entries()) {
+      console.log(`  ${key}:`, value instanceof File ? `File(${value.name})` : value);
     }
     
     const response = await api.post('/posts/', formData, {
@@ -113,8 +124,19 @@ export const createPost = async (postData: CreatePostData): Promise<Post> => {
       }
     });
     return response.data;
-  } catch (error) {
+  } catch (error: any) {
     console.error('創建貼文錯誤:', error);
+    
+    // 顯示詳細的錯誤信息
+    if (error.response) {
+      console.error('🚫 後端錯誤響應:', error.response.status, error.response.data);
+      console.error('🚫 錯誤詳情:', JSON.stringify(error.response.data, null, 2));
+    } else if (error.request) {
+      console.error('🚫 請求沒有響應:', error.request);
+    } else {
+      console.error('🚫 請求設置錯誤:', error.message);
+    }
+    
     throw error;
   }
 };
@@ -132,11 +154,11 @@ export const updatePost = async (postId: string, postData: UpdatePostData): Prom
       formData.append('code_snippet', postData.code_snippet);
     }
     
-    // 添加新媒體文件
+    // 添加新媒體文件 - 使用後端期待的格式
     if (postData.new_media && postData.new_media.length > 0) {
-      postData.new_media.forEach((file, index) => {
-        formData.append(`media[${index}]`, file);
-        formData.append(`media_types[${index}]`, file.type.startsWith('image/') ? 'image' : 'video');
+      postData.new_media.forEach((file) => {
+        formData.append('media_files', file);
+        formData.append('media_types', file.type.startsWith('image/') ? 'image' : 'video');
       });
     }
     

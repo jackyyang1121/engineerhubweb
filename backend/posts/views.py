@@ -12,9 +12,10 @@ from datetime import timedelta
 from .models import Post, Like, Save, Report, PostView, PostShare
 from comments.models import Comment
 from .serializers import (
-    PostSerializer, CommentSerializer, ReplySerializer,
-    LikeSerializer, SaveSerializer, ReportSerializer, PostShareSerializer
+    PostSerializer, LikeSerializer, SaveSerializer, 
+    ReportSerializer, PostShareSerializer
 )
+from comments.serializers import CommentSerializer, ReplySerializer
 
 # 設置日誌記錄器
 logger = logging.getLogger('engineerhub.posts')
@@ -50,6 +51,9 @@ class PostViewSet(viewsets.ModelViewSet):
         """
         if self.action in ['list', 'retrieve', 'following_posts', 'trending']:
             permission_classes = [permissions.IsAuthenticated]
+        elif self.action in ['recommendations']:
+            # 推薦端點允許匿名用戶，但為認證用戶提供個性化推薦
+            permission_classes = [permissions.AllowAny]
         elif self.action in ['create', 'update', 'partial_update', 'destroy']:
             permission_classes = [permissions.IsAuthenticated, IsAuthorOrReadOnly]
         else:
@@ -84,10 +88,15 @@ class PostViewSet(viewsets.ModelViewSet):
         創建貼文時設置作者為當前用戶
         """
         try:
+            logger.info(f"🚀 創建貼文 - 用戶: {self.request.user.username}")
+            logger.info(f"🚀 請求數據: {self.request.data}")
+            logger.info(f"🚀 文件: {self.request.FILES}")
+            
             serializer.save(author=self.request.user)
-            logger.info(f"用戶 {self.request.user.username} 創建了新貼文")
+            logger.info(f"✅ 用戶 {self.request.user.username} 創建了新貼文")
         except Exception as e:
-            logger.error(f"貼文創建失敗: {str(e)}")
+            logger.error(f"❌ 貼文創建失敗: {str(e)}")
+            logger.error(f"❌ 錯誤類型: {type(e)}")
             raise ValidationError(f"貼文創建失敗: {str(e)}")
     
     def perform_update(self, serializer):
@@ -325,79 +334,29 @@ class PostViewSet(viewsets.ModelViewSet):
     @action(detail=False, methods=['get'])
     def recommendations(self, request):
         """
-        獲取個性化推薦貼文
+        獲取推薦貼文（簡化版：最新的熱門貼文）
         """
         try:
-            from .recommendation import recommendation_engine
-            
-            # 獲取推薦貼文
-            recommended_posts = recommendation_engine.get_recommendations(
-                user=request.user,
-                limit=20
-            )
+            # 簡化：返回最近的熱門貼文
+            from datetime import timedelta
+            week_ago = timezone.now() - timedelta(days=7)
+            hot_posts = Post.objects.filter(
+                created_at__gte=week_ago
+            ).order_by('-likes_count', '-comments_count', '-created_at')
             
             # 分頁與序列化
-            page = self.paginate_queryset(recommended_posts)
+            page = self.paginate_queryset(hot_posts)
             if page is not None:
                 serializer = self.get_serializer(page, many=True)
                 return self.get_paginated_response(serializer.data)
             
-            serializer = self.get_serializer(recommended_posts, many=True)
+            serializer = self.get_serializer(hot_posts, many=True)
             return Response(serializer.data)
+            
         except Exception as e:
             logger.error(f"獲取推薦貼文失敗: {str(e)}")
             return Response(
                 {"detail": f"獲取推薦貼文失敗: {str(e)}"},
-                status=status.HTTP_500_INTERNAL_SERVER_ERROR
-            )
-    
-    @action(detail=True, methods=['post'])
-    def record_interaction(self, request, pk=None):
-        """
-        記錄用戶與貼文的互動行為，用於優化推薦系統
-        
-        互動類型：view（瀏覽）、like（點讚）、comment（評論）、share（分享）
-        """
-        try:
-            from .recommendation import recommendation_engine
-            
-            post = self.get_object()
-            action = request.data.get('action')
-            
-            if action not in ['view', 'like', 'comment', 'share']:
-                return Response(
-                    {"detail": "無效的互動類型"},
-                    status=status.HTTP_400_BAD_REQUEST
-                )
-            
-            # 更新用戶偏好
-            recommendation_engine.update_user_preferences(
-                user=request.user,
-                post=post,
-                action=action
-            )
-            
-            # 如果是瀏覽行為，記錄到瀏覽歷史
-            if action == 'view':
-                PostView.objects.get_or_create(
-                    user=request.user,
-                    post=post,
-                    defaults={'created_at': timezone.now()}
-                )
-                
-                # 增加貼文瀏覽數
-                Post.objects.filter(id=post.id).update(
-                    views_count=F('views_count') + 1
-                )
-            
-            logger.info(f"用戶 {request.user.username} 對貼文 {post.id} 執行了 {action} 操作")
-            
-            return Response({"detail": "互動記錄成功"}, status=status.HTTP_200_OK)
-            
-        except Exception as e:
-            logger.error(f"記錄用戶互動失敗: {str(e)}")
-            return Response(
-                {"detail": f"記錄互動失敗: {str(e)}"},
                 status=status.HTTP_500_INTERNAL_SERVER_ERROR
             )
     
@@ -530,36 +489,26 @@ class CommentViewSet(viewsets.ModelViewSet):
     
     提供評論創建、查詢、更新、刪除等功能
     """
+    queryset = Comment.objects.all()
     serializer_class = CommentSerializer
-    
-    def get_permissions(self):
-        """
-        根據不同的操作設置不同的權限
-        """
-        if self.action in ['list', 'retrieve', 'post_comments', 'replies']:
-            permission_classes = [permissions.IsAuthenticated]
-        elif self.action in ['create', 'update', 'partial_update', 'destroy']:
-            permission_classes = [permissions.IsAuthenticated]
-        else:
-            permission_classes = [permissions.IsAuthenticated]
-        return [permission() for permission in permission_classes]
+    permission_classes = [permissions.IsAuthenticated]
     
     def get_queryset(self):
         """
-        獲取評論列表，只返回頂層評論（沒有父評論的評論）
+        獲取評論列表，根據操作類型返回不同的 queryset
         """
-        return Comment.objects.filter(parent=None)
+        # 對於所有操作，都返回完整的 queryset
+        return Comment.objects.all()
     
     def perform_create(self, serializer):
         """
         創建評論時設置用戶為當前用戶
         """
-        try:
-            serializer.save(author=self.request.user)
-            logger.info(f"用戶 {self.request.user.username} 創建了新評論")
-        except Exception as e:
-            logger.error(f"評論創建失敗: {str(e)}")
-            raise ValidationError(f"評論創建失敗: {str(e)}")
+        logger.info(f"🚀 創建評論 - 用戶: {self.request.user.username}")
+        logger.info(f"🚀 請求數據: {self.request.data}")
+        
+        serializer.save(user=self.request.user)
+        logger.info(f"✅ 用戶 {self.request.user.username} 創建了新評論")
     
     def perform_update(self, serializer):
         """
@@ -568,7 +517,7 @@ class CommentViewSet(viewsets.ModelViewSet):
         try:
             # 只允許用戶更新自己的評論
             instance = serializer.instance
-            if instance.author != self.request.user:
+            if instance.user != self.request.user:
                 logger.warning(f"用戶 {self.request.user.username} 嘗試更新其他用戶的評論")
                 raise ValidationError("無權限更新其他用戶的評論")
             
@@ -584,7 +533,7 @@ class CommentViewSet(viewsets.ModelViewSet):
         """
         try:
             # 只允許用戶刪除自己的評論
-            if instance.author != self.request.user:
+            if instance.user != self.request.user:
                 logger.warning(f"用戶 {self.request.user.username} 嘗試刪除其他用戶的評論")
                 raise ValidationError("無權限刪除其他用戶的評論")
             

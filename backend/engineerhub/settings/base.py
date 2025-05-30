@@ -36,7 +36,7 @@ DJANGO_APPS = [
 ]
 
 THIRD_PARTY_APPS = [
-    # DRF 相關
+    # Django REST Framework
     'rest_framework',
     'rest_framework.authtoken',
     'rest_framework_simplejwt',
@@ -365,53 +365,6 @@ EMAIL_HOST_USER = config('EMAIL_HOST_USER', default='')
 EMAIL_HOST_PASSWORD = config('EMAIL_HOST_PASSWORD', default='')
 DEFAULT_FROM_EMAIL = config('DEFAULT_FROM_EMAIL', default='noreply@engineerhub.com')
 
-# ==================== Celery 設置 ====================
-CELERY_BROKER_URL = REDIS_URL
-CELERY_RESULT_BACKEND = 'django-db'
-CELERY_CACHE_BACKEND = 'django-cache'
-CELERY_TASK_SERIALIZER = 'json'
-CELERY_RESULT_SERIALIZER = 'json'
-CELERY_ACCEPT_CONTENT = ['json']
-CELERY_TIMEZONE = 'Asia/Taipei'
-CELERY_ENABLE_UTC = True
-CELERY_BEAT_SCHEDULER = 'django_celery_beat.schedulers:DatabaseScheduler'
-
-# ==================== Channels 設置 ====================
-CHANNEL_LAYERS = {
-    'default': {
-        'BACKEND': 'channels_redis.core.RedisChannelLayer',
-        'CONFIG': {
-            'hosts': [REDIS_URL],
-        },
-    },
-}
-
-# ==================== API 文檔配置 (Spectacular) ====================
-SPECTACULAR_SETTINGS = {
-    'TITLE': 'EngineerHub API',
-    'DESCRIPTION': 'EngineerHub社群平台的API文檔',
-    'VERSION': '1.0.0',
-    'SERVE_INCLUDE_SCHEMA': False,
-    'COMPONENT_SPLIT_REQUEST': True,
-    'SCHEMA_PATH_PREFIX': '/api/',
-    'SECURITY': [
-        {
-            'type': 'http',
-            'scheme': 'bearer',
-            'bearerFormat': 'JWT',
-        }
-    ],
-}
-
-# ==================== Algolia 搜索配置 ====================
-ALGOLIA_APPLICATION_ID = config('ALGOLIA_APPLICATION_ID', default='')
-ALGOLIA_API_KEY = config('ALGOLIA_API_KEY', default='')
-
-# ==================== 安全設置 ====================
-SECURE_BROWSER_XSS_FILTER = True
-SECURE_CONTENT_TYPE_NOSNIFF = True
-X_FRAME_OPTIONS = 'DENY'
-
 # ==================== 日誌設置 ====================
 LOGGING = {
     'version': 1,
@@ -514,6 +467,17 @@ NOTIFICATION_RETENTION_DAYS = 30
 TEMP_FILE_CLEANUP_HOURS = 24
 ORPHANED_FILE_CLEANUP_DAYS = 7
 
+# ==================== Algolia 搜索配置 ====================
+ALGOLIA_APPLICATION_ID = config('ALGOLIA_APPLICATION_ID', default='')
+ALGOLIA_API_KEY = config('ALGOLIA_API_KEY', default='')
+
+# ==================== 安全設置 ====================
+SECURE_BROWSER_XSS_FILTER = True
+SECURE_CONTENT_TYPE_NOSNIFF = True
+X_FRAME_OPTIONS = 'DENY'
+
+# ==================== 日誌設置 ====================
+
 # ==================== Algolia 配置檢查和動態載入 ====================
 def configure_algolia():
     """
@@ -588,4 +552,42 @@ except Exception as e:
         'SEARCH_API_KEY': '',
         'INDEX_PREFIX': 'engineerhub',
         'ENABLED': False,
-    } 
+    }
+
+# ==================== Celery 設置 ====================
+CELERY_BROKER_URL = REDIS_URL
+CELERY_RESULT_BACKEND = 'django-db'
+CELERY_CACHE_BACKEND = 'django-cache'
+CELERY_TASK_SERIALIZER = 'json'
+CELERY_RESULT_SERIALIZER = 'json'
+CELERY_ACCEPT_CONTENT = ['json']
+CELERY_TIMEZONE = 'Asia/Taipei'
+CELERY_ENABLE_UTC = True
+CELERY_BEAT_SCHEDULER = 'django_celery_beat.schedulers:DatabaseScheduler'
+
+# ==================== Channels 設置 ====================
+CHANNEL_LAYERS = {
+    'default': {
+        'BACKEND': 'channels_redis.core.RedisChannelLayer',
+        'CONFIG': {
+            'hosts': [REDIS_URL],
+        },
+    },
+}
+
+# ==================== API 文檔配置 (Spectacular) ====================
+SPECTACULAR_SETTINGS = {
+    'TITLE': 'EngineerHub API',
+    'DESCRIPTION': 'EngineerHub社群平台的API文檔',
+    'VERSION': '1.0.0',
+    'SERVE_INCLUDE_SCHEMA': False,
+    'COMPONENT_SPLIT_REQUEST': True,
+    'SCHEMA_PATH_PREFIX': '/api/',
+    'SECURITY': [
+        {
+            'type': 'http',
+            'scheme': 'bearer',
+            'bearerFormat': 'JWT',
+        }
+    ],
+} 

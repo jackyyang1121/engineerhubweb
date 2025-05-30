@@ -2,7 +2,7 @@
  * 聊天相關API接口
  */
 
-import { apiClient } from './client';
+import api from './axiosConfig';
 
 // 類型定義
 export interface User {
@@ -52,7 +52,7 @@ export const chatAPI = {
    * 獲取對話列表
    */
   async getConversations(): Promise<{ conversations: Conversation[] }> {
-    const response = await apiClient.get('/chat/conversations/');
+    const response = await api.get('/chat/conversations/');
     return response.data;
   },
 
@@ -60,7 +60,7 @@ export const chatAPI = {
    * 創建新對話
    */
   async createConversation(participantId: number): Promise<{ conversation: Conversation }> {
-    const response = await apiClient.post('/chat/conversations/', {
+    const response = await api.post('/chat/conversations/', {
       participant_id: participantId
     });
     return response.data;
@@ -70,7 +70,7 @@ export const chatAPI = {
    * 獲取對話詳情
    */
   async getConversation(conversationId: string): Promise<{ conversation: Conversation }> {
-    const response = await apiClient.get(`/chat/conversations/${conversationId}/`);
+    const response = await api.get(`/chat/conversations/${conversationId}/`);
     return response.data;
   },
 
@@ -83,7 +83,7 @@ export const chatAPI = {
     page: number; 
     has_next: boolean; 
   }> {
-    const response = await apiClient.get(`/chat/conversations/${conversationId}/messages/`, {
+    const response = await api.get(`/chat/conversations/${conversationId}/messages/`, {
       params: { page, limit }
     });
     return response.data;
@@ -93,7 +93,7 @@ export const chatAPI = {
    * 發送文字訊息
    */
   async sendMessage(conversationId: string, content: string): Promise<{ message: Message }> {
-    const response = await apiClient.post(`/chat/conversations/${conversationId}/messages/`, {
+    const response = await api.post(`/chat/conversations/${conversationId}/messages/`, {
       content,
       message_type: 'text'
     });
@@ -109,7 +109,7 @@ export const chatAPI = {
     formData.append('message_type', file.type.startsWith('image/') ? 'image' : 
                                    file.type.startsWith('video/') ? 'video' : 'file');
 
-    const response = await apiClient.post(
+    const response = await api.post(
       `/chat/conversations/${conversationId}/messages/`,
       formData,
       {
@@ -125,7 +125,7 @@ export const chatAPI = {
    * 標記訊息為已讀
    */
   async markMessageAsRead(messageId: string): Promise<{ success: boolean }> {
-    const response = await apiClient.patch(`/chat/messages/${messageId}/read/`);
+    const response = await api.patch(`/chat/messages/${messageId}/read/`);
     return response.data;
   },
 
@@ -133,7 +133,7 @@ export const chatAPI = {
    * 標記對話中所有訊息為已讀
    */
   async markConversationAsRead(conversationId: string): Promise<{ success: boolean }> {
-    const response = await apiClient.patch(`/chat/conversations/${conversationId}/read/`);
+    const response = await api.patch(`/chat/conversations/${conversationId}/read/`);
     return response.data;
   },
 
@@ -141,7 +141,7 @@ export const chatAPI = {
    * 刪除訊息
    */
   async deleteMessage(messageId: string): Promise<{ success: boolean }> {
-    const response = await apiClient.delete(`/chat/messages/${messageId}/`);
+    const response = await api.delete(`/chat/messages/${messageId}/`);
     return response.data;
   },
 
@@ -149,7 +149,7 @@ export const chatAPI = {
    * 封存對話
    */
   async archiveConversation(conversationId: string): Promise<{ success: boolean }> {
-    const response = await apiClient.patch(`/chat/conversations/${conversationId}/archive/`);
+    const response = await api.patch(`/chat/conversations/${conversationId}/archive/`);
     return response.data;
   },
 
@@ -157,7 +157,7 @@ export const chatAPI = {
    * 取消封存對話
    */
   async unarchiveConversation(conversationId: string): Promise<{ success: boolean }> {
-    const response = await apiClient.patch(`/chat/conversations/${conversationId}/unarchive/`);
+    const response = await api.patch(`/chat/conversations/${conversationId}/unarchive/`);
     return response.data;
   },
 
@@ -165,7 +165,7 @@ export const chatAPI = {
    * 離開對話
    */
   async leaveConversation(conversationId: string): Promise<{ success: boolean }> {
-    const response = await apiClient.delete(`/chat/conversations/${conversationId}/leave/`);
+    const response = await api.delete(`/chat/conversations/${conversationId}/leave/`);
     return response.data;
   },
 
@@ -181,7 +181,7 @@ export const chatAPI = {
       params.conversation_id = conversationId;
     }
 
-    const response = await apiClient.get('/chat/search/', { params });
+    const response = await api.get('/chat/search/', { params });
     return response.data;
   },
 
@@ -189,7 +189,7 @@ export const chatAPI = {
    * 獲取在線用戶列表
    */
   async getOnlineUsers(): Promise<{ users: User[] }> {
-    const response = await apiClient.get('/chat/online-users/');
+    const response = await api.get('/chat/online-users/');
     return response.data;
   },
 
@@ -197,7 +197,7 @@ export const chatAPI = {
    * 更新用戶在線狀態
    */
   async updateOnlineStatus(isOnline: boolean): Promise<{ success: boolean }> {
-    const response = await apiClient.patch('/chat/online-status/', {
+    const response = await api.patch('/chat/online-status/', {
       is_online: isOnline
     });
     return response.data;
@@ -207,7 +207,7 @@ export const chatAPI = {
    * 獲取未讀訊息數
    */
   async getUnreadCount(): Promise<{ unread_count: number }> {
-    const response = await apiClient.get('/chat/unread-count/');
+    const response = await api.get('/chat/unread-count/');
     return response.data;
   },
 
@@ -220,7 +220,7 @@ export const chatAPI = {
     created_at: string;
     last_activity: string;
   }> {
-    const response = await apiClient.get(`/chat/conversations/${conversationId}/stats/`);
+    const response = await api.get(`/chat/conversations/${conversationId}/stats/`);
     return response.data;
   },
 
@@ -228,7 +228,7 @@ export const chatAPI = {
    * 舉報訊息
    */
   async reportMessage(messageId: string, reason: string, description?: string): Promise<{ success: boolean }> {
-    const response = await apiClient.post(`/chat/messages/${messageId}/report/`, {
+    const response = await api.post(`/chat/messages/${messageId}/report/`, {
       reason,
       description
     });
@@ -239,7 +239,7 @@ export const chatAPI = {
    * 封鎖用戶
    */
   async blockUser(userId: number): Promise<{ success: boolean }> {
-    const response = await apiClient.post(`/chat/users/${userId}/block/`);
+    const response = await api.post(`/chat/users/${userId}/block/`);
     return response.data;
   },
 
@@ -247,7 +247,7 @@ export const chatAPI = {
    * 解除封鎖用戶
    */
   async unblockUser(userId: number): Promise<{ success: boolean }> {
-    const response = await apiClient.delete(`/chat/users/${userId}/block/`);
+    const response = await api.delete(`/chat/users/${userId}/block/`);
     return response.data;
   },
 
@@ -255,7 +255,7 @@ export const chatAPI = {
    * 獲取封鎖用戶列表
    */
   async getBlockedUsers(): Promise<{ users: User[] }> {
-    const response = await apiClient.get('/chat/blocked-users/');
+    const response = await api.get('/chat/blocked-users/');
     return response.data;
   },
 }; 

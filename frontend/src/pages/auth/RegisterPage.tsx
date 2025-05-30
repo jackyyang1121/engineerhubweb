@@ -29,7 +29,15 @@ const RegisterPage = () => {
     setIsLoading(true);
     setServerErrors({});
     
-        try {      await register({        username: data.username,        email: data.email,        password1: data.password1,        password2: data.password2      });
+    try {
+      await register({
+        username: data.username,
+        email: data.email,
+        password1: data.password1,
+        password2: data.password2,
+        first_name: data.first_name,
+        last_name: data.last_name
+      });
       toast.success('註冊成功！請查看郵箱確認帳號');
       navigate('/login');
     } catch (error: any) {

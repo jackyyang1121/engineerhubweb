@@ -1,11 +1,11 @@
 import logging
 from rest_framework import serializers
-from django.db import transaction
+from django.db import transaction, models
 from django.utils.html import strip_tags
 from .models import Post, PostMedia, Like, Save, Report, PostShare
-from comments.models import Comment
 from accounts.serializers import UserSerializer
-from django.db import models
+from comments.models import Comment
+from comments.serializers import CommentSerializer
 
 # 設置日誌記錄器
 logger = logging.getLogger('engineerhub.posts')
@@ -19,73 +19,6 @@ class PostMediaSerializer(serializers.ModelSerializer):
         model = PostMedia
         fields = ['id', 'file', 'media_type', 'order', 'created_at']
         read_only_fields = ['id', 'created_at']
-
-
-class CommentSerializer(serializers.ModelSerializer):
-    """
-    評論序列化器
-    """
-    author_details = UserSerializer(source='user', read_only=True)
-    replies_count = serializers.SerializerMethodField()
-    
-    class Meta:
-        model = Comment
-        fields = [
-            'id', 'user', 'post', 'parent', 'content', 
-            'created_at', 'updated_at', 'author_details',
-            'replies_count'
-        ]
-        read_only_fields = ['id', 'created_at', 'updated_at']
-    
-    def get_replies_count(self, obj):
-        """
-        獲取回覆數量
-        """
-        return obj.replies.count()
-    
-    def validate(self, data):
-        """
-        驗證評論數據
-        """
-        # 驗證評論內容
-        if not data.get('content', '').strip():
-            logger.warning("評論內容為空")
-            raise serializers.ValidationError("評論內容不能為空")
-        
-        # 驗證父評論
-        parent = data.get('parent')
-        if parent and parent.post != data.get('post'):
-            logger.warning(f"父評論 {parent.id} 與貼文 {data.get('post').id} 不匹配")
-            raise serializers.ValidationError("回覆的評論必須屬於同一貼文")
-        
-        return data
-    
-    def create(self, validated_data):
-        """
-        創建評論
-        """
-        try:
-            comment = Comment.objects.create(**validated_data)
-            logger.info(f"用戶 {validated_data['user'].username} 評論成功: {comment.id}")
-            return comment
-        except Exception as e:
-            logger.error(f"創建評論失敗: {str(e)}")
-            raise serializers.ValidationError(f"創建評論失敗: {str(e)}")
-
-
-class ReplySerializer(serializers.ModelSerializer):
-    """
-    回覆序列化器
-    """
-    author_details = UserSerializer(source='user', read_only=True)
-    
-    class Meta:
-        model = Comment
-        fields = [
-            'id', 'user', 'content', 'created_at', 
-            'updated_at', 'author_details'
-        ]
-        read_only_fields = ['id', 'created_at', 'updated_at']
 
 
 class PostSerializer(serializers.ModelSerializer):
@@ -119,7 +52,7 @@ class PostSerializer(serializers.ModelSerializer):
             'is_liked', 'is_saved', 'is_shared', 'comments_list'
         ]
         read_only_fields = [
-            'id', 'author_details', 'code_highlighted', 'created_at', 
+            'id', 'author', 'author_details', 'code_highlighted', 'created_at', 
             'updated_at', 'likes_count', 'comments_count', 'shares_count',
             'views_count', 'is_liked', 'is_saved', 'is_shared', 'comments_list'
         ]
@@ -163,31 +96,40 @@ class PostSerializer(serializers.ModelSerializer):
         """
         驗證貼文數據
         """
+        logger.info(f"📝 PostSerializer 驗證數據: {data}")
+        
         # 驗證貼文內容
         content = data.get('content', '').strip()
         code_snippet = data.get('code_snippet', '').strip()
         media_files = data.get('media_files', [])
         
+        logger.info(f"📝 驗證內容 - content: '{content}' ({len(content)} 字符)")
+        logger.info(f"📝 驗證內容 - code_snippet: '{code_snippet}' ({len(code_snippet)} 字符)")
+        logger.info(f"📝 驗證內容 - media_files: {len(media_files)} 個文件")
+        
         if not content and not code_snippet and not media_files:
-            logger.warning("貼文內容為空")
+            logger.warning("❌ 貼文內容為空")
             raise serializers.ValidationError("貼文必須包含文字、程式碼或媒體文件")
         
         # 驗證媒體文件與媒體類型數量是否匹配
         media_types = data.get('media_types', [])
+        logger.info(f"📝 驗證媒體 - media_files: {len(media_files)}, media_types: {len(media_types)}")
+        
         if len(media_files) != len(media_types):
-            logger.warning(f"媒體文件數量 {len(media_files)} 與媒體類型數量 {len(media_types)} 不匹配")
+            logger.warning(f"❌ 媒體文件數量 {len(media_files)} 與媒體類型數量 {len(media_types)} 不匹配")
             raise serializers.ValidationError("媒體文件數量與媒體類型數量必須一致")
         
         # 驗證程式碼長度
         if code_snippet and len(code_snippet.splitlines()) > 100:
-            logger.warning("程式碼行數超過 100 行")
+            logger.warning("❌ 程式碼行數超過 100 行")
             raise serializers.ValidationError("程式碼行數不能超過 100 行")
         
         # 驗證媒體數量
         if len(media_files) > 10:
-            logger.warning(f"媒體文件數量 {len(media_files)} 超過限制")
+            logger.warning(f"❌ 媒體文件數量 {len(media_files)} 超過限制")
             raise serializers.ValidationError("媒體文件數量不能超過 10 個")
         
+        logger.info("✅ PostSerializer 驗證通過")
         return data
     
     def create(self, validated_data):

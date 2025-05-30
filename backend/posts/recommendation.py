@@ -15,21 +15,34 @@ from django.db.models import Q, Count, F, Avg, Case, When, IntegerField
 from django.contrib.auth import get_user_model
 from django.core.cache import cache
 from django.utils import timezone
+
 # 暫時註釋掉 sklearn 依賴，避免導入錯誤
 # from sklearn.feature_extraction.text import TfidfVectorizer
 # from sklearn.metrics.pairwise import cosine_similarity
 # import numpy as np
-from .models import Post, Like, PostView
-from comments.models import Comment
-from accounts.models import Follow
 
 if TYPE_CHECKING:
     from django.contrib.auth.models import AbstractUser
+    from .models import Post, PostView
 
 # 設置日誌記錄器
 logger = logging.getLogger('engineerhub.recommendation')
 
 User = get_user_model()
+
+# 在運行時才導入這些模型，避免循環導入
+def get_models():
+    try:
+        from .models import Post, Like, PostView
+        from comments.models import Comment  # 可能這個不存在
+        from accounts.models import Follow
+        return Post, Like, PostView, Comment, Follow
+    except ImportError as e:
+        logger.warning(f"某些模型導入失敗: {e}")
+        # 返回基本模型
+        from .models import Post, Like, PostView
+        from accounts.models import Follow
+        return Post, Like, PostView, None, Follow
 
 
 class RecommendationEngine:
@@ -146,6 +159,9 @@ class RecommendationEngine:
             追蹤用戶的貼文列表
         """
         try:
+            # 動態導入模型
+            Post, Like, PostView, Comment, Follow = get_models()
+            
             # 獲取用戶追蹤的人
             following_users = Follow.objects.filter(follower=user).values_list('following', flat=True)
             
@@ -157,7 +173,7 @@ class RecommendationEngine:
                 author__in=following_users,
                 is_published=True,
                 created_at__gte=timezone.now() - timedelta(days=7)  # 最近一週
-            ).select_related('author').prefetch_related('media').order_by('-created_at')[:limit]
+            ).select_related('author').order_by('-created_at')[:limit]
             
             return self._serialize_posts(posts, recommendation_type='following')
             
@@ -178,6 +194,9 @@ class RecommendationEngine:
             熱門貼文列表
         """
         try:
+            # 動態導入模型
+            Post, Like, PostView, Comment, Follow = get_models()
+            
             exclude_ids = exclude_ids or []
             
             # 計算熱門分數（綜合點讚數、評論數、瀏覽數和時間衰減）
@@ -193,7 +212,7 @@ class RecommendationEngine:
             ).annotate(
                 # 熱門分數計算
                 trending_score=F('likes_count') * 2 + F('comments_count') * 3 + F('views_count') * 0.1
-            ).select_related('author').prefetch_related('media').order_by('-trending_score')[:limit]
+            ).select_related('author').order_by('-trending_score')[:limit]
             
             return self._serialize_posts(posts, recommendation_type='trending')
             
@@ -216,6 +235,9 @@ class RecommendationEngine:
             個性化推薦貼文列表
         """
         try:
+            # 動態導入模型
+            Post, Like, PostView, Comment, Follow = get_models()
+            
             exclude_ids = exclude_ids or []
             
             # 獲取用戶的技能標籤
@@ -247,20 +269,24 @@ class RecommendationEngine:
                     When(author_id=author_id, then=1)
                 )
             
-            posts = Post.objects.filter(query).annotate(
-                skill_match_score=Case(
-                    *skill_conditions,
-                    default=0,
-                    output_field=IntegerField()
-                ),
-                author_preference_score=Case(
-                    *author_conditions,
-                    default=0,
-                    output_field=IntegerField()
-                ),
-                # 個性化分數計算
-                personalized_score=F('skill_match_score') * 3 + F('author_preference_score') * 2 + F('likes_count') * 0.5
-            ).select_related('author').prefetch_related('media').order_by('-personalized_score')[:limit]
+            # 如果沒有條件，使用簡單查詢
+            if not skill_conditions and not author_conditions:
+                posts = Post.objects.filter(query).select_related('author').order_by('-likes_count')[:limit]
+            else:
+                posts = Post.objects.filter(query).annotate(
+                    skill_match_score=Case(
+                        *skill_conditions,
+                        default=0,
+                        output_field=IntegerField()
+                    ) if skill_conditions else 0,
+                    author_preference_score=Case(
+                        *author_conditions,
+                        default=0,
+                        output_field=IntegerField()
+                    ) if author_conditions else 0,
+                    # 個性化分數計算
+                    personalized_score=F('likes_count') * 0.5
+                ).select_related('author').order_by('-personalized_score')[:limit]
             
             return self._serialize_posts(posts, recommendation_type='personalized')
             
@@ -280,6 +306,9 @@ class RecommendationEngine:
             互動記錄列表
         """
         try:
+            # 動態導入模型
+            Post, Like, PostView, Comment, Follow = get_models()
+            
             since_date = timezone.now() - timedelta(days=days)
             
             # 獲取點讚記錄
@@ -291,15 +320,7 @@ class RecommendationEngine:
                 'post__author__username'
             )
             
-            # 獲取評論記錄
-            comments = Comment.objects.filter(
-                author=user,
-                created_at__gte=since_date
-            ).select_related('post__author').values(
-                'post__author__id',
-                'post__author__username'
-            )
-            
+            # 獲取評論記錄（如果評論模型存在）
             interactions = []
             for like in likes:
                 interactions.append({
@@ -308,12 +329,22 @@ class RecommendationEngine:
                     'type': 'like'
                 })
             
-            for comment in comments:
-                interactions.append({
-                    'author_id': comment['post__author__id'],
-                    'author_username': comment['post__author__username'],
-                    'type': 'comment'
-                })
+            # 如果評論模型存在，也獲取評論記錄
+            if Comment:
+                comments = Comment.objects.filter(
+                    author=user,
+                    created_at__gte=since_date
+                ).select_related('post__author').values(
+                    'post__author__id',
+                    'post__author__username'
+                )
+                
+                for comment in comments:
+                    interactions.append({
+                        'author_id': comment['post__author__id'],
+                        'author_username': comment['post__author__username'],
+                        'type': 'comment'
+                    })
             
             return interactions
             
@@ -363,9 +394,9 @@ class RecommendationEngine:
             logger.error(f"混合推薦結果失敗: {str(e)}")
             return recommendations
     
-    def _serialize_posts(self, posts, recommendation_type: str = None) -> List[Dict[str, Any]]:
+    def _serialize_posts(self, posts, recommendation_type: str = 'default') -> List[Dict[str, Any]]:
         """
-        序列化貼文數據
+        序列化貼文列表
         
         Args:
             posts: 貼文查詢集
@@ -378,26 +409,52 @@ class RecommendationEngine:
             serialized_posts = []
             
             for post in posts:
-                serialized_post = {
+                # 基本信息
+                post_data = {
                     'id': str(post.id),
                     'content': post.content,
-                    'code_snippet': post.code_snippet,
-                    'code_language': post.code_language,
+                    'code_snippet': getattr(post, 'code_snippet', ''),
+                    'code_language': getattr(post, 'code_language', ''),
                     'author': {
-                        'id': post.author.id,
+                        'id': str(post.author.id),
                         'username': post.author.username,
-                        'avatar': post.author.avatar.url if post.author.avatar else None
+                        'display_name': getattr(post.author, 'display_name', post.author.username),
+                        'avatar': getattr(post.author, 'avatar_url', ''),
                     },
                     'created_at': post.created_at.isoformat(),
-                    'likes_count': post.likes_count,
-                    'comments_count': post.comments_count,
-                    'views_count': post.views_count,
-                    'has_media': post.media.exists() if hasattr(post, 'media') else False,
+                    'updated_at': post.updated_at.isoformat(),
+                    'likes_count': getattr(post, 'likes_count', 0),
+                    'comments_count': getattr(post, 'comments_count', 0),
+                    'views_count': getattr(post, 'views_count', 0),
                     'recommendation_type': recommendation_type,
-                    'recommendation_score': getattr(post, 'trending_score', None) or 
-                                          getattr(post, 'personalized_score', None) or 0
+                    'recommendation_score': getattr(post, 'trending_score', 0) or getattr(post, 'personalized_score', 0),
                 }
-                serialized_posts.append(serialized_post)
+                
+                # 媒體文件（如果存在）
+                try:
+                    if hasattr(post, 'media') and post.media.exists():
+                        post_data['media'] = [
+                            {
+                                'id': str(media.id),
+                                'url': media.file.url,
+                                'type': media.media_type,
+                            } for media in post.media.all()
+                        ]
+                    else:
+                        post_data['media'] = []
+                except Exception:
+                    post_data['media'] = []
+                
+                # 標籤（如果存在）
+                try:
+                    if hasattr(post, 'tags') and post.tags.exists():
+                        post_data['tags'] = [tag.name for tag in post.tags.all()]
+                    else:
+                        post_data['tags'] = []
+                except Exception:
+                    post_data['tags'] = []
+                
+                serialized_posts.append(post_data)
             
             return serialized_posts
             
@@ -405,7 +462,7 @@ class RecommendationEngine:
             logger.error(f"序列化貼文失敗: {str(e)}")
             return []
     
-    def update_user_preferences(self, user: "AbstractUser", post: Post, action: str):
+    def update_user_preferences(self, user: "AbstractUser", post: "Post", action: str):
         """
         更新用戶偏好（基於用戶行為）
         
@@ -532,6 +589,9 @@ class RecommendationAnalytics:
             點擊率
         """
         try:
+            # 動態導入模型
+            Post, Like, PostView, Comment, Follow = get_models()
+            
             since_date = timezone.now() - timedelta(days=days)
             
             # 獲取推薦的貼文數量（從緩存或日誌中獲取）

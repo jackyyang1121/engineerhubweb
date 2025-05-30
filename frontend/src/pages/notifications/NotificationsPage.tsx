@@ -27,7 +27,7 @@ import { toast } from 'react-toastify';
 
 import LoadingSpinner from '../../components/common/LoadingSpinner';
 import EmptyState from '../../components/common/EmptyState';
-import api from '../../api/client';
+import api from '../../api/axiosConfig';
 
 // 通知介面類型
 interface Notification {

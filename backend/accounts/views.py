@@ -93,26 +93,34 @@ class SimpleRegistrationView(generics.CreateAPIView):
         # 基本驗證
         username = data.get('username', '').strip()
         email = data.get('email', '').strip()
-        password = data.get('password', '')
+        password1 = data.get('password1', '') or data.get('password', '')
+        password2 = data.get('password2', '')
         
         # 檢查必填欄位
-        if not username or not password:
+        if not username or not password1:
             return Response(
                 {'error': '用戶名和密碼是必填的'},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+        
+        # 如果提供了 password2，檢查兩次密碼是否匹配
+        if password2 and password1 != password2:
+            return Response(
+                {'error': '兩次密碼輸入不一致'},
                 status=status.HTTP_400_BAD_REQUEST
             )
         
         # 檢查用戶名是否已存在
         if User.objects.filter(username=username).exists():
             return Response(
-                {'error': '用戶名已存在'},
+                {'username': ['用戶名已存在']},
                 status=status.HTTP_400_BAD_REQUEST
             )
         
         # 檢查郵箱是否已存在
         if email and User.objects.filter(email=email).exists():
             return Response(
-                {'error': '郵箱已被註冊'},
+                {'email': ['郵箱已被註冊']},
                 status=status.HTTP_400_BAD_REQUEST
             )
         
@@ -121,7 +129,7 @@ class SimpleRegistrationView(generics.CreateAPIView):
             user = User.objects.create_user(
                 username=username,
                 email=email or '',
-                password=password,
+                password=password1,
                 first_name=data.get('first_name', ''),
                 last_name=data.get('last_name', '')
             )
@@ -223,6 +231,28 @@ class SimpleLoginView(generics.GenericAPIView):
         }, status=status.HTTP_200_OK)
 
 
+class SimpleLogoutView(generics.GenericAPIView):
+    """
+    簡化的用戶登出視圖
+    """
+    permission_classes = [AllowAny]  # 允許所有人訪問，不管認證狀態
+    
+    def post(self, request, *args, **kwargs):
+        """處理登出請求"""
+        try:
+            # 更新用戶在線狀態（如果已認證）
+            if request.user.is_authenticated:
+                request.user.update_online_status(False)
+                logger.info(f'用戶登出: {request.user.username}')
+            
+            return Response({'message': '登出成功'}, status=status.HTTP_200_OK)
+            
+        except Exception as e:
+            logger.error(f'登出失敗: {e}')
+            # 即使失敗也返回成功，因為登出不應該阻止用戶
+            return Response({'message': '登出成功'}, status=status.HTTP_200_OK)
+
+
 class UserViewSet(ModelViewSet):
     """
     用戶ViewSet
@@ -283,22 +313,29 @@ class UserViewSet(ModelViewSet):
     def me(self, request):
         """
         獲取或更新當前用戶信息
-        GET /users/me/ - 獲取當前用戶信息
-        PATCH /users/me/ - 更新當前用戶信息
         """
-        user = request.user
-        
         if request.method == 'GET':
-            serializer = UserDetailSerializer(user)
-            return Response(serializer.data)
+            logger.info(f"用戶信息請求 - 用戶: {request.user}, 已認證: {request.user.is_authenticated}")
+            if request.user.is_authenticated:
+                serializer = self.get_serializer(request.user)
+                return Response(serializer.data)
+            else:
+                logger.warning("未認證用戶嘗試訪問 /users/me/")
+                return Response(
+                    {'detail': '認證憑證無效或缺失'}, 
+                    status=status.HTTP_401_UNAUTHORIZED
+                )
         
         elif request.method == 'PATCH':
-            serializer = UserUpdateSerializer(user, data=request.data, partial=True)
-            if serializer.is_valid():
-                serializer.save()
-                logger.info(f'用戶更新個人資料: {user.username}')
-                return Response(serializer.data)
-            return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+            if not request.user.is_authenticated:
+                return Response(
+                    {'detail': '認證憑證無效或缺失'}, 
+                    status=status.HTTP_401_UNAUTHORIZED
+                )
+            serializer = self.get_serializer(request.user, data=request.data, partial=True)
+            serializer.is_valid(raise_exception=True)
+            serializer.save()
+            return Response(serializer.data)
 
     @action(detail=True, methods=['post', 'delete'])
     def follow(self, request, username=None):

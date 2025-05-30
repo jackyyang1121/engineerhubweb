@@ -1,5 +1,4 @@
 import { useState } from 'react';
-import { ArrowTopRightOnSquareIcon } from '@heroicons/react/24/outline';
 
 // 作品集項目接口
 export interface Project {

@@ -2,7 +2,7 @@
  * 搜尋相關API接口
  */
 
-import { apiClient } from './client';
+import api from './axiosConfig';
 
 // 搜尋結果類型定義
 export interface SearchUser {
@@ -67,7 +67,7 @@ export const searchAPI = {
    * 執行搜尋
    */
   async search(query: string, type: string = 'all', limit: number = 20): Promise<SearchResults> {
-    const response = await apiClient.get('/core/search/', {
+    const response = await api.get('/core/search/', {
       params: { q: query, type, limit }
     });
     return response.data;
@@ -77,7 +77,7 @@ export const searchAPI = {
    * 獲取搜尋建議
    */
   async getSuggestions(query: string): Promise<SearchSuggestions> {
-    const response = await apiClient.get('/core/search/suggestions/', {
+    const response = await api.get('/core/search/suggestions/', {
       params: { q: query }
     });
     return response.data;
@@ -87,7 +87,7 @@ export const searchAPI = {
    * 獲取搜尋歷史
    */
   async getHistory(): Promise<{ history: SearchHistory[] }> {
-    const response = await apiClient.get('/core/search/history/');
+    const response = await api.get('/core/search/history/');
     return response.data;
   },
 
@@ -95,7 +95,7 @@ export const searchAPI = {
    * 清除搜尋歷史
    */
   async clearHistory(): Promise<{ message: string }> {
-    const response = await apiClient.delete('/core/search/history/');
+    const response = await api.delete('/core/search/history/');
     return response.data;
   },
 
@@ -103,7 +103,7 @@ export const searchAPI = {
    * 獲取熱門話題
    */
   async getTrendingTopics(): Promise<TrendingTopics> {
-    const response = await apiClient.get('/core/trending/');
+    const response = await api.get('/core/trending/');
     return response.data;
   },
 }; 

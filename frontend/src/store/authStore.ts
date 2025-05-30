@@ -43,8 +43,9 @@ export const useAuthStore = create<AuthState>()(
   devtools(
     persist(
       (set, get) => ({
-        token: null,
-        refreshToken: null,
+        // 初始化時從 localStorage 讀取 token
+        token: typeof window !== 'undefined' ? localStorage.getItem('engineerhub_token') : null,
+        refreshToken: typeof window !== 'undefined' ? localStorage.getItem('engineerhub_refresh_token') : null,
         user: null,
         isAuthenticated: false,
         isLoading: false,
@@ -54,6 +55,11 @@ export const useAuthStore = create<AuthState>()(
           set({ isLoading: true, error: null });
           try {
             const response = await authApi.login({ email, password });
+            
+            // 同步 token 到 localStorage
+            localStorage.setItem('engineerhub_token', response.access_token);
+            localStorage.setItem('engineerhub_refresh_token', response.refresh_token);
+            
             set({
               token: response.access_token,
               refreshToken: response.refresh_token,
@@ -74,6 +80,11 @@ export const useAuthStore = create<AuthState>()(
           set({ isLoading: true, error: null });
           try {
             const response = await authApi.register(userData);
+            
+            // 同步 token 到 localStorage
+            localStorage.setItem('engineerhub_token', response.access_token);
+            localStorage.setItem('engineerhub_refresh_token', response.refresh_token);
+            
             set({
               token: response.access_token,
               refreshToken: response.refresh_token,
@@ -97,6 +108,10 @@ export const useAuthStore = create<AuthState>()(
           } catch (error) {
             console.error('登出时出错', error);
           } finally {
+            // 清除 localStorage 中的 token
+            localStorage.removeItem('engineerhub_token');
+            localStorage.removeItem('engineerhub_refresh_token');
+            
             set({
               token: null,
               refreshToken: null,
@@ -110,8 +125,14 @@ export const useAuthStore = create<AuthState>()(
         checkAuth: async () => {
           const { token, refreshAuth } = get();
           
+          console.log('🔐 檢查認證狀態:', {
+            hasToken: !!token,
+            tokenPreview: token ? token.substring(0, 20) + '...' : 'None'
+          });
+          
           // 如果没有令牌，则未认证
           if (!token) {
+            console.log('❌ 沒有 token，設為未認證');
             set({ isAuthenticated: false });
             return false;
           }
@@ -121,30 +142,54 @@ export const useAuthStore = create<AuthState>()(
             const decoded = jwtDecode<JwtPayload>(token);
             const currentTime = Date.now() / 1000;
             
+            console.log('🔐 Token 解碼結果:', {
+              exp: decoded.exp,
+              currentTime,
+              isExpired: decoded.exp <= currentTime,
+              timeUntilExpiry: decoded.exp - currentTime
+            });
+            
             // 如果令牌还有效，获取最新的用户信息
             if (decoded.exp > currentTime) {
               try {
+                console.log('✅ Token 有效，獲取用戶信息...');
                 const user = await authApi.getCurrentUser();
+                console.log('✅ 用戶信息獲取成功:', user.username);
                 set({ user, isAuthenticated: true });
                 return true;
               } catch (error) {
-                // 如果获取用户信息失败但令牌有效，可能是API问题
-                // 此处暂且保持认证状态
-                return true;
+                console.error('❌ 獲取用戶信息失敗:', error);
+                // 如果获取用户信息失败，尝试刷新token
+                console.log('🔄 嘗試刷新 token...');
+                return refreshAuth();
               }
             } else {
               // 令牌过期，尝试刷新
+              console.log('⏰ Token 已過期，嘗試刷新...');
               return refreshAuth();
             }
           } catch (error) {
             // 解码令牌出错，尝试刷新
+            console.error('❌ Token 解碼失敗:', error);
+            console.log('🔄 嘗試刷新 token...');
             return refreshAuth();
           }
         },
         
         refreshAuth: async () => {
           const { refreshToken } = get();
+          
+          console.log('🔄 嘗試刷新認證:', {
+            hasRefreshToken: !!refreshToken,
+            refreshTokenPreview: refreshToken ? refreshToken.substring(0, 20) + '...' : 'None'
+          });
+          
           if (!refreshToken) {
+            console.log('❌ 沒有 refresh token，清除認證狀態');
+            // 清除所有 token
+            localStorage.removeItem('engineerhub_token');
+            localStorage.removeItem('engineerhub_refresh_token');
+            
             set({ 
               token: null, 
               refreshToken: null, 
@@ -155,15 +200,47 @@ export const useAuthStore = create<AuthState>()(
           }
           
           try {
-            const response = await authApi.refreshToken();
+            console.log('🔄 調用 refresh token API...');
+            // 使用統一的 API，而不是直接調用 authApi
+            const response = await fetch(`${import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000/api'}/auth/token/refresh/`, {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json',
+              },
+              body: JSON.stringify({
+                refresh: refreshToken
+              })
+            });
+            
+            if (!response.ok) {
+              throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+            }
+            
+            const data = await response.json();
+            console.log('✅ Token 刷新成功');
+            
+            // 同步新 token 到 localStorage
+            localStorage.setItem('engineerhub_token', data.access);
+            if (data.refresh) {
+              localStorage.setItem('engineerhub_refresh_token', data.refresh);
+            }
+            
+            // 獲取用戶信息
+            const user = await authApi.getCurrentUser();
+            
             set({
-              token: response.access_token,
-              refreshToken: response.refresh_token,
-              user: response.user,
+              token: data.access,
+              refreshToken: data.refresh || refreshToken,
+              user: user,
               isAuthenticated: true
             });
             return true;
           } catch (error) {
+            console.error('❌ Token 刷新失敗:', error);
+            // 清除所有 token
+            localStorage.removeItem('engineerhub_token');
+            localStorage.removeItem('engineerhub_refresh_token');
+            
             set({ 
               token: null, 
               refreshToken: null, 

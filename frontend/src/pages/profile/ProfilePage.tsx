@@ -142,8 +142,18 @@ const ProfilePage = () => {
     isError: isPostsError 
   } = useQuery({
     queryKey: ['userPosts', username],
-    queryFn: () => postApi.getUserPosts(profileData?.user.id || '', 1, 10),
-    enabled: !!profileData?.user.id && activeTab === 'posts',
+    queryFn: () => {
+      // 如果是當前用戶的個人頁面，使用 currentUser.id
+      if (username === currentUser?.username && currentUser?.id) {
+        return postApi.getUserPosts(currentUser.id, 1, 10);
+      }
+      // 否則使用 profileData 中的用戶 ID
+      return postApi.getUserPosts(profileData?.user.id || '', 1, 10);
+    },
+    enabled: !!(
+      (username === currentUser?.username && currentUser?.id) || 
+      (profileData?.user.id && activeTab === 'posts')
+    ),
   });
   
   // 處理關注用戶

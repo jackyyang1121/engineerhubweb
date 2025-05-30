@@ -20,31 +20,10 @@ import { ChatBubbleLeftRightIcon } from '@heroicons/react/24/solid';
 import { useQuery } from '@tanstack/react-query';
 import { toast } from 'react-toastify';
 
-import { chatAPI } from '../api/chat';
+import { chatAPI, type Conversation } from '../api/chat';
 import { useAuthStore } from '../store/authStore';
 import LoadingSpinner from '../components/common/LoadingSpinner';
 import EmptyState from '../components/common/EmptyState';
-
-interface Conversation {
-  id: string;
-  participants: Array<{
-    id: number;
-    username: string;
-    first_name: string;
-    last_name: string;
-    avatar: string | null;
-    is_online: boolean;
-  }>;
-  last_message: {
-    id: string;
-    content: string;
-    sender: string;
-    created_at: string;
-    is_read: boolean;
-  } | null;
-  unread_count: number;
-  updated_at: string;
-}
 
 const MessagesPage: React.FC = () => {
   const { user } = useAuthStore();
@@ -61,8 +40,16 @@ const MessagesPage: React.FC = () => {
   } = useQuery({
     queryKey: ['conversations'],
     queryFn: async () => {
-      const response = await chatAPI.getConversations();
-      return response.conversations as Conversation[];
+      try {
+        const response = await chatAPI.getConversations();
+        console.log('💬 聊天 API 響應:', response);
+        // 確保返回數組，即使 API 響應不正確
+        return Array.isArray(response.conversations) ? response.conversations : [];
+      } catch (error) {
+        console.error('💬 獲取對話列表失敗:', error);
+        // 返回空數組而不是 undefined
+        return [];
+      }
     },
     refetchInterval: 30000, // 每30秒刷新一次
     staleTime: 10000, // 10秒內認為數據新鮮
@@ -72,7 +59,7 @@ const MessagesPage: React.FC = () => {
   const filteredConversations = conversations.filter(conversation => {
     if (!searchQuery) return true;
     
-    const otherParticipant = conversation.participants.find(p => p.id.toString() !== user?.id?.toString());
+    const otherParticipant = conversation.participants.find(p => String(p.id) !== String(user?.id));
     if (!otherParticipant) return false;
 
     const searchTarget = `${otherParticipant.first_name} ${otherParticipant.last_name} ${otherParticipant.username}`.toLowerCase();
@@ -104,7 +91,7 @@ const MessagesPage: React.FC = () => {
 
   // 獲取對話中的其他參與者
   const getOtherParticipant = (conversation: Conversation) => {
-    return conversation.participants.find(p => p.id.toString() !== user?.id?.toString());
+    return conversation.participants.find(p => String(p.id) !== String(user?.id));
   };
 
   // 處理進入聊天
@@ -259,7 +246,7 @@ const MessagesPage: React.FC = () => {
                             <p className={`text-sm ${
                               conversation.unread_count > 0 ? 'font-medium text-gray-900' : 'text-gray-600'
                             } truncate`}>
-                              {conversation.last_message.sender === user?.id?.toString() ? (
+                              {String(conversation.last_message.sender.id) === String(user?.id) ? (
                                 <span className="flex items-center">
                                   <PaperAirplaneIcon className="h-3 w-3 mr-1 text-gray-400" />
                                   {conversation.last_message.content}

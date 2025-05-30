@@ -1,76 +1,49 @@
 /* ============================================
    EngineerHub 全局樣式
-   企業級 CSS 架構 - 基於 Tailwind CSS
+   企業級 CSS 架構 - 基於 Tailwind CSS v4.0
    ============================================ */
 
 /* 字體導入 */
 @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap');
 @import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600&display=swap');
 
-/* Tailwind CSS 基礎層 */
-/* postcss-disable-next-line */
-@tailwind base;
-/* postcss-disable-next-line */
-@tailwind components;
-/* postcss-disable-next-line */
-@tailwind utilities;
+/* Tailwind CSS v4.0 導入 */
+@import "tailwindcss";
 
 /* ============================================
-   CSS 自定義屬性 (CSS Variables)
+   Tailwind CSS v4.0 主題配置
    ============================================ */
-:root {
+@theme {
   /* 主色調 */
-  --color-primary-50: #eff6ff;
-  --color-primary-100: #dbeafe;
-  --color-primary-200: #bfdbfe;
-  --color-primary-300: #93c5fd;
-  --color-primary-400: #60a5fa;
-  --color-primary-500: #3b82f6;
-  --color-primary-600: #2563eb;
-  --color-primary-700: #1d4ed8;
-  --color-primary-800: #1e40af;
-  --color-primary-900: #1e3a8a;
+  --color-primary-50: #f0f9ff;
+  --color-primary-100: #e0f2fe;
+  --color-primary-200: #bae6fd;
+  --color-primary-300: #7dd3fc;
+  --color-primary-400: #38bdf8;
+  --color-primary-500: #0ea5e9;
+  --color-primary-600: #0284c7;
+  --color-primary-700: #0369a1;
+  --color-primary-800: #075985;
+  --color-primary-900: #0c4a6e;
 
-  /* 語義色彩 */
-  --color-success: #10b981;
-  --color-success-light: #d1fae5;
-  --color-error: #ef4444;
-  --color-error-light: #fee2e2;
-  --color-warning: #f59e0b;
-  --color-warning-light: #fef3c7;
-  --color-info: #06b6d4;
-  --color-info-light: #cffafe;
-
-  /* 中性色 */
-  --color-gray-50: #f9fafb;
-  --color-gray-100: #f3f4f6;
-  --color-gray-200: #e5e7eb;
-  --color-gray-300: #d1d5db;
-  --color-gray-400: #9ca3af;
-  --color-gray-500: #6b7280;
-  --color-gray-600: #4b5563;
-  --color-gray-700: #374151;
-  --color-gray-800: #1f2937;
-  --color-gray-900: #111827;
+  /* 次要色 */
+  --color-secondary-50: #f8fafc;
+  --color-secondary-100: #f1f5f9;
+  --color-secondary-200: #e2e8f0;
+  --color-secondary-300: #cbd5e1;
+  --color-secondary-400: #94a3b8;
+  --color-secondary-500: #64748b;
+  --color-secondary-600: #475569;
+  --color-secondary-700: #334155;
+  --color-secondary-800: #1e293b;
+  --color-secondary-900: #0f172a;
 
   /* 字體 */
   --font-sans: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
   --font-mono: 'JetBrains Mono', 'Fira Code', Consolas, monospace;
 
   /* 間距 */
-  --spacing-xs: 0.25rem;
-  --spacing-sm: 0.5rem;
-  --spacing-md: 1rem;
-  --spacing-lg: 1.5rem;
-  --spacing-xl: 2rem;
-  --spacing-2xl: 3rem;
-
-  /* 陰影 */
-  --shadow-sm: 0 1px 2px 0 rgb(0 0 0 / 0.05);
-  --shadow-md: 0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1);
-  --shadow-lg: 0 10px 15px -3px rgb(0 0 0 / 0.1), 0 4px 6px -4px rgb(0 0 0 / 0.1);
-  --shadow-xl: 0 20px 25px -5px rgb(0 0 0 / 0.1), 0 8px 10px -6px rgb(0 0 0 / 0.1);
-  --shadow-2xl: 0 25px 50px -12px rgb(0 0 0 / 0.25);
+  --spacing: 0.25rem;
 
   /* 圓角 */
   --radius-sm: 0.25rem;
@@ -79,34 +52,26 @@
   --radius-xl: 0.75rem;
   --radius-2xl: 1rem;
 
-  /* 過渡動畫 */
-  --transition-fast: 150ms cubic-bezier(0.4, 0, 0.2, 1);
-  --transition-normal: 200ms cubic-bezier(0.4, 0, 0.2, 1);
-  --transition-slow: 300ms cubic-bezier(0.4, 0, 0.2, 1);
+  /* 陰影 */
+  --shadow-sm: 0 1px 2px 0 rgb(0 0 0 / 0.05);
+  --shadow-md: 0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1);
+  --shadow-lg: 0 10px 15px -3px rgb(0 0 0 / 0.1), 0 4px 6px -4px rgb(0 0 0 / 0.1);
+  --shadow-xl: 0 20px 25px -5px rgb(0 0 0 / 0.1), 0 8px 10px -6px rgb(0 0 0 / 0.1);
+  --shadow-2xl: 0 25px 50px -12px rgb(0 0 0 / 0.25);
 
-  /* Z-index */
-  --z-dropdown: 1000;
-  --z-sticky: 1020;
-  --z-fixed: 1030;
-  --z-modal: 1040;
-  --z-popover: 1050;
-  --z-tooltip: 1060;
+  /* 過渡動畫 */
+  --ease-in: cubic-bezier(0.4, 0, 1, 1);
+  --ease-out: cubic-bezier(0, 0, 0.2, 1);
+  --ease-in-out: cubic-bezier(0.4, 0, 0.2, 1);
 }
 
-/* 深色模式變數 */
-@media (prefers-color-scheme: dark) {
-  :root {
-    --color-gray-50: #1f2937;
-    --color-gray-100: #374151;
-    --color-gray-200: #4b5563;
-    --color-gray-300: #6b7280;
-    --color-gray-400: #9ca3af;
-    --color-gray-500: #d1d5db;
-    --color-gray-600: #e5e7eb;
-    --color-gray-700: #f3f4f6;
-    --color-gray-800: #f9fafb;
-    --color-gray-900: #ffffff;
-  }
+/* ============================================
+   CSS 自定義屬性 (CSS Variables) - 保留作為後備
+   ============================================ */
+:root {
+  /* Firefox 捲軸 */
+  scrollbar-width: thin;
+  scrollbar-color: #d1d5db #f3f4f6;
 }
 
 /* ============================================
@@ -189,12 +154,6 @@
 
   ::-webkit-scrollbar-thumb {
     @apply bg-gray-300 rounded-full hover:bg-gray-400;
-  }
-
-  /* Firefox 捲軸 */
-  * {
-    scrollbar-width: thin;
-    scrollbar-color: theme('colors.gray.300') theme('colors.gray.100');
   }
 
   /* 選取文字顏色 */
@@ -386,7 +345,7 @@
 
   /* 漸變背景 */
   .gradient-primary {
-    background: linear-gradient(135deg, theme('colors.primary.600'), theme('colors.primary.700'));
+    @apply bg-gradient-to-br from-primary-600 to-primary-700;
   }
 
   /* 玻璃效果 */

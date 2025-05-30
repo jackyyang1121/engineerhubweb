@@ -373,6 +373,117 @@ class PlatformStatistics(models.Model):
         return f"{self.get_stat_type_display()} - {self.date}"
 
 
+class Notification(models.Model):
+    """
+    通知模型
+    處理平台內的各種通知
+    """
+    
+    NOTIFICATION_TYPES = [
+        ('like', '點讚'),
+        ('comment', '評論'),
+        ('follow', '關注'),
+        ('mention', '提及'),
+        ('message', '私訊'),
+        ('system', '系統通知'),
+        ('post', '貼文相關'),
+        ('achievement', '成就解鎖'),
+    ]
+    
+    id = models.UUIDField(
+        primary_key=True,
+        default=uuid.uuid4,
+        editable=False
+    )
+    
+    recipient = models.ForeignKey(
+        User,
+        on_delete=models.CASCADE,
+        related_name='notifications_received',
+        help_text="通知接收者"
+    )
+    
+    sender = models.ForeignKey(
+        User,
+        on_delete=models.CASCADE,
+        null=True,
+        blank=True,
+        related_name='notifications_sent',
+        help_text="通知發送者"
+    )
+    
+    notification_type = models.CharField(
+        max_length=20,
+        choices=NOTIFICATION_TYPES,
+        help_text="通知類型"
+    )
+    
+    title = models.CharField(
+        max_length=200,
+        help_text="通知標題"
+    )
+    
+    content = models.TextField(
+        help_text="通知內容"
+    )
+    
+    # 目標內容（可選）
+    target_content_type = models.CharField(
+        max_length=50,
+        blank=True,
+        help_text="目標內容類型"
+    )
+    
+    target_object_id = models.CharField(
+        max_length=50,
+        blank=True,
+        help_text="目標對象ID"
+    )
+    
+    # 通知數據
+    data = models.JSONField(
+        default=dict,
+        blank=True,
+        help_text="通知附加數據"
+    )
+    
+    is_read = models.BooleanField(
+        default=False,
+        help_text="是否已讀"
+    )
+    
+    read_at = models.DateTimeField(
+        null=True,
+        blank=True,
+        help_text="閱讀時間"
+    )
+    
+    created_at = models.DateTimeField(
+        auto_now_add=True,
+        help_text="創建時間"
+    )
+    
+    class Meta:
+        db_table = 'core_notification'
+        verbose_name = '通知'
+        verbose_name_plural = '通知'
+        ordering = ['-created_at']
+        indexes = [
+            models.Index(fields=['recipient', '-created_at']),
+            models.Index(fields=['recipient', 'is_read']),
+            models.Index(fields=['notification_type']),
+            models.Index(fields=['-created_at']),
+        ]
+    
+    def __str__(self):
+        return f"通知給 {self.recipient.username}: {self.title}"
+    
+    def mark_as_read(self):
+        """標記通知為已讀"""
+        if not self.is_read:
+            self.is_read = True
+            self.read_at = timezone.now()
+            self.save(update_fields=['is_read', 'read_at'])
 
 
 class ReportedContent(models.Model):

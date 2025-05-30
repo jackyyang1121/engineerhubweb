@@ -34,19 +34,13 @@ interface RecommendedUser {
   is_following: boolean;
 }
 
-// 熱門話題介面
-interface TrendingTopic {
-  name: string;
-  posts_count: number;
-  trend_direction: 'up' | 'down' | 'stable';
-}
 
 
 
 const HomePage: React.FC = () => {
-  const { user } = useAuthStore();
+  const { user, isAuthenticated, token } = useAuthStore();
   const [showPostEditor, setShowPostEditor] = useState(false);
-  const [trendingTopics, setTrendingTopics] = useState<TrendingTopic[]>([]);
+  const [trendingTopics, setTrendingTopics] = useState<string[]>([]);
   const [recommendedUsers, setRecommendedUsers] = useState<RecommendedUser[]>([]);
   
   // 無限滾動載入檢測
@@ -86,11 +80,7 @@ const HomePage: React.FC = () => {
       const response = await searchAPI.getTrendingTopics();
       // 確保 response.trending_topics 是正確的格式
       if (Array.isArray(response.trending_topics)) {
-        const topics = response.trending_topics.map((topic: any) => ({
-          name: typeof topic === 'string' ? topic : topic.name || topic,
-          posts_count: topic.posts_count || 0,
-          trend_direction: topic.trend_direction || 'stable'
-        }));
+        const topics = response.trending_topics.map((topic: any) => typeof topic === 'string' ? topic : topic.name || topic);
         setTrendingTopics(topics);
       } else {
         setTrendingTopics([]);
@@ -149,6 +139,18 @@ const HomePage: React.FC = () => {
     loadTrendingTopics();
     loadRecommendedUsers();
   }, [loadTrendingTopics, loadRecommendedUsers]);
+
+  // 添加調試信息
+  useEffect(() => {
+    console.log('🏠 HomePage 調試信息:', {
+      isAuthenticated,
+      hasUser: !!user,
+      hasToken: !!token,
+      tokenPreview: token ? token.substring(0, 20) + '...' : 'None',
+      userId: user?.id,
+      username: user?.username
+    });
+  }, [isAuthenticated, user, token]);
 
   // 合併所有頁面的貼文
   const posts = data?.pages.flatMap(page => page.posts) ?? [];
@@ -254,10 +256,7 @@ const HomePage: React.FC = () => {
                     >
                       <div className="flex items-center justify-between">
                         <span className="font-medium text-slate-800 group-hover:text-slate-900">
-                          #{topic.name}
-                        </span>
-                        <span className="text-xs text-slate-500 bg-white/50 px-2 py-1 rounded-full">
-                          {topic.posts_count || 0}
+                          #{topic}
                         </span>
                       </div>
                     </div>

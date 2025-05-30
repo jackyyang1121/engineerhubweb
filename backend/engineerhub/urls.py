@@ -17,7 +17,7 @@ def health_check(request):
     return HttpResponse('OK', content_type='text/plain')
 
 # 簡化的認證視圖（現在不需要 CSRF 豁免）
-from accounts.views import SimpleRegistrationView, SimpleLoginView
+from accounts.views import SimpleRegistrationView, SimpleLoginView, SimpleLogoutView
 
 urlpatterns = [
     # 根路径 - 重定向到 API 文檔
@@ -35,13 +35,16 @@ urlpatterns = [
     path('api/redoc/', SpectacularRedocView.as_view(url_name='schema'), name='redoc'),
     
     # 應用API
-    path('', include('accounts.urls')),
+    path('api/', include('accounts.urls')),
     path('api/posts/', include('posts.urls')),
     path('api/chat/', include('chat.urls')),
+    path('api/core/', include('core.urls')),
+    path('api/notifications/', include('notifications.urls')),
     
     # 簡化的認證端點（純 JWT，無需 CSRF）
     path('api/simple-auth/login/', SimpleLoginView.as_view(), name='simple_login'),
     path('api/simple-auth/register/', SimpleRegistrationView.as_view(), name='simple_register'),
+    path('api/simple-auth/logout/', SimpleLogoutView.as_view(), name='simple_logout'),
     
     # 其他認證API (dj-rest-auth) - 現在也無需 CSRF
     path('api/auth/', include('dj_rest_auth.urls')),

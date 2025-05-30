@@ -36,7 +36,7 @@ export const login = async (credentials: LoginData): Promise<TokenResponse> => {
 
 // 登出
 export const logout = async (): Promise<void> => {
-  await api.post('/auth/logout/');
+  await api.post('/simple-auth/logout/');
 };
 
 // 刷新令牌

@@ -19,8 +19,9 @@ from rest_framework.pagination import PageNumberPagination
 from django.db.models import Q, Count
 from django.utils import timezone
 from django.core.cache import cache
-from drf_yasg.utils import swagger_auto_schema # type: ignore
-from drf_yasg import openapi # type: ignore
+# 暫時移除 drf_yasg 導入，因為模組未安裝
+# from drf_yasg.utils import swagger_auto_schema # type: ignore
+# from drf_yasg import openapi # type: ignore
 
 from .search import search_service
 from .models import Notification, ReportedContent, PlatformStatistics
@@ -42,95 +43,95 @@ class SearchAPIView(APIView):
     """
     permission_classes = [permissions.IsAuthenticated]
     
-    @swagger_auto_schema(
-        manual_parameters=[
-            openapi.Parameter(
-                'q',
-                openapi.IN_QUERY,
-                description="搜尋關鍵字",
-                type=openapi.TYPE_STRING,
-                required=True
-            ),
-            openapi.Parameter(
-                'type',
-                openapi.IN_QUERY,
-                description="搜尋類型 (users/posts/all)",
-                type=openapi.TYPE_STRING,
-                default='all'
-            ),
-            openapi.Parameter(
-                'limit',
-                openapi.IN_QUERY,
-                description="結果數量限制",
-                type=openapi.TYPE_INTEGER,
-                default=20
-            ),
-            openapi.Parameter(
-                'code_language',
-                openapi.IN_QUERY,
-                description="程式語言過濾 (例如: python,javascript)",
-                type=openapi.TYPE_STRING
-            ),
-            openapi.Parameter(
-                'skills',
-                openapi.IN_QUERY,
-                description="技能標籤過濾 (例如: react,vue)",
-                type=openapi.TYPE_STRING
-            ),
-            openapi.Parameter(
-                'location',
-                openapi.IN_QUERY,
-                description="地點過濾",
-                type=openapi.TYPE_STRING
-            ),
-        ],
-        responses={
-            200: openapi.Response(
-                description="搜尋結果",
-                examples={
-                    "application/json": {
-                        "query": "python",
-                        "type": "all",
-                        "users": [
-                            {
-                                "id": "123",
-                                "username": "john_doe",
-                                "display_name": "John Doe",
-                                "bio": "Python developer",
-                                "skills": ["python", "django"],
-                                "followers_count": 100,
-                                "posts_count": 50,
-                                "avatar": "https://example.com/avatar.jpg"
-                            }
-                        ],
-                        "posts": [
-                            {
-                                "id": "456",
-                                "content": "Learning <mark>Python</mark> basics",
-                                "code_snippet": "print('hello world')",
-                                "code_language": "python",
-                                "author": {
-                                    "username": "jane_doe",
-                                    "display_name": "Jane Doe"
-                                },
-                                "likes_count": 10,
-                                "comments_count": 5
-                            }
-                        ],
-                        "total_users": 1,
-                        "total_posts": 1,
-                        "search_time": 0.123,
-                        "facets": {
-                            "code_language": {
-                                "python": 15,
-                                "javascript": 8
-                            }
-                        }
-                    }
-                }
-            )
-        }
-    )
+    # @swagger_auto_schema(
+    #     manual_parameters=[
+    #         openapi.Parameter(
+    #             'q',
+    #             openapi.IN_QUERY,
+    #             description="搜尋關鍵字",
+    #             type=openapi.TYPE_STRING,
+    #             required=True
+    #         ),
+    #         openapi.Parameter(
+    #             'type',
+    #             openapi.IN_QUERY,
+    #             description="搜尋類型 (users/posts/all)",
+    #             type=openapi.TYPE_STRING,
+    #             default='all'
+    #         ),
+    #         openapi.Parameter(
+    #             'limit',
+    #             openapi.IN_QUERY,
+    #             description="結果數量限制",
+    #             type=openapi.TYPE_INTEGER,
+    #             default=20
+    #         ),
+    #         openapi.Parameter(
+    #             'code_language',
+    #             openapi.IN_QUERY,
+    #             description="程式語言過濾 (例如: python,javascript)",
+    #             type=openapi.TYPE_STRING
+    #         ),
+    #         openapi.Parameter(
+    #             'skills',
+    #             openapi.IN_QUERY,
+    #             description="技能標籤過濾 (例如: react,vue)",
+    #             type=openapi.TYPE_STRING
+    #         ),
+    #         openapi.Parameter(
+    #             'location',
+    #             openapi.IN_QUERY,
+    #             description="地點過濾",
+    #             type=openapi.TYPE_STRING
+    #         ),
+    #     ],
+    #     responses={
+    #         200: openapi.Response(
+    #             description="搜尋結果",
+    #             examples={
+    #                 "application/json": {
+    #                     "query": "python",
+    #                     "type": "all",
+    #                     "users": [
+    #                         {
+    #                             "id": "123",
+    #                             "username": "john_doe",
+    #                             "display_name": "John Doe",
+    #                             "bio": "Python developer",
+    #                             "skills": ["python", "django"],
+    #                             "followers_count": 100,
+    #                             "posts_count": 50,
+    #                             "avatar": "https://example.com/avatar.jpg"
+    #                         }
+    #                     ],
+    #                     "posts": [
+    #                         {
+    #                             "id": "456",
+    #                             "content": "Learning <mark>Python</mark> basics",
+    #                             "code_snippet": "print('hello world')",
+    #                             "code_language": "python",
+    #                             "author": {
+    #                                 "username": "jane_doe",
+    #                                 "display_name": "Jane Doe"
+    #                             },
+    #                             "likes_count": 10,
+    #                             "comments_count": 5
+    #                         }
+    #                     ],
+    #                     "total_users": 1,
+    #                     "total_posts": 1,
+    #                     "search_time": 0.123,
+    #                     "facets": {
+    #                         "code_language": {
+    #                             "python": 15,
+    #                             "javascript": 8
+    #                         }
+    #                     }
+    #                 }
+    #             }
+    #         )
+    #     }
+    # )
     def get(self, request):
         """
         執行搜尋
@@ -224,41 +225,41 @@ class SearchSuggestionsAPIView(APIView):
     """
     permission_classes = [permissions.IsAuthenticated]
     
-    @swagger_auto_schema(
-        manual_parameters=[
-            openapi.Parameter(
-                'q',
-                openapi.IN_QUERY,
-                description="部分搜尋關鍵字",
-                type=openapi.TYPE_STRING,
-                required=True
-            ),
-            openapi.Parameter(
-                'limit',
-                openapi.IN_QUERY,
-                description="建議數量限制",
-                type=openapi.TYPE_INTEGER,
-                default=5
-            ),
-        ],
-        responses={
-            200: openapi.Response(
-                description="搜尋建議列表",
-                examples={
-                    "application/json": {
-                        "suggestions": ["python", "javascript", "react"],
-                        "trending": [
-                            {
-                                "query": "machine learning",
-                                "search_count": 45,
-                                "last_searched": "2024-01-15T10:30:00Z"
-                            }
-                        ]
-                    }
-                }
-            )
-        }
-    )
+    # @swagger_auto_schema(
+    #     manual_parameters=[
+    #         openapi.Parameter(
+    #             'q',
+    #             openapi.IN_QUERY,
+    #             description="部分搜尋關鍵字",
+    #             type=openapi.TYPE_STRING,
+    #             required=True
+    #         ),
+    #         openapi.Parameter(
+    #             'limit',
+    #             openapi.IN_QUERY,
+    #             description="建議數量限制",
+    #             type=openapi.TYPE_INTEGER,
+    #             default=5
+    #         ),
+    #     ],
+    #     responses={
+    #         200: openapi.Response(
+    #             description="搜尋建議列表",
+    #             examples={
+    #                 "application/json": {
+    #                     "suggestions": ["python", "javascript", "react"],
+    #                     "trending": [
+    #                         {
+    #                             "query": "machine learning",
+    #                             "search_count": 45,
+    #                             "last_searched": "2024-01-15T10:30:00Z"
+    #                         }
+    #                     ]
+    #                 }
+    #             }
+    #         )
+    #     }
+    # )
     def get(self, request):
         """
         獲取搜尋建議和熱門搜尋
@@ -298,28 +299,28 @@ class SearchHistoryAPIView(APIView):
     """
     permission_classes = [permissions.IsAuthenticated]
     
-    @swagger_auto_schema(
-        responses={
-            200: openapi.Response(
-                description="用戶搜尋歷史",
-                examples={
-                    "application/json": {
-                        "history": [
-                            {
-                                "id": "123e4567-e89b-12d3-a456-426614174000",
-                                "query": "python tutorial",
-                                "search_type": "posts",
-                                "results_count": 15,
-                                "response_time": 0.123,
-                                "created_at": "2024-01-15T10:30:00Z"
-                            }
-                        ],
-                        "total": 1
-                    }
-                }
-            )
-        }
-    )
+    # @swagger_auto_schema(
+    #     responses={
+    #         200: openapi.Response(
+    #             description="用戶搜尋歷史",
+    #             examples={
+    #                 "application/json": {
+    #                     "history": [
+    #                         {
+    #                             "id": "123e4567-e89b-12d3-a456-426614174000",
+    #                             "query": "python tutorial",
+    #                             "search_type": "posts",
+    #                             "results_count": 15,
+    #                             "response_time": 0.123,
+    #                             "created_at": "2024-01-15T10:30:00Z"
+    #                         }
+    #                     ],
+    #                     "total": 1
+    #                 }
+    #             }
+    #         )
+    #     }
+    # )
     def get(self, request):
         """
         獲取用戶搜尋歷史
@@ -341,11 +342,11 @@ class SearchHistoryAPIView(APIView):
                 'error': '無法獲取搜尋歷史'
             }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
     
-    @swagger_auto_schema(
-        responses={
-            200: openapi.Response(description="搜尋歷史已清除")
-        }
-    )
+    # @swagger_auto_schema(
+    #     responses={
+    #         200: openapi.Response(description="搜尋歷史已清除")
+    #     }
+    # )
     def delete(self, request):
         """
         清除用戶搜尋歷史
@@ -468,33 +469,33 @@ class ReportContentAPIView(APIView):
     """
     permission_classes = [permissions.IsAuthenticated]
     
-    @swagger_auto_schema(
-        request_body=openapi.Schema(
-            type=openapi.TYPE_OBJECT,
-            required=['content_type', 'content_id', 'reason'],
-            properties={
-                'content_type': openapi.Schema(
-                    type=openapi.TYPE_STRING,
-                    description="內容類型 (post/comment/user/message)"
-                ),
-                'content_id': openapi.Schema(
-                    type=openapi.TYPE_STRING,
-                    description="內容ID"
-                ),
-                'reason': openapi.Schema(
-                    type=openapi.TYPE_STRING,
-                    description="舉報原因"
-                ),
-                'description': openapi.Schema(
-                    type=openapi.TYPE_STRING,
-                    description="詳細描述"
-                ),
-            }
-        ),
-        responses={
-            201: openapi.Response(description="舉報提交成功")
-        }
-    )
+    # @swagger_auto_schema(
+    #     request_body=openapi.Schema(
+    #         type=openapi.TYPE_OBJECT,
+    #         required=['content_type', 'content_id', 'reason'],
+    #         properties={
+    #             'content_type': openapi.Schema(
+    #                 type=openapi.TYPE_STRING,
+    #                 description="內容類型 (post/comment/user/message)"
+    #             ),
+    #             'content_id': openapi.Schema(
+    #                 type=openapi.TYPE_STRING,
+    #                 description="內容ID"
+    #             ),
+    #             'reason': openapi.Schema(
+    #                 type=openapi.TYPE_STRING,
+    #                 description="舉報原因"
+    #             ),
+    #             'description': openapi.Schema(
+    #                 type=openapi.TYPE_STRING,
+    #                 description="詳細描述"
+    #             ),
+    #         }
+    #     ),
+    #     responses={
+    #         201: openapi.Response(description="舉報提交成功")
+    #     }
+    # )
     def post(self, request):
         """
         提交內容舉報
@@ -594,7 +595,7 @@ class PlatformStatsAPIView(APIView):
 
 
 @api_view(['GET'])
-@permission_classes([permissions.IsAuthenticated])
+@permission_classes([permissions.AllowAny])
 def trending_topics(request):
     """
     獲取熱門話題

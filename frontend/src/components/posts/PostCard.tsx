@@ -34,9 +34,9 @@ interface PostCardProps {
 
 const PostCard: React.FC<PostCardProps> = ({
   post,
-  onPostUpdated,
-  onPostDeleted,
-  isDetailView = false
+  onPostUpdated: _onPostUpdated,
+  onPostDeleted: _onPostDeleted,
+  isDetailView: _isDetailView = false
 }) => {
   const [isLiked, setIsLiked] = useState(post.is_liked);
   const [isSaved, setIsSaved] = useState(post.is_saved);

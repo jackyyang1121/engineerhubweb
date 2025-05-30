@@ -15,11 +15,11 @@ router.register(r'portfolio', views.PortfolioProjectViewSet, basename='portfolio
 app_name = 'accounts'
 
 urlpatterns = [
-    # DRF路由
-    path('api/v1/', include(router.urls)),
+    # DRF路由 - 直接包含，不需要 v1 前綴
+    path('', include(router.urls)),
     
     # 用戶認證相關
-    path('api/v1/auth/register/', views.UserRegistrationView.as_view(), name='user-register'),
-    path('api/v1/auth/token/', views.CustomTokenObtainPairView.as_view(), name='token-obtain'),
-    path('api/v1/auth/settings/', views.UserSettingsView.as_view(), name='user-settings'),
+    path('auth/register/', views.UserRegistrationView.as_view(), name='user-register'),
+    path('auth/token/', views.CustomTokenObtainPairView.as_view(), name='token-obtain'),
+    path('auth/settings/', views.UserSettingsView.as_view(), name='user-settings'),
 ] 
