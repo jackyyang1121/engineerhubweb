@@ -12,7 +12,7 @@ from decouple import config  # type: ignore
 from datetime import timedelta
 
 # ==================== 基礎路徑設置 ====================
-# BASE_DIR: 定義專案的根目錄路徑，使用 Pathlib 確保跨平台兼容性。
+# BASE_DIR: 定義專案的根目錄路徑，使用 Pathlib 確保跨平台兼容性(同一個程式可以在不同的作業系統（Windows、Mac、Linux）都能正確執行，不會出現錯誤或相容性問題。)
 # **Django 自動生成**
 BASE_DIR = Path(__file__).resolve().parent.parent.parent
 
