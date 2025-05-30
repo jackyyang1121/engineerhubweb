@@ -8,26 +8,51 @@ Django 基礎設置文件
 
 import os
 from pathlib import Path
-from decouple import config  # type: ignore
+from decouple import config  #config() 函式會從環境變數或 .env 檔案中讀取我指定的變數名稱的值。
 from datetime import timedelta
 
 # ==================== 基礎路徑設置 ====================
 # BASE_DIR: 定義專案的根目錄路徑，使用 Pathlib 確保跨平台兼容性(同一個程式可以在不同的作業系統（Windows、Mac、Linux）都能正確執行，不會出現錯誤或相容性問題。)
+# 不同作業系統的「路徑符號」不一樣：
+# Windows：使用反斜線 \（例如：C:\Users\Tom\file.txt）
+# macOS / Linux：使用正斜線 /（例如：/home/tom/file.txt）
+# Pathlib 的 .resolve() 方法可以把相對路徑轉成絕對路徑，讓在 Windows/Linux/MacOS 上都可以一樣地讀取檔案。
+# _file_是 Python 裡的內建特殊變數（built-in variable），它會儲存「目前執行的 Python 檔案的完整路徑」。
 # **Django 自動生成**
 BASE_DIR = Path(__file__).resolve().parent.parent.parent
+#.parent.parent.parent讓BASE_DIR往上找三層，找到專案的根目錄
 
 # ==================== 安全設置 ====================
 # SECRET_KEY: 用於加密會話、密碼和其他敏感數據的密鑰。應保密，建議在生產環境中使用環境變量存儲。
+# 例如CSRF使用SECRET_KEY來生成token，這樣可以防止CSRF攻
 # **Django 自動生成**
 SECRET_KEY = config('SECRET_KEY', default='your-secret-key-here')
 
 # DEBUG: 啟用或禁用調試模式。True 時顯示詳細錯誤訊息，生產環境應設為 False 以避免洩露敏感信息。
 # **Django 自動生成**
 DEBUG = config('DEBUG', default=False, cast=bool)
+# cast=bool 轉成布林值。
+# 開發時，你想看到所有錯誤細節幫你快速修錯 → 設 DEBUG=True。
+# 產品上線時，不想用戶看到錯誤細節 → 設 DEBUG=False。
+
+# DEBUG=False 時 Django 預設行為：
+# 不會顯示詳細的錯誤堆疊頁面（也就是「黃底詳細錯誤頁」）。
+# 會顯示一個簡單的錯誤頁面（通常是 500 錯誤頁），但不會詳細透露內部錯誤內容。
+# 但是你「還是會看到一些錯誤訊息」，例如 HTTP 錯誤碼或簡短的錯誤說明。
+# DEBUG=True	顯示詳細錯誤堆疊和變數資訊
+
 
 # ALLOWED_HOSTS: 允許訪問此專案的主機名稱或 IP 列表。生產環境需設置實際域名，否則可能導致 400 錯誤。
 # **Django 自動生成**
-ALLOWED_HOSTS = config('ALLOWED_HOSTS', default='localhost,127.0.0.1', cast=lambda v: [s.strip() for s in v.split(',')])
+ALLOWED_HOSTS = config('ALLOWED_HOSTS', default='localhost,127.0.0.1',  cast=lambda v: [s.strip() for s in v.split(',')])
+#.env 或設定檔裡的 ALLOWED_HOSTS 通常會是一個 字串，像這樣：ALLOWED_HOSTS=localhost,127.0.0.1,0.0.0.0
+#但 Django 的 ALLOWED_HOSTS 設定要求是一個 list，也就是一個「清單」： ALLOWED_HOSTS = ['localhost', '127.0.0.1', '0.0.0.0']
+#所以需要用 cast=lambda v: [s.strip() for s in v.split(',')] 把字串轉成 list。
+#lambda 是 Python 裡的一種匿名函數（anonymous function），意思是「沒有名字的函數」。
+#v.split(',')：把字串 v 用逗號 , 分割成一個列表。例如 "a, b, c" 變成 ["a", " b", " c"]。
+#s.strip()：去除字串前後的空白。例如 " a " 變成 "a"。
+
+
 
 # ==================== 應用程式定義 ====================
 # DJANGO_APPS: Django 內建的應用程式，提供核心功能如管理後台、認證、會話管理等。
@@ -36,9 +61,100 @@ DJANGO_APPS = [
     'django.contrib.admin',         # 管理後台介面 **Django 自動生成**
     'django.contrib.auth',          # 認證系統 **Django 自動生成**
     'django.contrib.contenttypes',  # 內容類型框架 **Django 自動生成**
+# 專業說明 — 內容類型框架（Content Types Framework）
+# Django 的 ContentTypes 框架是一種「通用型」的資料模型系統。
+# 它讓你能夠在資料庫裡儲存和追蹤不同模型（Model）的類型。
+# 換句話說，它能讓你用統一的方式，指向任意一個模型的資料列（不管那個模型是什麼）。
+# ContentTypes 框架會幫你把每個模型對應到一個「內容類型（ContentType）」的記錄，包括應用程式名稱和模型名稱。
+# GenericForeignKey 是這個框架的核心應用之一。
+# 它結合了：
+# 一個指向 ContentType 的 ForeignKey（例如 content_type）
+# 一個儲存資料行主鍵的欄位（例如 object_id）
+# 兩者加起來，讓你用一個欄位就能動態地指向任何模型的任何資料行。
+# 這個設計就是所謂的「泛型關聯」。
+
+# 白話舉例
+# 假設你有一個網站，有「文章（Article）」和「留言（Comment）」兩種模型：
+# 你想做一個「喜歡（Like）」系統，讓用戶能「喜歡」文章或留言。
+# 如果你只用一般的 ForeignKey，那就得寫兩個欄位：
+# 一個 article 外鍵（指向文章）
+# 一個 comment 外鍵（指向留言）
+# 但這樣資料表結構又多又亂。
+# 你可以改用 ContentTypes + GenericForeignKey，這樣就可以用一個 Like 模型同時紀錄喜歡文章或留言的資料。
+# 具體範例:
+# from django.contrib.contenttypes.fields import GenericForeignKey
+# from django.contrib.contenttypes.models import ContentType
+# from django.db import models
+
+# class Like(models.Model):
+#     user = models.ForeignKey('auth.User', on_delete=models.CASCADE)
+#     content_type = models.ForeignKey(ContentType, on_delete=models.CASCADE)
+#     object_id = models.PositiveIntegerField()
+#     content_object = GenericForeignKey('content_type', 'object_id')
+
+# # 原本用法：
+# # like = Like.objects.create(user=user, content_object=some_article)
+# # like = Like.objects.create(user=user, content_object=some_comment)
+#
+# #改用 ContentTypes + GenericForeignKey:
+# 可以直接寫like.content_object
+
+
     'django.contrib.sessions',      # 會話管理 **Django 自動生成**
+# 專業說明 — 會話管理（Session Management）
+# 會話（Session） 是指在多次 HTTP 請求中，保存同一個用戶的狀態資料。
+# 因為 HTTP 協議是「無狀態」的（每次請求都是獨立的），所以會話管理就是讓網站記得同一個用戶的資料，像是登入狀態、購物車內容等。
+# Django 的 django.contrib.sessions 模組自動幫你處理這些資料存放在伺服器端，並用一個會話ID存在用戶的瀏覽器 Cookie 裡，讓伺服器能認出用戶。
+
+# 白話舉例
+# 假設你在一個網購網站買東西：
+# 你第一次進入網站，網站給你一個「會話ID」（存在 Cookie 裡）。
+# 你挑選商品放入購物車，這些資料會存在伺服器端，跟你的會話ID綁定。
+# 下一頁或下一次請求，網站會用你的會話ID找出你之前放的商品，讓購物車資料不會不見。
     'django.contrib.messages',      # 消息框架 **Django 自動生成**
+#假設你在使用者註冊後想告訴他「註冊成功」：
+# from django.contrib import messages
+# def register(request):
+#     # 註冊邏輯
+#     messages.success(request, "註冊成功！歡迎加入！")
+#     return redirect('home')
+
+#接著在前端的 Template 中：
+# {% if messages %}
+#   {% for message in messages %}
+#     <div class="alert">{{ message }}</div>
+#   {% endfor %}
+# {% endif %}
+#使用者就會看到「註冊成功！歡迎加入！」的訊息，且過一段時間它就會自動消失。
     'django.contrib.staticfiles',   # 靜態文件管理 **Django 自動生成**
+# 專業說明：
+# django.contrib.staticfiles 是 Django 內建的一個應用程式，專門用來幫助管理「靜態資源」（static files），包括網站的 CSS 樣式表、JavaScript 腳本、圖片、字型等前端檔案。
+# 這個框架解決了在開發和部署階段，靜態資源如何組織、查找和提供給用戶端瀏覽器的問題。它提供了方便的方法來收集（collect）所有應用和第三方套件的靜態文件到一個統一的位置，並在生產環境中快速有效地服務這些檔案。
+# 主要功能：
+# 統一管理靜態資源：讓你能在專案不同地方（不同 app 裡）放置靜態文件，Django 可以找到並集中管理。
+# 靜態資源收集 (collectstatic 指令)：將所有 app 和專案的靜態檔案複製到指定的靜態根目錄，方便伺服器一次性服務。
+# 開發時快速提供靜態檔案：在本地開發時，Django 會自動幫你提供靜態檔案，不需要自己額外設定 web 伺服器。
+# 方便擴充：支持壓縮、合併靜態文件，還能與 CDN 或其他外部資源整合。
+
+# 白話舉例：
+# 想像你在建一棟大樓，裡面有很多不同房間（app），每個房間都有自己的工具箱（靜態文件：圖片、CSS、JS）。
+# staticfiles 就像是一個總管，他會幫你把所有房間的工具箱裡的東西收集整理，放到一個大倉庫裡，當訪客（瀏覽器）來的時候，能快速找到並拿到他需要的工具，讓整棟大樓運作順暢。
+
+# 典型用法：
+# 在 app 目錄下建立 static/ 文件夾，放靜態文件。
+# 設定 STATIC_URL 和 STATIC_ROOT，告訴 Django 靜態文件的網址和儲存位置。
+# 開發時直接用 Django 內建的靜態文件服務。
+# 部署時執行 python manage.py collectstatic，收集所有靜態文件到 STATIC_ROOT，由 web 伺服器（如 nginx）提供靜態資源服務。
+
+# 他只是幫我把前端整理好拿出來顯示比較快
+# 如果你沒用它，會怎麼樣？
+# 開發時
+# Django 內建的開發伺服器會自動幫你服務靜態文件，不用這個功能也能看到東西，但會比較麻煩（你得自己寫很多程式碼告訴 Django 靜態檔在哪）。
+
+# 部署時
+# 如果沒用 staticfiles 的 collectstatic 整理，靜態文件分散在各個 app 的資料夾裡，專業的伺服器（Nginx/Apache）找不到該怎麼送給瀏覽器。
+# 你會遇到前端樣式不見、圖片載入失敗，頁面跑版或缺圖的情況。
+# 你還得自己想辦法把這些靜態檔案整理起來，工作量很大，也容易出錯。
     'django.contrib.sites',         # 網站框架，支援多站點管理
     'django.contrib.humanize',      # 格式化數字、日期等工具
 ]

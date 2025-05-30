@@ -2,7 +2,7 @@
 EngineerHub - 開發環境設置
 """
 
-from .base import *
+from .base import *  #from .base import * 這行是把同一個資料夾底下的 base.py 模組裡所有東西全部匯入進來。
 from decouple import config
 import logging
 
