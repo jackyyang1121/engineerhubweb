@@ -330,10 +330,8 @@ STATIC_URL = '/static/'
 # **Django 自動生成**
 STATIC_ROOT = BASE_DIR / 'staticfiles'
 
-# STATICFILES_DIRS: 額外的靜態文件目錄，開發時使用。
-STATICFILES_DIRS = [
-    BASE_DIR / 'static',
-]
+# 注意：由於本專案主要為 API 後端，不需要自定義靜態文件
+# STATICFILES_DIRS 已移除，只使用第三方套件的靜態文件（Admin、DRF等）
 
 # STATICFILES_STORAGE: 靜態文件存儲引擎，使用 WhiteNoise 壓縮並服務靜態文件。
 STATICFILES_STORAGE = 'whitenoise.storage.CompressedManifestStaticFilesStorage'
