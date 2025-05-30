@@ -127,6 +127,11 @@ const HomePage: React.FC = () => {
     refetch(); // 重新載入信息流
   };
 
+  // 處理貼文刪除成功
+  const handlePostDeleted = () => {
+    refetch(); // 重新載入信息流
+  };
+
   // 監聽滾動載入更多
   useEffect(() => {
     if (inView && hasNextPage) {
@@ -214,6 +219,7 @@ const HomePage: React.FC = () => {
                     <div key={post.id} className="transform hover:scale-[1.02] transition-all duration-300">
                       <PostCard
                         post={post}
+                        onPostDeleted={handlePostDeleted}
                       />
                     </div>
                   ))}

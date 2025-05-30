@@ -16,6 +16,7 @@ import {
   CodeBracketIcon,
   ChevronLeftIcon,
   ChevronRightIcon,
+  TrashIcon,
 } from '@heroicons/react/24/outline';
 import {
   HeartIcon as HeartIconSolid,
@@ -24,6 +25,7 @@ import {
 
 import type { Post } from '../../api/postApi';
 import * as postApi from '../../api/postApi';
+import { useAuthStore } from '../../store/authStore';
 
 interface PostCardProps {
   post: Post;
@@ -35,7 +37,7 @@ interface PostCardProps {
 const PostCard: React.FC<PostCardProps> = ({
   post,
   onPostUpdated: _onPostUpdated,
-  onPostDeleted: _onPostDeleted,
+  onPostDeleted,
   isDetailView: _isDetailView = false
 }) => {
   const [isLiked, setIsLiked] = useState(post.is_liked);
@@ -44,6 +46,12 @@ const PostCard: React.FC<PostCardProps> = ({
   const [expandCode, setExpandCode] = useState(false);
   const [currentMediaIndex, setCurrentMediaIndex] = useState(0);
   const [showOptions, setShowOptions] = useState(false);
+  const [isDeleting, setIsDeleting] = useState(false);
+  
+  const currentUser = useAuthStore(state => state.user);
+  
+  // 检查当前用户是否是贴文作者
+  const isAuthor = currentUser && String(currentUser.id) === String(post.author);
   
   // 处理点赞
   const handleLike = async () => {
@@ -102,6 +110,60 @@ const PostCard: React.FC<PostCardProps> = ({
     }
   };
   
+  // 处理删除贴文
+  const handleDelete = async () => {
+    if (!isAuthor) {
+      toast.error('您没有权限删除此贴文');
+      return;
+    }
+    
+    // 确认删除
+    if (!window.confirm('确定要删除这条贴文吗？删除后无法恢复。')) {
+      return;
+    }
+    
+    setIsDeleting(true);
+    setShowOptions(false);
+    
+    try {
+      await postApi.deletePost(post.id);
+      toast.success('贴文删除成功');
+      
+      // 调用回调函数通知父组件贴文已删除
+      if (onPostDeleted) {
+        onPostDeleted();
+      }
+    } catch (error: any) {
+      console.error('删除贴文失败:', error);
+      
+      // 显示详细错误信息 - 处理后端自定义异常格式
+      let errorMessage = '删除贴文失败，请重试';
+      
+      if (error.response?.data) {
+        const responseData = error.response.data;
+        
+        // 处理后端自定义异常处理器的格式
+        if (responseData.success === false && responseData.error) {
+          errorMessage = responseData.error.message || responseData.error.detail || errorMessage;
+        } 
+        // 处理普通的DRF错误格式
+        else if (responseData.detail) {
+          errorMessage = responseData.detail;
+        } else if (responseData.message) {
+          errorMessage = responseData.message;
+        } else if (typeof responseData === 'string') {
+          errorMessage = responseData;
+        }
+      } else if (error.message) {
+        errorMessage = error.message;
+      }
+      
+      toast.error(errorMessage);
+    } finally {
+      setIsDeleting(false);
+    }
+  };
+  
   // 举报贴文
   const handleReport = () => {
     setShowOptions(false);
@@ -130,7 +192,7 @@ const PostCard: React.FC<PostCardProps> = ({
   });
   
   return (
-    <div className="bg-white/80 backdrop-blur-xl rounded-2xl shadow-xl border border-white/30 hover:shadow-2xl transition-all duration-300 overflow-hidden group">
+    <div className={`bg-white/80 backdrop-blur-xl rounded-2xl shadow-xl border border-white/30 hover:shadow-2xl transition-all duration-300 overflow-hidden group ${isDeleting ? 'opacity-50 pointer-events-none' : ''}`}>
       {/* 贴文头部信息 */}
       <div className="flex items-center justify-between p-6 border-b border-slate-100/50">
         <div className="flex items-center space-x-4">
@@ -160,12 +222,23 @@ const PostCard: React.FC<PostCardProps> = ({
           <button 
             onClick={() => setShowOptions(!showOptions)}
             className="p-2 text-slate-400 hover:text-slate-600 hover:bg-slate-100 rounded-xl transition-all duration-300"
+            disabled={isDeleting}
           >
             <EllipsisHorizontalIcon className="h-5 w-5" />
           </button>
           
           {showOptions && (
             <div className="absolute right-0 z-10 mt-2 w-48 bg-white/90 backdrop-blur-xl rounded-xl shadow-xl border border-white/20 py-2">
+              {isAuthor && (
+                <button 
+                  className="block w-full px-4 py-2 text-left text-sm text-red-600 hover:bg-red-50 transition-colors duration-200 flex items-center"
+                  onClick={handleDelete}
+                  disabled={isDeleting}
+                >
+                  <TrashIcon className="h-4 w-4 mr-2" />
+                  {isDeleting ? '删除中...' : '删除贴文'}
+                </button>
+              )}
               <button 
                 className="block w-full px-4 py-2 text-left text-sm text-slate-700 hover:bg-slate-100/50 transition-colors duration-200"
                 onClick={handleReport}

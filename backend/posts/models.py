@@ -149,7 +149,8 @@ class Post(models.Model):
         author_id = self.author.id
         super().delete(*args, **kwargs)
         
-        User.objects.filter(id=author_id).update(
+        # 安全地减少贴文数量，确保不会变成负数
+        User.objects.filter(id=author_id, posts_count__gt=0).update(
             posts_count=models.F('posts_count') - 1
         )
     
@@ -437,8 +438,8 @@ class Like(models.Model):
         post_id = self.post.id
         super().delete(*args, **kwargs)
         
-        # 更新貼文點讚數
-        Post.objects.filter(id=post_id).update(
+        # 安全地减少点赞数量，确保不会变成负数
+        Post.objects.filter(id=post_id, likes_count__gt=0).update(
             likes_count=models.F('likes_count') - 1
         )
 
@@ -719,7 +720,8 @@ class PostShare(models.Model):
         post_id = self.post.id
         super().delete(*args, **kwargs)
         
-        Post.objects.filter(id=post_id).update(
+        # 安全地减少分享数量，确保不会变成负数
+        Post.objects.filter(id=post_id, shares_count__gt=0).update(
             shares_count=models.F('shares_count') - 1
         )
         logger.info(f"用戶 {self.user.username} 取消轉發貼文 {post_id}") 

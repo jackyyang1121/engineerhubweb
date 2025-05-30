@@ -26,12 +26,26 @@ class IsAuthorOrReadOnly(permissions.BasePermission):
     自定義權限：只有作者可以編輯，其他用戶只能讀取
     """
     def has_object_permission(self, request, view, obj):
+        # 添加详细的权限检查日志
+        logger.info(f"🔐 权限检查 - 方法: {request.method}")
+        logger.info(f"🔐 当前用户: {request.user.username} (ID: {request.user.id})")
+        logger.info(f"🔐 对象作者: {obj.author.username} (ID: {obj.author.id})")
+        
         # 允許所有用戶讀取
         if request.method in permissions.SAFE_METHODS:
+            logger.info(f"✅ 读取权限通过 - 安全方法: {request.method}")
             return True
         
         # 只有作者可以編輯
-        return obj.author == request.user
+        is_author = obj.author == request.user
+        logger.info(f"🔐 作者权限检查: {is_author}")
+        
+        if not is_author:
+            logger.warning(f"❌ 权限拒绝 - 用户 {request.user.username} 试图对不属于自己的对象执行 {request.method} 操作")
+        else:
+            logger.info(f"✅ 作者权限通过 - 用户 {request.user.username} 可以执行 {request.method} 操作")
+            
+        return is_author
 
 
 class PostViewSet(viewsets.ModelViewSet):
@@ -115,10 +129,22 @@ class PostViewSet(viewsets.ModelViewSet):
         刪除貼文
         """
         try:
+            # 添加详细的权限检查日志
+            logger.info(f"🗑️ 删除贴文请求 - 用户: {self.request.user.username} (ID: {self.request.user.id})")
+            logger.info(f"🗑️ 贴文作者: {instance.author.username} (ID: {instance.author.id})")
+            logger.info(f"🗑️ 用户类型: {type(self.request.user.id)}")
+            logger.info(f"🗑️ 作者类型: {type(instance.author.id)}")
+            logger.info(f"🗑️ 权限检查: {instance.author == self.request.user}")
+            logger.info(f"🗑️ 权限检查 (UUID比较): {str(instance.author.id) == str(self.request.user.id)}")
+            
+            # 注意：权限检查已经在权限类中完成，这里直接删除
             instance.delete()
-            logger.info(f"用戶 {self.request.user.username} 刪除了貼文 {instance.id}")
+            logger.info(f"✅ 用戶 {self.request.user.username} 成功删除了貼文 {instance.id}")
         except Exception as e:
-            logger.error(f"貼文刪除失敗: {str(e)}")
+            logger.error(f"❌ 貼文刪除失敗: {str(e)}")
+            logger.error(f"❌ 錯誤類型: {type(e)}")
+            import traceback
+            logger.error(f"❌ 錯誤堆疊: {traceback.format_exc()}")
             raise ValidationError(f"貼文刪除失敗: {str(e)}")
     
     @action(detail=True, methods=['post'])

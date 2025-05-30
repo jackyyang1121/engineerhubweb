@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { toast } from 'react-toastify';
 
 import ProfileCard from '../../components/profile/ProfileCard';
@@ -105,6 +105,7 @@ const ProfilePage = () => {
   const navigate = useNavigate();
   const [activeTab, setActiveTab] = useState<'posts' | 'projects'>('posts');
   const currentUser = useAuthStore(state => state.user);
+  const queryClient = useQueryClient();
   
   // 如果沒有用戶名參數，跳轉到自己的個人資料頁
   useEffect(() => {
@@ -182,7 +183,12 @@ const ProfilePage = () => {
   
   // 處理刷新貼文
   const handleRefreshPosts = () => {
-    // 刷新貼文查詢
+    queryClient.invalidateQueries({ queryKey: ['userPosts', username] });
+  };
+
+  // 處理貼文刪除成功
+  const handlePostDeleted = () => {
+    handleRefreshPosts(); // 刷新貼文列表
   };
 
   // 加載中或錯誤狀態
@@ -275,7 +281,12 @@ const ProfilePage = () => {
           )}
           
           {!isLoadingPosts && !isPostsError && postsData?.results.map(post => (
-            <PostCard key={post.id} post={post} onPostUpdated={handleRefreshPosts} />
+            <PostCard 
+              key={post.id} 
+              post={post} 
+              onPostUpdated={handleRefreshPosts}
+              onPostDeleted={handlePostDeleted}
+            />
           ))}
         </div>
       )}

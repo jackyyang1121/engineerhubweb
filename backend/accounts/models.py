@@ -263,13 +263,13 @@ class Follow(models.Model):
         
         super().delete(*args, **kwargs)
         
-        # 更新關注者的關注數量
-        User.objects.filter(id=follower_id).update(
+        # 安全地更新關注者的關注數量，确保不会变成负数
+        User.objects.filter(id=follower_id, following_count__gt=0).update(
             following_count=models.F('following_count') - 1
         )
         
-        # 更新被關注者的關注者數量
-        User.objects.filter(id=following_id).update(
+        # 安全地更新被關注者的關注者數量，确保不会变成负数
+        User.objects.filter(id=following_id, followers_count__gt=0).update(
             followers_count=models.F('followers_count') - 1
         )
 

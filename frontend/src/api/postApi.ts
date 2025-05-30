@@ -177,8 +177,17 @@ export const updatePost = async (postId: string, postData: UpdatePostData): Prom
 // 刪除貼文
 export const deletePost = async (postId: string): Promise<void> => {
   try {
-    await api.delete(`/posts/${postId}/`);
-  } catch (error) {
+    console.log('🗑️ 开始删除贴文:', postId);
+    const response = await api.delete(`/posts/${postId}/`);
+    console.log('✅ 删除贴文成功:', response);
+  } catch (error: any) {
+    console.error('❌ 删除贴文错误详情:', {
+      message: error.message,
+      response: error.response,
+      status: error.response?.status,
+      data: error.response?.data,
+      headers: error.response?.headers
+    });
     console.error('刪除貼文錯誤:', error);
     throw error;
   }

@@ -105,11 +105,15 @@ class Comment(models.Model):
         """保存時更新計數器"""
         is_new = self.pk is None
         
-        # 檢查是否編輯
-        if not is_new and self.pk:
-            original = Comment.objects.get(pk=self.pk)
-            if original.content != self.content:
-                self.is_edited = True
+        # 檢查是否編輯（只有非新建評論才檢查）
+        if not is_new:
+            try:
+                original = Comment.objects.get(pk=self.pk)
+                if original.content != self.content:
+                    self.is_edited = True
+            except Comment.DoesNotExist:
+                # 如果原評論不存在，忽略編輯檢查
+                pass
         
         super().save(*args, **kwargs)
         
@@ -132,16 +136,16 @@ class Comment(models.Model):
         self.content = "[此評論已被刪除]"
         self.save(update_fields=['is_deleted', 'content'])
         
-        # 更新計數器
+        # 安全地更新計數器，确保不会变成负数
         if not self.parent:
             # 頂層評論
             from posts.models import Post
-            Post.objects.filter(id=self.post.id).update(
+            Post.objects.filter(id=self.post.id, comments_count__gt=0).update(
                 comments_count=models.F('comments_count') - 1
             )
         else:
             # 回覆評論
-            Comment.objects.filter(id=self.parent.id).update(
+            Comment.objects.filter(id=self.parent.id, replies_count__gt=0).update(
                 replies_count=models.F('replies_count') - 1
             )
     
@@ -152,14 +156,14 @@ class Comment(models.Model):
         
         super().delete()
         
-        # 更新計數器
+        # 安全地更新計數器，确保不会变成负数
         if not parent_id:
             from posts.models import Post
-            Post.objects.filter(id=post_id).update(
+            Post.objects.filter(id=post_id, comments_count__gt=0).update(
                 comments_count=models.F('comments_count') - 1
             )
         else:
-            Comment.objects.filter(id=parent_id).update(
+            Comment.objects.filter(id=parent_id, replies_count__gt=0).update(
                 replies_count=models.F('replies_count') - 1
             )
     
@@ -235,7 +239,8 @@ class CommentLike(models.Model):
         comment_id = self.comment.id
         super().delete(*args, **kwargs)
         
-        Comment.objects.filter(id=comment_id).update(
+        # 安全地减少点赞数量，确保不会变成负数
+        Comment.objects.filter(id=comment_id, likes_count__gt=0).update(
             likes_count=models.F('likes_count') - 1
         )
 
