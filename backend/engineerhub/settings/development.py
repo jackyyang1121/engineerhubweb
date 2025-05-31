@@ -24,11 +24,11 @@ except ImportError:
 
 # ==================== 開發環境認證設置 ====================
 # 簡化開發環境的認證流程
-MIDDLEWARE = [item for item in MIDDLEWARE if item != 'django.middleware.csrf.CsrfViewMiddleware']
+MIDDLEWARE = [item for item in MIDDLEWARE if item != 'django.middleware.csrf.CsrfViewMiddleware']  #因為有JWT了所以不需要CSRF
 
 # AllAuth 開發環境設置
-ACCOUNT_LOGIN_METHODS = {'username', 'email'}
-ACCOUNT_EMAIL_VERIFICATION = 'none'
+ACCOUNT_LOGIN_METHODS = {'username', 'email'}  #可以選擇用username或email登入
+ACCOUNT_EMAIL_VERIFICATION = 'none'   #因為是開發環境所以不需要EMAIL驗證可以亂填
 
 # REST Framework 開發環境設置
 REST_FRAMEWORK.update({
