@@ -1,7 +1,10 @@
 {
-  "files": [],
+  "files": [],  // 指定要編譯的文件列表，如果沒有指定，則會編譯所有 .ts 和 .tsx 文件。
   "references": [
     { "path": "./tsconfig.app.json" },
     { "path": "./tsconfig.node.json" }
   ]
 }
+
+// 這是 TypeScript 項目的根配置文件，定義了全局的 TypeScript 編譯選項，適用於整個項目。
+// 它作為所有其他 tsconfig 文件的基礎配置文件，其他文件（如 tsconfig.app.json 和 tsconfig.node.json）會通過 extends 字段繼承它的設置。

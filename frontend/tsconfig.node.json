@@ -1,24 +1,29 @@
 {
-  "compilerOptions": {
-    "tsBuildInfoFile": "./node_modules/.tmp/tsconfig.node.tsbuildinfo",
-    "target": "ES2022",
-    "lib": ["ES2023"],
-    "module": "ESNext",
-    "skipLibCheck": true,
+  "compilerOptions": { // 編譯器選項，定義 TypeScript 編譯行為的配置
+    "tsBuildInfoFile": "./node_modules/.tmp/tsconfig.node.tsbuildinfo", // 指定 TypeScript 構建信息文件的儲存路徑，用於增量編譯
+    "target": "ES2022", // 設定編譯後的 JavaScript 目標版本，這裡是 ECMAScript 2022
+    "lib": ["ES2023"], // 指定編譯時包含的庫文件，這裡包含 ECMAScript 2023 的 API
+    "module": "ESNext", // 定義模塊系統，這裡使用最新的 ECMAScript 模塊標準
+    "skipLibCheck": true, // 跳過對庫文件（例如 node_modules 中的 .d.ts 文件）的類型檢查，以加快編譯速度
 
-    /* Bundler mode */
-    "moduleResolution": "bundler",
-    "allowImportingTsExtensions": true,
-    "verbatimModuleSyntax": true,
-    "moduleDetection": "force",
-    "noEmit": true,
+    /* Bundler mode */ 
+    // 打包模式相關選項，適用於使用打包工具（如 Vite、Webpack）的場景
+    "moduleResolution": "bundler", // 模塊解析策略，設定為 "bundler" 表示依賴打包工具的解析邏輯
+    "allowImportingTsExtensions": true, // 允許在導入語句中使用 TypeScript 擴展名（例如 .ts、.tsx）
+    "verbatimModuleSyntax": true, // 啟用嚴格的模塊語法檢查，要求模塊導入/導出語法保持一致
+    "moduleDetection": "force", // 強制將文件視為模塊，即使沒有顯式的導入/導出語句
+    "noEmit": true, // 編譯時不生成輸出文件，通常用於僅檢查類型而不產生 JavaScript 文件
 
-    /* Linting */
-    "strict": true,
-    "noUnusedLocals": true,
-    "noUnusedParameters": true,
-    "noFallthroughCasesInSwitch": true,
-    "noUncheckedSideEffectImports": true
+    /* Linting */ 
+    // 代碼檢查相關選項，增強代碼質量和一致性
+    "strict": true, // 啟用所有嚴格類型檢查選項（如 noImplicitAny、strictNullChecks 等）
+    "noUnusedLocals": true, // 檢查並報告未使用的局部變量，防止代碼冗餘
+    "noUnusedParameters": true, // 檢查並報告未使用的函數參數，提升代碼可維護性
+    "noFallthroughCasesInSwitch": true, // 禁止 switch 語句中 case 分支的 fallthrough（未使用 break 導致執行下一個 case）
+    "noUncheckedSideEffectImports": true // 防止導入具有副作用的模塊時未經檢查，確保副作用明確
   },
-  "include": ["vite.config.ts"]
+  "include": ["vite.config.ts"] // 指定編譯器需要處理的文件或路徑，這裡包含 vite.config.ts 文件
+  //以上這行就是與tsconfig.app.json 不同的東西，src（前端代碼）和 vite.config.ts（Node.js 環境）有不同的運行環境和需求，合併可能導致配置衝突或維護困難。
+  //因此這邊include 只包含 vite.config.ts 文件，不包含 src 目錄。
+  //而tsconfig.app.json 則包含 src 目錄，適用於前端開發。
 }

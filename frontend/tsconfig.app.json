@@ -1,26 +1,46 @@
 {
   "compilerOptions": {
+    // 指定 TypeScript 構建信息文件的路徑，用於增量編譯。
     "tsBuildInfoFile": "./node_modules/.tmp/tsconfig.app.tsbuildinfo",
+    // 設置編譯後的 JavaScript 版本，這裡是 ES2020。
     "target": "ES2020",
+    // 啟用 TypeScript 對類字段的 defineProperty 行為，與 ECMAScript 標準一致。
     "useDefineForClassFields": true,
+    // 指定要包含的庫文件，這裡包括 ES2020、DOM 和 DOM.Iterable。
     "lib": ["ES2020", "DOM", "DOM.Iterable"],
+    // 設置模塊系統，這裡是 ESNext，表示使用最新的 ECMAScript 模塊系統。
     "module": "ESNext",
+    // 跳過對庫文件的類型檢查，以加快編譯速度。
     "skipLibCheck": true,
 
+
     /* Bundler mode */
+    // 設置模塊解析策略，這裡是 "bundler"，適用於打包工具如 Vite、Webpack 等。
     "moduleResolution": "bundler",
-    "allowImportingTsExtensions": true,
-    "verbatimModuleSyntax": true,
+    // 允許導入 TypeScript 擴展名（如 .ts, .tsx），通常在打包工具中啟用。
+    "allowImportingTsExtensions": true,   
+    // 強制使用 import type 和 export type 來區分類型和值導入/導出。
+    "verbatimModuleSyntax": true, 
+    // 強制 TypeScript 將文件視為模塊，防止全局污染。
     "moduleDetection": "force",
+    // 不生成輸出文件，只進行類型檢查。
     "noEmit": true,
+    // 設置 JSX 編譯方式，這裡是 "react-jsx"，表示使用 React 17+ 的 JSX 轉換。
     "jsx": "react-jsx",
 
+
     /* Linting */
+    // 啟用所有嚴格類型檢查選項，確保代碼質量。
     "strict": true,
+    // 禁止未使用的局部變量。
     "noUnusedLocals": true,
+    // 禁止未使用的函數參數。
     "noUnusedParameters": true,
+    // 禁止 switch 語句中的 case 穿透。
     "noFallthroughCasesInSwitch": true,
+    // 禁止未檢查的副作用導入，確保所有導入都有副作用。
     "noUncheckedSideEffectImports": true
   },
+  // 指定要編譯的文件或目錄，這裡是 src 目錄下的所有文件。
   "include": ["src"]
 }
