@@ -1,3 +1,6 @@
+//可以用npm run lint來檢查
+//或是安裝 ESLint 擴展就可以背景即時檢查
+
 import js from '@eslint/js' // 導入 ESLint 官方的 JavaScript 規則配置
 import globals from 'globals' // 導入 globals 模塊，提供全域變數的定義，例如瀏覽器環境中的 window、document 等，簡單講就是把瀏覽器環境的變數定義出來，讓ESLint知道
 import reactHooks from 'eslint-plugin-react-hooks' // 導入 React Hooks 的 ESLint 插件，確保 Hooks 的正確使用

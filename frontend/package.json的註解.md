@@ -7,7 +7,7 @@
   "scripts": {                                *定義常用的 npm 指令（快捷執行）*
     "dev": "vite",                            *啟動開發伺服器（vite）*
     "build": "tsc -b && vite build",          *先用 TypeScript 編譯專案（tsc -b），再進行 Vite 的正式打包*
-    "lint": "eslint .",                       *執行 ESLint，檢查整個專案的程式碼風格*
+    "lint": "eslint .",                       *執行 ESLint，設定在eslint.config.js，檢查整個專案的程式碼風格*
     "preview": "vite preview"                 *啟動 Vite 的預覽模式（預覽打包後的網頁）*
   },
 
