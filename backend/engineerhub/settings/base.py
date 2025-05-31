@@ -256,6 +256,7 @@ MIDDLEWARE = [
 ROOT_URLCONF = 'engineerhub.urls'
 
 # ==================== 模板設置 ====================
+# 這邊我這個專案沒用到，因為我現在是前後端分離，前端使用React+vite，沒用到Django模板，所以沒用到這邊的設定
 # TEMPLATES: 配置模板引擎，用於渲染 HTML 頁面。
 # **Django 自動生成**
 TEMPLATES = [
@@ -275,6 +276,8 @@ TEMPLATES = [
 ]
 
 # ==================== ASGI/WSGI 配置 ====================
+# 用在部署時，Django 會透過環境變數或manage.py裡的 DJANGO_SETTINGS_MODULE 指定要用哪個設定檔
+# 開發時，Django 會自動使用 settings.py 裡的設定，Django 會直接透過 runserver 啟動內建的開發伺服器
 # WSGI_APPLICATION: 指定 WSGI 應用程式的路徑，用於傳統 HTTP 請求處理。
 # **Django 自動生成**
 WSGI_APPLICATION = 'engineerhub.wsgi.application'
@@ -313,6 +316,9 @@ CACHES = {
         }
     }
 }
+# Django 本身就有快取機制LocMemCache
+# 只是我在這邊透過 CACHES 的設定，把「快取後端」換成 Redis
+# 這樣 Django 就會把快取資料寫到 Redis，而不是只存在本機記憶體
 
 # ==================== 會話設置 ====================
 # SESSION_ENGINE: 定義會話存儲引擎，使用緩存後端（Redis）。
@@ -320,6 +326,9 @@ SESSION_ENGINE = 'django.contrib.sessions.backends.cache'
 
 # SESSION_CACHE_ALIAS: 指定會話使用的緩存別名。
 SESSION_CACHE_ALIAS = 'default'
+
+# SESSION_ENGINE = 'django.contrib.sessions.backends.cache'會去找Django內建緩存位置，
+# 但我CACHES又設定緩存位置在Redis上，所以session會自動儲存在Redis上
 
 # ==================== 密碼驗證 ====================
 # AUTH_PASSWORD_VALIDATORS: 密碼驗證規則，現已移除所有驗證器，允許任何密碼。
@@ -389,11 +398,13 @@ MAX_VIDEO_SIZE = 50 * 1024 * 1024  # 50MB
 
 # ==================== 默認主鍵設置 ====================
 # DEFAULT_AUTO_FIELD: 模型主鍵的默認類型，使用 BigAutoField（64 位整數）。
+# 這個會讓我專案內models.py裡的模型創建時自動生成id，且是遞增
 # **Django 自動生成**
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 
 # ==================== 網站設置 ====================
 # SITE_ID: 網站 ID，用於 django.contrib.sites 框架。
+# 這個是為了和Allauth整合，讓Allauth知道我的網站是哪個
 SITE_ID = 1
 
 # ==================== 認證後端設置 ====================
@@ -439,12 +450,16 @@ REST_FRAMEWORK = {
     'EXCEPTION_HANDLER': 'core.exceptions.custom_exception_handler', # 自定義異常處理
     'DEFAULT_SCHEMA_CLASS': 'drf_spectacular.openapi.AutoSchema',    # API 文檔生成類
 }
+# 以上也只是從INSTALL_APPS安裝的 'rest_framework','rest_framework.authtoken',  'rest_framework_simplejwt', 裡面的工具拿出來用
+# 就好比安裝pandas用pandas裡面的工具一樣
 
 # ==================== JWT 設置 ====================
 # SIMPLE_JWT: 配置 Simple JWT 的參數，用於生成和管理 JWT。
 SIMPLE_JWT = {
     'ACCESS_TOKEN_LIFETIME': timedelta(hours=1),     # Access Token 有效期（1 小時）
     'REFRESH_TOKEN_LIFETIME': timedelta(days=7),     # Refresh Token 有效期（7 天）
+#Access Token 是短期的，一直更換避免token被盜用，不會重新刷新頁面不需要重新登入，避免用戶一直登入
+#Refresh Token 是長期的，用來換取新的Access Token，會重新刷新頁面需要重新登入
     'ROTATE_REFRESH_TOKENS': True,                   # 刷新時生成新 Refresh Token
     'BLACKLIST_AFTER_ROTATION': True,                # 舊 Refresh Token 加入黑名單
     'UPDATE_LAST_LOGIN': True,                       # 更新最後登入時間
@@ -476,6 +491,7 @@ SIMPLE_JWT = {
 }
 
 # ==================== CORS 設置 ====================
+# 安裝了 'corsheaders' 這個 app → 在這邊，才能用 CORS_ALLOWED_ORIGINS 這個被定義好的變數來設定哪些域名可以跨域訪問。
 # CORS_ALLOWED_ORIGINS: 允許跨域請求的來源列表。
 CORS_ALLOWED_ORIGINS = [
     "http://localhost:3000",  # React 開發服務器
@@ -515,6 +531,7 @@ CSRF_TRUSTED_ORIGINS = [
 
 # ==================== AllAuth 和社交登入配置 ====================
 # ACCOUNT_LOGIN_METHODS: 定義登入方式，僅支援 email。
+# 決定「用什麼找用戶」，這邊我選擇用email找用戶
 ACCOUNT_LOGIN_METHODS = {'email'}
 
 # ACCOUNT_SIGNUP_FIELDS: 註冊表單必填字段，帶 * 表示必填。
@@ -577,6 +594,17 @@ REST_AUTH = {
     'USER_DETAILS_SERIALIZER': 'accounts.serializers.UserSerializer', # 用戶詳情序列化器
     'REGISTER_SERIALIZER': 'accounts.serializers.CustomRegisterSerializer', # 註冊序列化器
 }
+# | 設定名稱                   | 說明                                                                                               |
+# | ------------------------- | ------------------------------------------------------------------------------------------------- |
+# | `USE_JWT`                 | 設定為 True 時，使用 JWT 作為身份驗證方式（更現代、支援前後端分離）。如果關掉，會用 Session 認證（傳統）。 |
+# | `JWT_AUTH_COOKIE`         | 指定 JWT 存放在 Cookie 中的名稱（例如 `'auth-jwt'`）。方便前端自動帶 Token。                          |
+# | `JWT_AUTH_REFRESH_COOKIE` | 指定 Refresh Token 存放在 Cookie 中的名稱（例如 `'auth-jwt-refresh'`）。用於更新過期的 Access Token。 |
+# | `JWT_AUTH_HTTPONLY`       | True 代表瀏覽器無法用 JS 讀取 Cookie（只能後端用），False 則可以。視乎前端需求（安全性考量）。           |
+# | `USER_DETAILS_SERIALIZER` | 指定序列化器，用來控制使用者詳細資料的 API 格式（例如返回 email、name 等）。                           |
+# | `REGISTER_SERIALIZER`     | 指定註冊序列化器，用來自定義註冊時要哪些欄位（例如 email、password、nickname 等）。                   |
+
+# 簡單講就是設定好JWT的配置，例如Access Token和Refresh Token的命名以及存放位置，讓Django Rest Framework可以正常使用JWT
+# REST_AUTH（或更廣義的 SIMPLE_JWT）的配置，就是設定好 JWT 的使用方式（包括存放位置、有效期、是否用 Cookie），讓 Django REST Framework（或 dj-rest-auth）可以正常運作 JWT 驗證
 
 # ==================== 郵件設置 ====================
 # EMAIL_BACKEND: 郵件發送後端，預設使用控制台輸出。
