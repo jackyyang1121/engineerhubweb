@@ -14,7 +14,7 @@ import tseslint from 'typescript-eslint' // 導入 TypeScript ESLint 插件，�
 //@typescript-eslint/no-empty-functio：禁止定義空的函數（無任何內容）。預設嚴重性：通常為 'error'，要求修正。
 
 export default tseslint.config( // 使用 tseslint.config 函數來創建 ESLint 配置
-  // 不一定要用 tseslint.config，但在 TypeScript 項目中用它更方便，特別是需要類型檢查時。
+  // 不一定要用 tseslint.config，但在 TypeScript 項目中用它更方便，自動整合 TypeScript 解析器和規則，簡化設定，不用她只是需要多設定一些而已。
   // tseslint.config 用途：幫我設定 ESLint，定義規則和檔案範圍，專為 TypeScript 優化，生成檢查配置。
   // tseslint.config 是從 typescript-eslint 套件中導入的一個函數，不直接驗證程式碼中的屬性或資料，它只設定規則，後續由ESLint 根據這些規則檢查程式碼（例如變數、屬性是否未使用）。
   // defineConfig 直接驗證配置物件的屬性，透過 TypeScript 型別確保其正確性。
