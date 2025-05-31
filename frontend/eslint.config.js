@@ -10,14 +10,14 @@ import tseslint from 'typescript-eslint' // 導入 TypeScript ESLint 插件，�
 // 而 Linting 規則 是一組定義好的標準或條件，下面extends繼承tseslint.configs.recommended內的規則像是:
 //@typescript-eslint/no-unused-vars：檢查程式碼中是否有未使用的變數。預設嚴重性：通常為 'error'，報錯以提醒修正。
 //@typescript-eslint/no-explicit-any：禁止使用 any 類型，除非絕對必要。預設嚴重性：通常為 'warn'，發出警告以鼓勵改進。
-//@typescript-eslint/no-non-null-assertion：禁止使用非空斷言運算子（!），例如 value!。預設嚴重性：通常為 'warn'，提醒開發者添加回傳類型。
-//@typescript-eslint/no-empty-functio：禁止定義空的函數（無任何內容）。預設嚴重性：通常為 'error'，要求修正。
+//@typescript-eslint/no-non-null-assertion：警告潛在的運行時錯誤，例如未正確處理空值。。預設嚴重性：通常為 'warn'，提醒開發者添加回傳類型。
+//@typescript-eslint/no-empty-function：禁止定義空的函數（無任何內容）。預設嚴重性：通常為 'error'，要求修正。
 
 export default tseslint.config( // 使用 tseslint.config 函數來創建 ESLint 配置
   // 不一定要用 tseslint.config，但在 TypeScript 項目中用它更方便，自動整合 TypeScript 解析器和規則，簡化設定，不用她只是需要多設定一些而已。
   // tseslint.config 用途：幫我設定 ESLint，定義規則和檔案範圍，專為 TypeScript 優化，生成檢查配置。
   // tseslint.config 是從 typescript-eslint 套件中導入的一個函數，不直接驗證程式碼中的屬性或資料，它只設定規則，後續由ESLint 根據這些規則檢查程式碼（例如變數、屬性是否未使用）。
-  // defineConfig 直接驗證配置物件的屬性，透過 TypeScript 型別確保其正確性。
+  // 與 Vite 的 defineConfig 不同，這裡僅設定規則而非驗證物件。defineConfig 直接驗證配置物件的屬性，透過 TypeScript 型別確保其正確性。
   { ignores: ['dist'] }, // 忽略 dist 目錄，不對其進行 linting（通常是編譯後的輸出目錄）
   {
     extends: [js.configs.recommended, ...tseslint.configs.recommended], // 繼承 ESLint 官方推薦的 JavaScript 規則和 TypeScript ESLint 推薦的規則
@@ -67,7 +67,7 @@ export default tseslint.config( // 使用 tseslint.config 函數來創建 ESLint
 // React Fast Refresh 是一種熱重載技術（常用於 Vite、Webpack、Next.js），允許在開發時修改 React 組件，頁面能快速更新並保留狀態（例如表單輸入值）。
 // 為什麼只導出組件？Fast Refresh 依賴模組主要導出 React 組件來正確追踪和更新，導出非組件內容（例如普通函數、變數）可能干擾其行為，導致熱重載失敗或狀態丟失。
         'warn', // 違反規則時發出警告
-        { allowConstantExport: true }, // 允許導出常量（例如函數組件）
+        { allowConstantExport: true }, //允許導出常量值（例如字串、數字、物件），放寬對非組件導出的限制。
 // 含義：
 // 這是規則的配置選項，具體調整 react-refresh/only-export-components 的行為。
 // allowConstantExport: true 允許檔案導出常量值，例如字串、數字、物件或陣列，即使它們不是 React 組件。
