@@ -156,7 +156,8 @@ DJANGO_APPS = [
 # 你會遇到前端樣式不見、圖片載入失敗，頁面跑版或缺圖的情況。
 # 你還得自己想辦法把這些靜態檔案整理起來，工作量很大，也容易出錯。
 
-# 此專案前端使用React+vite不使用 Django 模板因此沒用到此工具但在admin、debug_toolbug...等第三方服務有用到staticfiles
+# 此專案前端使用React+vite不使用 Django 模板因此沒用到此工具但在admin、debug_toolbug、DRF...等第三方服務還是有用到staticfiles
+    
     'django.contrib.sites',         # 網站框架，支援多站點管理
 #此專案目前僅為了和Allauth配合而使用到此工具
     'django.contrib.humanize',      # 格式化數字、日期等工具
