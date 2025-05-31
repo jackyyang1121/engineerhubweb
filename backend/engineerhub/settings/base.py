@@ -310,6 +310,7 @@ REDIS_URL = config('REDIS_URL', default='redis://localhost:6379/0')
 CACHES = {
     'default': {
         'BACKEND': 'django_redis.cache.RedisCache',  # Redis 緩存後端
+        #這裡的 BACKEND 是指指定背後實作的“引擎”，也就是讓你告訴 Django 該用哪個程式庫或模組來完成特定的任務
         'LOCATION': REDIS_URL,                       # Redis 連接地址
         'OPTIONS': {
             'CLIENT_CLASS': 'django_redis.client.DefaultClient', # Redis 客戶端類
@@ -714,15 +715,41 @@ LOGGING = {
 log_dir = BASE_DIR / 'logs'
 log_dir.mkdir(exist_ok=True)
 
+# 這段 LOGGING 配置的「實際功能」包含：
+# 記錄訊息的分類和格式化
+# 你設定了不同的格式器 (verbose, simple)，決定日誌訊息長得怎樣（時間、級別、模組、訊息內容等）。
+# 不同訊息等級（INFO, DEBUG, ERROR）會用不同格式顯示。
+# 多種輸出管道（Handler）
+# 訊息會同時輸出到：
+# 控制台(console)：開發時直接看到。
+# 文件(file)：保存到硬碟裡的 .log 檔，方便事後追蹤錯誤和行為紀錄。
+# 錯誤文件(error_file)：專門記錄 ERROR 級別以上的錯誤。
+# 郵件通知(mail_admins)：當錯誤發生且是生產環境（DEBUG=False）時，系統會自動寄郵件通知管理員。
+# 環境感知（Filters）
+# require_debug_true 和 require_debug_false 讓你可以針對開發環境（DEBUG=True）和正式環境（DEBUG=False）分別處理日誌行為，例如開發時只輸出控制台，生產時才發郵件。
+# 不同日誌器（Logger）針對不同模組
+# django、django.request、django.security、還有自定義的 engineerhub，分別有不同的處理器和日誌等級，方便你依需求調整哪裡要寫哪些日誌。
+# 日誌輪替（RotatingFileHandler）
+# 日誌檔會自動輪替，不會一直長大佔硬碟空間，設定了最大大小（10MB）和備份數（5個檔案）。
+# 建立日誌目錄
+# log_dir.mkdir(exist_ok=True) 確保目錄存在，防止寫日誌時發生錯誤。
+
+# 如果沒有這套日誌系統：
+# 你只能看控制台輸出，或不小心漏掉錯誤。
+# 也沒辦法自動發郵件通知管理員。
+# 追蹤歷史問題就變得非常困難。
+
+#是一個蠻重要的功能尤其是和別人協作的時候，可以很清楚的知道哪裡出了問題，以及是什麼問題，以及之前發生過什麼問題
+#但我目前還沒熟悉這個，不太清楚如何觀察紀錄
+
 # ==================== 自定義配置 ====================
 # CODE_HIGHLIGHT_STYLES: 程式碼高亮支援的樣式。
 CODE_HIGHLIGHT_STYLES = ['monokai', 'github', 'vs', 'xcode', 'default']
-
 # DEFAULT_CODE_STYLE: 預設程式碼高亮樣式。
 DEFAULT_CODE_STYLE = 'monokai'
-
 # MAX_CODE_LENGTH: 程式碼最大長度（字符數）。
 MAX_CODE_LENGTH = 10000
+# 以上是設定程式碼高亮樣式(Pygments相關)
 
 # SEARCH_RESULTS_PER_PAGE: 每頁搜尋結果數量。
 SEARCH_RESULTS_PER_PAGE = 20
@@ -830,9 +857,15 @@ CELERY_BROKER_URL = REDIS_URL
 
 # CELERY_RESULT_BACKEND: 任務結果存儲後端，使用 Django 數據庫。
 CELERY_RESULT_BACKEND = 'django-db'
+# Celery 會透過 django-celery-results，將任務結果以 ORM 形式儲存在 Django 的資料庫。
+# 由於我的 DATABASES 設定指向 PostgreSQL，所以任務結果最終會被寫入 PostgreSQL。
+# 因為我已經在 INSTALLED_APPS 裡安裝了 'django_celery_results'，所以可以使用 'django-db' 作為 Celery 的結果後端。
+
 
 # CELERY_CACHE_BACKEND: 緩存後端，使用 Django 緩存。
 CELERY_CACHE_BACKEND = 'django-cache'
+#'django-cache' 是 Celery 官方提供的 backend 之一，Celery 的 backend 是負責「儲存任務執行結果」的東西，可以選擇 Redis、Django Database（django-db）、或者其他系統。
+# 允許 Celery 透過 Django 的快取系統（也就是 CACHES 設定）來作為快取存放區，而我把CACHES設定為Redis，所以結果就會寫進Redis。
 
 # CELERY_TASK_SERIALIZER: 任務序列化格式。
 CELERY_TASK_SERIALIZER = 'json'
@@ -857,6 +890,8 @@ CELERY_BEAT_SCHEDULER = 'django_celery_beat.schedulers:DatabaseScheduler'
 CHANNEL_LAYERS = {
     'default': {
         'BACKEND': 'channels_redis.core.RedisChannelLayer',
+        #這裡的 BACKEND 是指指定背後實作的“引擎”，也就是讓你告訴 Django Channels（或 Celery）該用哪個程式庫或模組來完成特定的任務
+        #只要在INSTALLED_APPS安裝了 channels和在requirements.txt安裝了channels_redis就可以使用 channels_redis.core.RedisChannelLayer 當作 Channel Layer 的 backend。
         'CONFIG': {
             'hosts': [REDIS_URL],
         },
@@ -874,9 +909,9 @@ SPECTACULAR_SETTINGS = {
     'SCHEMA_PATH_PREFIX': '/api/',           # API 路徑前綴
     'SECURITY': [                            # 安全配置
         {
-            'type': 'http',
-            'scheme': 'bearer',
-            'bearerFormat': 'JWT',
+            'type': 'http',    #http 是 HTTP 授權
+            'scheme': 'bearer',   #bearer 是 JWT 的授權方式
+            'bearerFormat': 'JWT',  #JWT 的格式
         }
     ],
 }
