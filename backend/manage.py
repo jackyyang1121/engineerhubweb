@@ -26,6 +26,8 @@ def main():
     """運行管理任務"""
     # 設置 Django 設置模塊
     os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'engineerhub.settings.development')
+    #Django 會透過環境變數或manage.py裡的 DJANGO_SETTINGS_MODULE 指定要用哪個設定檔
+    #這邊DJANGO_SETTINGS_MODULE設定為engineerhub.settings.development
     
     try:
         from django.core.management import execute_from_command_line
