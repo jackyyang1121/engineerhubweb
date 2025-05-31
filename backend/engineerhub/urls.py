@@ -58,18 +58,6 @@ urlpatterns = [
     path('api/redoc/', SpectacularRedocView.as_view(url_name='schema'), name='redoc'),
 
 
-
-
-
-
-##################################################################我讀到這邊########################################################################################
-
-
-
-
-
-
-
     # 應用API
     path('api/', include('accounts.urls')),
     path('api/posts/', include('posts.urls')),
