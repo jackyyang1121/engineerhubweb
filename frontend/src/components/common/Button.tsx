@@ -117,7 +117,7 @@ const Button = forwardRef<HTMLButtonElement, ButtonProps>(
     ].filter(Boolean).join(' ');
 
     // 渲染圖標
-    const renderIcon = (iconElement: React.ReactNode, _position: 'left' | 'right') => {
+    const renderIcon = (iconElement: React.ReactNode) => {
       if (!iconElement) return null;
       
       return (
@@ -130,9 +130,9 @@ const Button = forwardRef<HTMLButtonElement, ButtonProps>(
     const content = (
       <>
         {loading && <LoadingIcon />}
-        {!loading && icon && iconPosition === 'left' && renderIcon(icon, 'left')}
+        {!loading && icon && iconPosition === 'left' && renderIcon(icon)}
         {children && <span>{children}</span>}
-        {!loading && icon && iconPosition === 'right' && renderIcon(icon, 'right')}
+        {!loading && icon && iconPosition === 'right' && renderIcon(icon)}
       </>
     );
 

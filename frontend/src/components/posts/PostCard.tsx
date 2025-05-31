@@ -29,16 +29,12 @@ import { useAuthStore } from '../../store/authStore';
 
 interface PostCardProps {
   post: Post;
-  onPostUpdated?: () => void;
   onPostDeleted?: () => void;
-  isDetailView?: boolean;
 }
 
 const PostCard: React.FC<PostCardProps> = ({
   post,
-  onPostUpdated: _onPostUpdated,
-  onPostDeleted,
-  isDetailView: _isDetailView = false
+  onPostDeleted
 }) => {
   const [isLiked, setIsLiked] = useState(post.is_liked);
   const [isSaved, setIsSaved] = useState(post.is_saved);
@@ -133,28 +129,32 @@ const PostCard: React.FC<PostCardProps> = ({
       if (onPostDeleted) {
         onPostDeleted();
       }
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('删除贴文失败:', error);
       
       // 显示详细错误信息 - 处理后端自定义异常格式
       let errorMessage = '删除贴文失败，请重试';
       
-      if (error.response?.data) {
-        const responseData = error.response.data;
-        
-        // 处理后端自定义异常处理器的格式
-        if (responseData.success === false && responseData.error) {
-          errorMessage = responseData.error.message || responseData.error.detail || errorMessage;
-        } 
-        // 处理普通的DRF错误格式
-        else if (responseData.detail) {
-          errorMessage = responseData.detail;
-        } else if (responseData.message) {
-          errorMessage = responseData.message;
-        } else if (typeof responseData === 'string') {
-          errorMessage = responseData;
+      if (error && typeof error === 'object' && 'response' in error) {
+        const axiosError = error as { response?: { data?: Record<string, unknown> } };
+        if (axiosError.response?.data) {
+          const responseData = axiosError.response.data;
+          
+          // 处理后端自定义异常处理器的格式
+          if (responseData.success === false && responseData.error) {
+            const errorObj = responseData.error as Record<string, unknown>;
+            errorMessage = (errorObj.message as string) || (errorObj.detail as string) || errorMessage;
+          } 
+          // 处理普通的DRF错误格式
+          else if (responseData.detail) {
+            errorMessage = responseData.detail as string;
+          } else if (responseData.message) {
+            errorMessage = responseData.message as string;
+          } else if (typeof responseData === 'string') {
+            errorMessage = responseData;
+          }
         }
-      } else if (error.message) {
+      } else if (error instanceof Error && error.message) {
         errorMessage = error.message;
       }
       

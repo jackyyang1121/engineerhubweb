@@ -3,88 +3,102 @@
  * 
  * 功能：
  * 1. 顯示用戶收藏的所有貼文
- * 2. 支援篩選和排序
+ * 2. 支援搜尋已保存的貼文
  * 3. 批量管理收藏項目
- * 4. 搜尋已保存的貼文
+ * 4. 無限滾動載入
  */
 
 import React, { useState, useCallback } from 'react';
 import { useInfiniteQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { 
-  BookmarkIcon,
-  MagnifyingGlassIcon,
-  FunnelIcon,
-  TrashIcon,
-  CheckIcon,
-  XMarkIcon,
-  ClockIcon,
-} from '@heroicons/react/24/outline';
-import { BookmarkIcon as BookmarkSolidIcon } from '@heroicons/react/24/solid';
 import { useInView } from 'react-intersection-observer';
 import { toast } from 'react-toastify';
+import {
+  BookmarkIcon,
+  MagnifyingGlassIcon,
+  TrashIcon,
+  CheckIcon,
+  XMarkIcon
+} from '@heroicons/react/24/outline';
+import { BookmarkIcon as BookmarkSolidIcon } from '@heroicons/react/24/solid';
 
 import PostCard from '../../components/posts/PostCard';
 import LoadingSpinner from '../../components/common/LoadingSpinner';
 import EmptyState from '../../components/common/EmptyState';
+import type { Post } from '../../types';
 
-// 模擬API - 實際項目中需要替換為真實API
+// 簡化的 SavedPost 介面 - 使用現有的 Post 類型
 interface SavedPost {
   id: string;
-  post: any; // 貼文對象
+  post: Post;
   saved_at: string;
-  tags: string[];
   notes?: string;
 }
 
+// 簡化的 API - 專注於核心功能
 const savedPostsAPI = {
-  getSavedPosts: async (page: number = 1, _search?: string, _sortBy?: string): Promise<{
+  getSavedPosts: async (page: number = 1, search?: string): Promise<{
     results: SavedPost[];
     has_next: boolean;
     total_count: number;
   }> => {
     // 模擬網路延遲
-    await new Promise(resolve => setTimeout(resolve, 800));
+    await new Promise(resolve => setTimeout(resolve, 500));
     
-    // 模擬資料
-    const mockPosts = Array.from({ length: 5 }, (_, i) => ({
+    // 模擬資料 - 使用符合實際 Post 類型的數據
+    const mockPosts: SavedPost[] = Array.from({ length: 8 }, (_, i) => ({
       id: `saved-${page}-${i}`,
       post: {
         id: `post-${page}-${i}`,
-        content: `這是一個很棒的技術分享貼文 ${page}-${i}。包含了許多實用的程式設計技巧。`,
-        code_snippet: page % 2 === 0 ? 'const hello = () => console.log("Hello World!");' : null,
-        code_language: 'javascript',
+        content: `這是一個很棒的技術分享貼文 ${page}-${i}。${search ? `包含搜尋關鍵字: ${search}` : '包含了許多實用的程式設計技巧。'}`,
+        code_snippet: page % 2 === 0 ? 'const hello = () => console.log("Hello World!");' : undefined,
+        author: `user-${i}`,
         author_details: {
+          id: `user-${i}`,
           username: `engineer${i}`,
           first_name: `Engineer${i}`,
           last_name: 'Dev',
-          avatar: null
+          email: `engineer${i}@example.com`,
+          avatar: undefined,
+          bio: '熱愛程式設計的工程師',
+          is_online: Math.random() > 0.5,
+          followers_count: Math.floor(Math.random() * 1000),
+          following_count: Math.floor(Math.random() * 500),
+          posts_count: Math.floor(Math.random() * 100),
+          likes_received_count: Math.floor(Math.random() * 200)
         },
         media: [],
         likes_count: Math.floor(Math.random() * 100),
         comments_count: Math.floor(Math.random() * 50),
         shares_count: Math.floor(Math.random() * 20),
+        views_count: Math.floor(Math.random() * 200),
         created_at: new Date(Date.now() - Math.random() * 7 * 24 * 60 * 60 * 1000).toISOString(),
+        updated_at: new Date(Date.now() - Math.random() * 7 * 24 * 60 * 60 * 1000).toISOString(),
         is_liked: false,
-        is_saved: true
+        is_saved: true,
+        is_published: true,
+        is_featured: false
       },
       saved_at: new Date(Date.now() - Math.random() * 30 * 24 * 60 * 60 * 1000).toISOString(),
-      tags: ['React', 'JavaScript', 'Web開發'].slice(0, Math.floor(Math.random() * 3) + 1),
       notes: i % 3 === 0 ? '這篇文章的重點很實用' : undefined
     }));
 
+    // 如果有搜尋關鍵字，過濾結果
+    const filteredPosts = search 
+      ? mockPosts.filter(item => 
+          item.post.content.toLowerCase().includes(search.toLowerCase())
+        )
+      : mockPosts;
+
     return {
-      results: mockPosts,
+      results: filteredPosts,
       has_next: page < 3,
-      total_count: 15
+      total_count: search ? filteredPosts.length : 20
     };
   },
 
-  unsavePosts: async (_postIds: string[]): Promise<void> => {
+  unsavePosts: async (postIds: string[]): Promise<void> => {
     await new Promise(resolve => setTimeout(resolve, 500));
-  },
-
-  addNotesToSavedPost: async (_savedPostId: string, _notes: string): Promise<void> => {
-    await new Promise(resolve => setTimeout(resolve, 300));
+    console.log('移除收藏:', postIds);
   }
 };
 
@@ -93,10 +107,8 @@ const SavedPostsPage: React.FC = () => {
   
   // 狀態管理
   const [searchQuery, setSearchQuery] = useState('');
-  const [sortBy, setSortBy] = useState<'saved_at' | 'created_at' | 'likes_count'>('saved_at');
   const [selectedPosts, setSelectedPosts] = useState<string[]>([]);
   const [isSelectionMode, setIsSelectionMode] = useState(false);
-  const [showFilters, setShowFilters] = useState(false);
 
   // 無限滾動檢測
   const { ref: loadMoreRef, inView } = useInView({
@@ -112,9 +124,9 @@ const SavedPostsPage: React.FC = () => {
     isLoading,
     refetch
   } = useInfiniteQuery({
-    queryKey: ['savedPosts', searchQuery, sortBy],
+    queryKey: ['savedPosts', searchQuery],
     queryFn: async ({ pageParam = 1 }) => {
-      return savedPostsAPI.getSavedPosts(pageParam, searchQuery, sortBy);
+      return savedPostsAPI.getSavedPosts(pageParam, searchQuery || undefined);
     },
     getNextPageParam: (lastPage, allPages) => {
       return lastPage.has_next ? allPages.length + 1 : undefined;
@@ -142,11 +154,6 @@ const SavedPostsPage: React.FC = () => {
     e.preventDefault();
     refetch();
   }, [refetch]);
-
-  // 處理排序變更
-  const handleSortChange = (newSortBy: typeof sortBy) => {
-    setSortBy(newSortBy);
-  };
 
   // 處理貼文選擇
   const handlePostSelect = (postId: string) => {
@@ -225,42 +232,31 @@ const SavedPostsPage: React.FC = () => {
             </div>
           </div>
 
-          {/* 操作按鈕 */}
-          <div className="flex items-center space-x-3">
-            <button
-              onClick={() => setShowFilters(!showFilters)}
-              className="flex items-center px-3 py-2 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors"
-            >
-              <FunnelIcon className="h-5 w-5 mr-2" />
-              篩選
-            </button>
-            
-            <button
-              onClick={() => setIsSelectionMode(!isSelectionMode)}
-              className={`flex items-center px-3 py-2 rounded-lg transition-colors ${
-                isSelectionMode
-                  ? 'bg-red-600 text-white hover:bg-red-700'
-                  : 'bg-blue-600 text-white hover:bg-blue-700'
-              }`}
-            >
-              {isSelectionMode ? (
-                <>
-                  <XMarkIcon className="h-5 w-5 mr-2" />
-                  取消選擇
-                </>
-              ) : (
-                <>
-                  <CheckIcon className="h-5 w-5 mr-2" />
-                  管理收藏
-                </>
-              )}
-            </button>
-          </div>
+          {/* 管理按鈕 */}
+          <button
+            onClick={() => setIsSelectionMode(!isSelectionMode)}
+            className={`flex items-center px-4 py-2 rounded-lg transition-colors ${
+              isSelectionMode
+                ? 'bg-red-600 text-white hover:bg-red-700'
+                : 'bg-blue-600 text-white hover:bg-blue-700'
+            }`}
+          >
+            {isSelectionMode ? (
+              <>
+                <XMarkIcon className="h-5 w-5 mr-2" />
+                取消選擇
+              </>
+            ) : (
+              <>
+                <CheckIcon className="h-5 w-5 mr-2" />
+                管理收藏
+              </>
+            )}
+          </button>
         </div>
 
-        {/* 搜尋和篩選 */}
-        <div className="mb-6 space-y-4">
-          {/* 搜尋框 */}
+        {/* 搜尋框 */}
+        <div className="mb-6">
           <form onSubmit={handleSearch} className="relative">
             <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
               <MagnifyingGlassIcon className="h-5 w-5 text-gray-400" />
@@ -273,34 +269,6 @@ const SavedPostsPage: React.FC = () => {
               placeholder="搜尋已保存的貼文..."
             />
           </form>
-
-          {/* 篩選和排序選項 */}
-          {showFilters && (
-            <div className="bg-white rounded-lg border border-gray-200 p-4">
-              <div className="flex items-center space-x-4">
-                <span className="text-sm font-medium text-gray-700">排序方式：</span>
-                <div className="flex space-x-2">
-                  {[
-                    { key: 'saved_at', label: '收藏時間' },
-                    { key: 'created_at', label: '發布時間' },
-                    { key: 'likes_count', label: '點讚數' }
-                  ].map(({ key, label }) => (
-                    <button
-                      key={key}
-                      onClick={() => handleSortChange(key as typeof sortBy)}
-                      className={`px-3 py-1 text-sm rounded-md transition-colors ${
-                        sortBy === key
-                          ? 'bg-blue-100 text-blue-700'
-                          : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-                      }`}
-                    >
-                      {label}
-                    </button>
-                  ))}
-                </div>
-              </div>
-            </div>
-          )}
         </div>
 
         {/* 批量操作欄 */}
@@ -370,22 +338,9 @@ const SavedPostsPage: React.FC = () => {
                       )}
                       
                       <div className="flex items-center text-sm text-blue-700">
-                        <ClockIcon className="h-4 w-4 mr-1" />
+                        <BookmarkSolidIcon className="h-4 w-4 mr-1" />
                         收藏於 {formatSavedTime(savedPost.saved_at)}
                       </div>
-                      
-                      {savedPost.tags.length > 0 && (
-                        <div className="flex items-center space-x-1">
-                          {savedPost.tags.map((tag, index) => (
-                            <span 
-                              key={index}
-                              className="px-2 py-1 bg-blue-100 text-blue-700 text-xs rounded-full"
-                            >
-                              {tag}
-                            </span>
-                          ))}
-                        </div>
-                      )}
                     </div>
 
                     {savedPost.notes && (
@@ -399,7 +354,6 @@ const SavedPostsPage: React.FC = () => {
                   <div className="border-l border-r border-b border-gray-200 rounded-b-lg">
                     <PostCard 
                       post={savedPost.post}
-                      onPostUpdated={refetch}
                       onPostDeleted={refetch}
                     />
                   </div>

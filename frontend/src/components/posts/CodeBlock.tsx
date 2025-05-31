@@ -48,7 +48,7 @@ const CodeBlock: React.FC<CodeBlockProps> = ({
       setTimeout(() => {
         setIsCopied(false);
       }, 3000);
-    } catch (error) {
+    } catch {
       toast.error('複製失敗，請手動選擇複製');
     }
   };

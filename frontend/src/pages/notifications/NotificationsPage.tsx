@@ -29,13 +29,22 @@ import LoadingSpinner from '../../components/common/LoadingSpinner';
 import EmptyState from '../../components/common/EmptyState';
 import api from '../../api/axiosConfig';
 
-// 通知介面類型
+// 通知數據類型
+interface NotificationData {
+  post_id?: string;
+  comment_id?: string;
+  user_id?: string;
+  message?: string;
+  url?: string;
+  [key: string]: unknown;
+}
+
 interface Notification {
   id: string;
   type: 'follow' | 'like' | 'comment' | 'reply' | 'mention' | 'message' | 'share' | 'system';
   title: string;
   message: string;
-  data?: Record<string, any>;
+  data?: NotificationData;
   is_read: boolean;
   created_at: string;
   actor?: {
@@ -314,7 +323,7 @@ const NotificationsPage: React.FC = () => {
             ].map((filter) => (
               <button
                 key={filter.key}
-                onClick={() => setSelectedFilter(filter.key as any)}
+                onClick={() => setSelectedFilter(filter.key as 'all' | 'unread' | 'read')}
                 className={`px-4 py-2 rounded-md text-sm font-medium transition-colors ${
                   selectedFilter === filter.key
                     ? 'bg-blue-600 text-white'

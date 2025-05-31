@@ -20,7 +20,7 @@ export enum WebSocketState {
 // WebSocket 訊息類型
 export interface WebSocketMessage {
   type: string;
-  data: any;
+  data: unknown;
   timestamp?: string;
 }
 
@@ -52,7 +52,7 @@ interface UseWebSocketReturn {
   
   // 方法
   sendMessage: (message: WebSocketMessage) => boolean;
-  sendJsonMessage: (data: any, type?: string) => boolean;
+  sendJsonMessage: (data: unknown, type?: string) => boolean;
   disconnect: () => void;
   reconnect: () => void;
   
@@ -132,27 +132,102 @@ export const useWebSocket = (options: UseWebSocketOptions): UseWebSocketReturn =
     }
   }, []);
 
-  // 重連邏輯
-  const attemptReconnect = useCallback(() => {
-    if (
-      !reconnect ||
-      isManualDisconnectRef.current ||
-      reconnectAttemptsCountRef.current >= reconnectAttempts
-    ) {
-      setReadyState(WebSocketState.DISCONNECTED);
-      return;
+  // 創建 WebSocket 連接的通用邏輯
+  const createWebSocketConnection = useCallback(() => {
+    if (webSocketRef.current) {
+      webSocketRef.current.close();
     }
 
-    setReadyState(WebSocketState.RECONNECTING);
-    reconnectAttemptsCountRef.current += 1;
-    setReconnectCount(reconnectAttemptsCountRef.current);
+    try {
+      setReadyState(WebSocketState.CONNECTING);
+      const wsUrl = getWebSocketURL(url);
+      const ws = new WebSocket(wsUrl, protocols);
+      webSocketRef.current = ws;
+      const connId = generateConnectionId();
+      setConnectionId(connId);
 
-    onReconnect?.(reconnectAttemptsCountRef.current);
+      const handleReconnect = () => {
+        if (!isManualDisconnectRef.current) {
+          // 延遲調用 attemptReconnect 以避免循環依賴
+          setTimeout(() => {
+            if (
+              reconnect &&
+              !isManualDisconnectRef.current &&
+              reconnectAttemptsCountRef.current < reconnectAttempts
+            ) {
+              setReadyState(WebSocketState.RECONNECTING);
+              reconnectAttemptsCountRef.current += 1;
+              setReconnectCount(reconnectAttemptsCountRef.current);
+              onReconnect?.(reconnectAttemptsCountRef.current);
+              
+              setTimeout(() => {
+                createWebSocketConnection();
+              }, reconnectInterval);
+            } else {
+              setReadyState(WebSocketState.DISCONNECTED);
+            }
+          }, 0);
+        }
+      };
 
-    reconnectTimeoutRef.current = setTimeout(() => {
-      connect();
-    }, reconnectInterval);
-  }, [reconnect, reconnectAttempts, reconnectInterval, onReconnect]);
+      ws.onopen = (event) => {
+        console.log('WebSocket 連接已建立');
+        setReadyState(WebSocketState.CONNECTED);
+        reconnectAttemptsCountRef.current = 0;
+        setReconnectCount(0);
+        isManualDisconnectRef.current = false;
+        startHeartbeat();
+        onOpen?.(event);
+      };
+
+      ws.onmessage = (event) => {
+        try {
+          const message: WebSocketMessage = JSON.parse(event.data);
+          setLastMessage(message);
+          setMessageCount(prev => prev + 1);
+          
+          if (message.type === 'pong') {
+            console.log('收到心跳回應');
+            return;
+          }
+          
+          onMessage?.(message);
+        } catch (error) {
+          console.error('解析 WebSocket 訊息失敗:', error);
+          const textMessage: WebSocketMessage = {
+            type: 'text',
+            data: event.data,
+            timestamp: new Date().toISOString()
+          };
+          setLastMessage(textMessage);
+          onMessage?.(textMessage);
+        }
+      };
+
+      ws.onerror = (error) => {
+        console.error('WebSocket 錯誤:', error);
+        setReadyState(WebSocketState.ERROR);
+        stopHeartbeat();
+        onError?.(error);
+      };
+
+      ws.onclose = (event) => {
+        console.log('WebSocket 連接已關閉:', event.code, event.reason);
+        setReadyState(WebSocketState.DISCONNECTED);
+        stopHeartbeat();
+        clearTimers();
+        onClose?.(event);
+        
+        if (event.code !== 1000) {
+          handleReconnect();
+        }
+      };
+
+    } catch (error) {
+      console.error('創建 WebSocket 連接失敗:', error);
+      setReadyState(WebSocketState.ERROR);
+    }
+  }, [url, protocols, onOpen, onMessage, onError, onClose, startHeartbeat, stopHeartbeat, clearTimers, reconnect, reconnectAttempts, reconnectInterval, onReconnect]);
 
   // 發送訊息
   const sendMessage = useCallback((message: WebSocketMessage): boolean => {
@@ -176,97 +251,14 @@ export const useWebSocket = (options: UseWebSocketOptions): UseWebSocketReturn =
   }, []);
 
   // 發送 JSON 訊息（便利方法）
-  const sendJsonMessage = useCallback((data: any, type: string = 'message'): boolean => {
+  const sendJsonMessage = useCallback((data: unknown, type: string = 'message'): boolean => {
     return sendMessage({ type, data });
   }, [sendMessage]);
 
   // 連接 WebSocket
   const connect = useCallback(() => {
-    // 如果已經有連接，先關閉
-    if (webSocketRef.current) {
-      webSocketRef.current.close();
-    }
-
-    try {
-      setReadyState(WebSocketState.CONNECTING);
-      
-      // 生成 WebSocket URL
-      const wsUrl = getWebSocketURL(url);
-      
-      // 創建新的 WebSocket 連接
-      const ws = new WebSocket(wsUrl, protocols);
-      webSocketRef.current = ws;
-
-      // 設置連接ID
-      const connId = generateConnectionId();
-      setConnectionId(connId);
-
-      // 事件處理
-      ws.onopen = (event) => {
-        console.log('WebSocket 連接已建立');
-        setReadyState(WebSocketState.CONNECTED);
-        reconnectAttemptsCountRef.current = 0;
-        setReconnectCount(0);
-        isManualDisconnectRef.current = false;
-        
-        // 啟動心跳
-        startHeartbeat();
-        
-        onOpen?.(event);
-      };
-
-      ws.onmessage = (event) => {
-        try {
-          const message: WebSocketMessage = JSON.parse(event.data);
-          setLastMessage(message);
-          setMessageCount(prev => prev + 1);
-          
-          // 處理心跳回應
-          if (message.type === 'pong') {
-            console.log('收到心跳回應');
-            return;
-          }
-          
-          onMessage?.(message);
-        } catch (error) {
-          console.error('解析 WebSocket 訊息失敗:', error);
-          // 如果不是 JSON 格式，當作純文本處理
-          const textMessage: WebSocketMessage = {
-            type: 'text',
-            data: event.data,
-            timestamp: new Date().toISOString()
-          };
-          setLastMessage(textMessage);
-          onMessage?.(textMessage);
-        }
-      };
-
-      ws.onerror = (error) => {
-        console.error('WebSocket 錯誤:', error);
-        setReadyState(WebSocketState.ERROR);
-        stopHeartbeat();
-        onError?.(error);
-      };
-
-      ws.onclose = (event) => {
-        console.log('WebSocket 連接已關閉:', event.code, event.reason);
-        setReadyState(WebSocketState.DISCONNECTED);
-        stopHeartbeat();
-        clearTimers();
-        
-        onClose?.(event);
-        
-        // 如果不是手動斷開，嘗試重連
-        if (!isManualDisconnectRef.current && event.code !== 1000) {
-          attemptReconnect();
-        }
-      };
-
-    } catch (error) {
-      console.error('創建 WebSocket 連接失敗:', error);
-      setReadyState(WebSocketState.ERROR);
-    }
-  }, [url, protocols, onOpen, onMessage, onError, onClose, startHeartbeat, stopHeartbeat, clearTimers, attemptReconnect]);
+    createWebSocketConnection();
+  }, [createWebSocketConnection]);
 
   // 手動斷開連接
   const disconnect = useCallback(() => {
@@ -292,7 +284,7 @@ export const useWebSocket = (options: UseWebSocketOptions): UseWebSocketReturn =
 
   // 初始化連接
   useEffect(() => {
-    connect();
+    createWebSocketConnection();
     
     // 清理函數
     return () => {
@@ -303,17 +295,18 @@ export const useWebSocket = (options: UseWebSocketOptions): UseWebSocketReturn =
         webSocketRef.current.close();
       }
     };
-  }, []); // 空依賴數組，僅在組件掛載時執行
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []); // 只在組件掛載時執行
 
   // 當 URL 變化時重新連接
   useEffect(() => {
-    if (webSocketRef.current) {
+    if (webSocketRef.current && webSocketRef.current.readyState === WebSocket.OPEN) {
       disconnect();
       setTimeout(() => {
-        connect();
+        createWebSocketConnection();
       }, 100);
     }
-  }, [url]);
+  }, [url, disconnect, createWebSocketConnection]);
 
   return {
     readyState,
@@ -348,7 +341,7 @@ export const useChatWebSocket = (conversationId?: string) => {
     onError: (error) => {
       console.error('聊天 WebSocket 錯誤:', error);
     },
-    onClose: (_event) => {
+    onClose: () => {
       console.log('聊天 WebSocket 連接已關閉');
     }
   });

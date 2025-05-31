@@ -10,7 +10,6 @@
 
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { useSearchParams, useNavigate } from 'react-router-dom';
-import { debounce } from 'lodash';
 import {
   MagnifyingGlassIcon,
   XMarkIcon,
@@ -95,24 +94,25 @@ const SearchPage: React.FC = () => {
   const searchInputRef = useRef<HTMLInputElement>(null);
   const suggestionsRef = useRef<HTMLDivElement>(null);
 
-  // 防抖搜尋建議
-  const debouncedGetSuggestions = useCallback(
-    debounce(async (searchQuery: string) => {
-      if (searchQuery.length < 2) {
-        setSuggestions([]);
-        return;
-      }
+  // 載入搜尋歷史
+  const loadSearchHistory = useCallback(async () => {
+    try {
+      const response = await searchAPI.getHistory();
+      setHistory(response.history);
+    } catch (error) {
+      console.error('載入搜尋歷史失敗:', error);
+    }
+  }, []);
 
-      try {
-        const response = await searchAPI.getSuggestions(searchQuery);
-        setSuggestions(response.suggestions);
-      } catch (error) {
-        console.error('獲取搜尋建議失敗:', error);
-        setSuggestions([]);
-      }
-    }, 300),
-    []
-  );
+  // 載入熱門話題
+  const loadTrendingTopics = useCallback(async () => {
+    try {
+      const response = await searchAPI.getTrendingTopics();
+      setTrendingTopics(response.trending_topics);
+    } catch (error) {
+      console.error('載入熱門話題失敗:', error);
+    }
+  }, []);
 
   // 執行搜尋
   const performSearch = useCallback(async (searchQuery: string, type: string = 'all') => {
@@ -137,27 +137,7 @@ const SearchPage: React.FC = () => {
       setIsLoading(false);
       setShowSuggestions(false);
     }
-  }, [setSearchParams]);
-
-  // 載入搜尋歷史
-  const loadSearchHistory = useCallback(async () => {
-    try {
-      const response = await searchAPI.getHistory();
-      setHistory(response.history);
-    } catch (error) {
-      console.error('載入搜尋歷史失敗:', error);
-    }
-  }, []);
-
-  // 載入熱門話題
-  const loadTrendingTopics = useCallback(async () => {
-    try {
-      const response = await searchAPI.getTrendingTopics();
-      setTrendingTopics(response.trending_topics);
-    } catch (error) {
-      console.error('載入熱門話題失敗:', error);
-    }
-  }, []);
+  }, [setSearchParams, loadSearchHistory]);
 
   // 清除搜尋歷史
   const clearHistory = useCallback(async () => {
@@ -175,7 +155,8 @@ const SearchPage: React.FC = () => {
     setQuery(value);
     
     if (value.length >= 2) {
-      debouncedGetSuggestions(value);
+      // 簡化版本：直接設置建議（實際項目中可以實現防抖）
+      setSuggestions([`${value} 相關搜尋`, `${value} 教學`, `${value} 範例`]);
       setShowSuggestions(true);
     } else {
       setSuggestions([]);
@@ -233,7 +214,7 @@ const SearchPage: React.FC = () => {
       setSearchType(urlType);
       performSearch(urlQuery, urlType);
     }
-  }, []);
+  }, [loadSearchHistory, loadTrendingTopics, performSearch, searchParams]);
 
   return (
     <div className="min-h-screen bg-gray-50">

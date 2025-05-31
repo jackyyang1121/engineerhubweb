@@ -20,6 +20,36 @@ export type {
   PaginatedResponse
 } from '../types';
 
+// 錯誤響應類型定義
+interface PostAPIError {
+  response?: {
+    status?: number;
+    data?: {
+      message?: string;
+      errors?: Record<string, string[]>;
+      [key: string]: unknown;
+    };
+    headers?: Record<string, string>;
+  };
+  request?: XMLHttpRequest;
+  message?: string;
+}
+
+// 推薦用戶響應類型
+interface RecommendedUsersResponse {
+  users: Array<{
+    id: number;
+    username: string;
+    first_name: string;
+    last_name: string;
+    avatar: string | null;
+    bio: string;
+    followers_count: number;
+    is_following: boolean;
+  }>;
+  total_count: number;
+}
+
 // 獲取貼文列表
 export const getPosts = async (page = 1, pageSize = 10): Promise<PaginatedResponse<Post>> => {
   try {
@@ -112,29 +142,24 @@ export const createPost = async (postData: CreatePostData): Promise<Post> => {
       console.log('🚀 沒有媒體文件');
     }
     
-    // 調試：打印 FormData 內容
-    console.log('🚀 FormData 內容:');
-    for (let [key, value] of formData.entries()) {
-      console.log(`  ${key}:`, value instanceof File ? `File(${value.name})` : value);
-    }
-    
     const response = await api.post('/posts/', formData, {
       headers: {
         'Content-Type': 'multipart/form-data'
       }
     });
     return response.data;
-  } catch (error: any) {
-    console.error('創建貼文錯誤:', error);
+  } catch (error: unknown) {
+    const apiError = error as PostAPIError;
+    console.error('創建貼文錯誤:', apiError);
     
     // 顯示詳細的錯誤信息
-    if (error.response) {
-      console.error('🚫 後端錯誤響應:', error.response.status, error.response.data);
-      console.error('🚫 錯誤詳情:', JSON.stringify(error.response.data, null, 2));
-    } else if (error.request) {
-      console.error('🚫 請求沒有響應:', error.request);
+    if (apiError.response) {
+      console.error('🚫 後端錯誤響應:', apiError.response.status, apiError.response.data);
+      console.error('🚫 錯誤詳情:', JSON.stringify(apiError.response.data, null, 2));
+    } else if (apiError.request) {
+      console.error('🚫 請求沒有響應:', apiError.request);
     } else {
-      console.error('🚫 請求設置錯誤:', error.message);
+      console.error('🚫 請求設置錯誤:', apiError.message);
     }
     
     throw error;
@@ -180,15 +205,16 @@ export const deletePost = async (postId: string): Promise<void> => {
     console.log('🗑️ 开始删除贴文:', postId);
     const response = await api.delete(`/posts/${postId}/`);
     console.log('✅ 删除贴文成功:', response);
-  } catch (error: any) {
+  } catch (error: unknown) {
+    const apiError = error as PostAPIError;
     console.error('❌ 删除贴文错误详情:', {
-      message: error.message,
-      response: error.response,
-      status: error.response?.status,
-      data: error.response?.data,
-      headers: error.response?.headers
+      message: apiError.message,
+      response: apiError.response,
+      status: apiError.response?.status,
+      data: apiError.response?.data,
+      headers: apiError.response?.headers
     });
-    console.error('刪除貼文錯誤:', error);
+    console.error('刪除貼文錯誤:', apiError);
     throw error;
   }
 };
@@ -341,15 +367,15 @@ export const unsharePost = async (postId: string): Promise<{ detail: string }> =
   }
 };
 
-// 獲取用戶轉發的貼文
-export const getSharedPosts = async (page = 1, pageSize = 10): Promise<PaginatedResponse<any>> => {
+// 獲取分享的貼文
+export const getSharedPosts = async (page = 1, pageSize = 10): Promise<PaginatedResponse<Post>> => {
   try {
-    const response = await api.get('/posts/shared_posts/', {
+    const response = await api.get('/posts/shared/', {
       params: { page, page_size: pageSize }
     });
     return response.data;
   } catch (error) {
-    console.error('獲取轉發貼文錯誤:', error);
+    console.error('獲取分享貼文錯誤:', error);
     throw error;
   }
 };
@@ -368,10 +394,10 @@ export const getFeed = async (page = 1, pageSize = 10): Promise<PaginatedRespons
 };
 
 // 獲取推薦用戶
-export const getRecommendedUsers = async (): Promise<any> => {
+export const getRecommendedUsers = async (): Promise<RecommendedUsersResponse> => {
   try {
-    // 這裡暫時返回空陣列，需要實際的後端 API
-    return { users: [] };
+    const response = await api.get('/users/recommended/');
+    return response.data;
   } catch (error) {
     console.error('獲取推薦用戶錯誤:', error);
     throw error;

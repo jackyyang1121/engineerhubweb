@@ -50,6 +50,19 @@ interface RepliesResult {
   previous: string | null;
 }
 
+// 分頁評論數據類型
+interface CommentPageData {
+  results: Comment[];
+  count: number;
+  next: string | null;
+  previous: string | null;
+}
+
+interface InfiniteCommentData {
+  pages: CommentPageData[];
+  pageParams: unknown[];
+}
+
 const CommentItem: React.FC<CommentItemProps> = ({ 
   comment, 
   postId, 
@@ -143,10 +156,10 @@ const CommentItem: React.FC<CommentItemProps> = ({
     mutationFn: () => commentApi.getCommentReplies(comment.id),
     onSuccess: (data: RepliesResult) => {
       // 將回覆數據添加到評論中
-      queryClient.setQueryData(['comments', postId], (oldData: any) => {
+      queryClient.setQueryData(['comments', postId], (oldData: InfiniteCommentData | undefined) => {
         if (!oldData?.pages) return oldData;
         
-        const updatedPages = oldData.pages.map((page: any) => {
+        const updatedPages = oldData.pages.map((page: CommentPageData) => {
           if (!page?.results) return page;
           
           const updatedResults = page.results.map((c: Comment) => {

@@ -8,6 +8,17 @@ import { useAuthStore } from '../../store/authStore';
 import type { UserData } from '../../types';
 import * as userApi from '../../api/userApi';
 
+// API 錯誤響應類型
+interface APIErrorResponse {
+  response?: {
+    data?: {
+      message?: string;
+      errors?: Record<string, string[]>;
+    };
+  };
+  message?: string;
+}
+
 const ProfileSettingsForm = () => {
   const queryClient = useQueryClient();
   const { user, updateUser } = useAuthStore();
@@ -40,7 +51,7 @@ const ProfileSettingsForm = () => {
       // 清除頭像臨時數據
       setAvatar(null);
     },
-    onError: (error: any) => {
+    onError: (error: APIErrorResponse) => {
       toast.error('更新個人資料失敗，請重試');
       console.error('更新個人資料錯誤:', error);
     }

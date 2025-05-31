@@ -20,6 +20,12 @@ interface VisibilitySetting {
   value: Visibility;
 }
 
+// 隱私設置數據類型
+interface PrivacySettingsData {
+  privacy: Record<string, boolean>;
+  visibility: Record<string, Visibility>;
+}
+
 const PrivacySettingsForm = () => {
   // 隱私設置狀態
   const [privacySettings, setPrivacySettings] = useState<PrivacySetting[]>([
@@ -79,7 +85,7 @@ const PrivacySettingsForm = () => {
   
   // 模擬更新隱私設置
   const updatePrivacyMutation = useMutation({
-    mutationFn: async (settings: any) => {
+    mutationFn: async (settings: PrivacySettingsData) => {
       // 這裡應該調用實際的API
       console.log('保存的隱私設置:', settings);
       return Promise.resolve();

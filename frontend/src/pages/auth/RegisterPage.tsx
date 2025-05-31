@@ -7,6 +7,21 @@ import { useAuthStore } from '../../store/authStore';
 
 interface RegisterFormInputs {  username: string;  email: string;  password1: string;  password2: string;  first_name: string;  last_name: string;  terms: boolean;}
 
+// API 錯誤響應類型
+interface RegisterErrorResponse {
+  response?: {
+    data?: {
+      username?: string | string[];
+      email?: string | string[];
+      password1?: string | string[];
+      non_field_errors?: string | string[];
+      detail?: string;
+      [key: string]: unknown;
+    };
+  };
+  message?: string;
+}
+
 const RegisterPage = () => {
   const navigate = useNavigate();
   const [isLoading, setIsLoading] = useState(false);
@@ -40,11 +55,16 @@ const RegisterPage = () => {
       });
       toast.success('註冊成功！請查看郵箱確認帳號');
       navigate('/login');
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('註冊錯誤:', error);
       
+      // 類型保護函數
+      const isRegisterError = (err: unknown): err is RegisterErrorResponse => {
+        return typeof err === 'object' && err !== null && 'response' in err;
+      };
+      
       // 處理後端返回的詳細錯誤信息
-      if (error.response?.data) {
+      if (isRegisterError(error) && error.response?.data) {
         const errorData = error.response.data;
         
         // 如果有字段特定的錯誤

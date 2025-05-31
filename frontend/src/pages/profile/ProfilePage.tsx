@@ -51,11 +51,11 @@ const fetchUserProfile = async (username: string): Promise<{
 };
 
 // 模擬獲取用戶項目
-const fetchUserProjects = async (_username: string): Promise<Project[]> => {
+const fetchUserProjects = async (): Promise<Project[]> => {
   // 模擬網絡延遲
   await new Promise(resolve => setTimeout(resolve, 700));
   
-  // 返回模擬數據
+  // 返回模擬數據 - 將來會使用 username 參數從API獲取實際數據
   return [
     {
       id: '1',
@@ -87,17 +87,17 @@ const fetchUserProjects = async (_username: string): Promise<Project[]> => {
 };
 
 // 模擬關注用戶API
-const followUser = async (_userId: string): Promise<void> => {
+const followUser = async (): Promise<void> => {
   // 模擬網絡延遲
   await new Promise(resolve => setTimeout(resolve, 300));
-  // 實際項目中應調用實際API
+  // 將來會使用 userId 參數調用實際API
 };
 
 // 模擬取消關注用戶API
-const unfollowUser = async (_userId: string): Promise<void> => {
+const unfollowUser = async (): Promise<void> => {
   // 模擬網絡延遲
   await new Promise(resolve => setTimeout(resolve, 300));
-  // 實際項目中應調用實際API
+  // 將來會使用 userId 參數調用實際API
 };
 
 const ProfilePage = () => {
@@ -132,7 +132,7 @@ const ProfilePage = () => {
     isError: isProjectsError 
   } = useQuery({
     queryKey: ['userProjects', username],
-    queryFn: () => fetchUserProjects(username || ''),
+    queryFn: () => fetchUserProjects(),
     enabled: !!username && activeTab === 'projects',
   });
   
@@ -162,7 +162,7 @@ const ProfilePage = () => {
     if (!profileData) return;
     
     try {
-      await followUser(profileData.user.id);
+      await followUser();
     } catch (error) {
       toast.error('關注用戶失敗，請重試');
       console.error('關注用戶錯誤:', error);
@@ -174,7 +174,7 @@ const ProfilePage = () => {
     if (!profileData) return;
     
     try {
-      await unfollowUser(profileData.user.id);
+      await unfollowUser();
     } catch (error) {
       toast.error('取消關注用戶失敗，請重試');
       console.error('取消關注用戶錯誤:', error);
@@ -284,7 +284,6 @@ const ProfilePage = () => {
             <PostCard 
               key={post.id} 
               post={post} 
-              onPostUpdated={handleRefreshPosts}
               onPostDeleted={handlePostDeleted}
             />
           ))}

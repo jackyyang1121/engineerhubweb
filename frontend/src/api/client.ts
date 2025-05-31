@@ -35,22 +35,39 @@ apiClient.interceptors.request.use(
     
     return config;
   },
-  (error: any) => {
+  (error: Error) => {
     console.error('請求配置錯誤:', error);
     return Promise.reject(error);
   }
 );
+
+// 錯誤響應類型定義
+interface APIErrorResponse {
+  response?: {
+    status?: number;
+    data?: {
+      message?: string;
+      errors?: Record<string, string[]>;
+    };
+  };
+  config?: {
+    _retry?: boolean;
+    headers?: Record<string, string>;
+  };
+  code?: string;
+  message?: string;
+}
 
 // 響應攔截器
 apiClient.interceptors.response.use(
   (response: AxiosResponse) => {
     return response;
   },
-  async (error: any) => {
+  async (error: APIErrorResponse) => {
     const originalRequest = error.config;
     
     // 處理 401 未授權錯誤
-    if (error.response?.status === 401 && !originalRequest._retry) {
+    if (error.response?.status === 401 && originalRequest && !originalRequest._retry) {
       originalRequest._retry = true;
       
       try {
@@ -65,7 +82,9 @@ apiClient.interceptors.response.use(
           localStorage.setItem('access_token', access);
           
           // 重新發送原始請求
-          originalRequest.headers['Authorization'] = `Bearer ${access}`;
+          if (originalRequest.headers) {
+            originalRequest.headers['Authorization'] = `Bearer ${access}`;
+          }
           return apiClient(originalRequest);
         }
       } catch (refreshError) {
@@ -104,7 +123,7 @@ export const getWebSocketURL = (path: string): string => {
 };
 
 // API 響應類型
-export interface APIResponse<T = any> {
+export interface APIResponse<T = unknown> {
   success: boolean;
   data: T;
   message?: string;
@@ -120,7 +139,7 @@ export interface PaginatedResponse<T> {
 }
 
 // 錯誤處理工具
-export const handleAPIError = (error: any): string => {
+export const handleAPIError = (error: APIErrorResponse): string => {
   if (error.response?.data?.message) {
     return error.response.data.message;
   }

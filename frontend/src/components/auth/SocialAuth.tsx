@@ -12,6 +12,31 @@ import React, { useState } from 'react';
 import { toast } from 'react-toastify';
 import { useAuthStore } from '../../store/authStore';
 
+// Google OAuth 響應類型
+interface GoogleOAuthResponse {
+  access_token?: string;
+  error?: string;
+  error_description?: string;
+}
+
+// Google OAuth 客戶端配置
+interface GoogleOAuthConfig {
+  client_id: string;
+  scope: string;
+  callback: (response: GoogleOAuthResponse) => void;
+}
+
+// Google API 類型定義
+interface GoogleAPI {
+  accounts: {
+    oauth2: {
+      initTokenClient: (config: GoogleOAuthConfig) => {
+        requestAccessToken: () => void;
+      };
+    };
+  };
+}
+
 // Google 登入按鈕組件
 const GoogleLoginButton: React.FC<{ onLoading: (loading: boolean) => void }> = ({ onLoading }) => {
   const loginWithGoogle = useAuthStore(state => state.loginWithGoogle);
@@ -30,7 +55,7 @@ const GoogleLoginButton: React.FC<{ onLoading: (loading: boolean) => void }> = (
       const client = window.google.accounts.oauth2.initTokenClient({
         client_id: import.meta.env.VITE_GOOGLE_CLIENT_ID,
         scope: 'profile email',
-        callback: async (response: any) => {
+        callback: async (response: GoogleOAuthResponse) => {
           if (response.access_token) {
             try {
               await loginWithGoogle(response.access_token);
@@ -40,7 +65,7 @@ const GoogleLoginButton: React.FC<{ onLoading: (loading: boolean) => void }> = (
               toast.error('Google 登入失敗，請稍後再試');
             }
           } else {
-            toast.error('Google 登入被取消');
+            toast.error(response.error_description || 'Google 登入被取消');
           }
           onLoading(false);
         },
@@ -204,6 +229,6 @@ export default SocialAuth;
 // 擴展 Window 介面以支援 Google API
 declare global {
   interface Window {
-    google: any;
+    google?: GoogleAPI;
   }
 } 

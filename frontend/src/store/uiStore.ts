@@ -3,46 +3,28 @@ import { persist, createJSONStorage } from 'zustand/middleware';
 
 // ==================== UI Store Interface ====================
 interface UIState {
-  // 主題設置
+  // 主題相關
   theme: 'light' | 'dark' | 'auto';
   
-  // 側邊欄狀態
-  sidebar: {
-    isOpen: boolean;
-    isPinned: boolean;
-  };
+  // 佈局相關
+  sidebarCollapsed: boolean;
+  isMobile: boolean;
   
-  // 模態框狀態
-  modal: {
-    isOpen: boolean;
-    type?: string;
-    data?: any;
-  };
+  // 通知相關
+  notifications: Array<Toast>;
   
-  // 搜索狀態
-  search: {
-    isOpen: boolean;
-    query: string;
-    recentSearches: string[];
-  };
-  
-  // 通知狀態
-  notifications: {
-    isOpen: boolean;
-    unreadCount: number;
-  };
+  // 彈窗相關
+  modals: Array<Modal>;
   
   // 載入狀態
-  loading: {
-    global: boolean;
-    page: boolean;
-  };
+  isLoading: boolean;
+  loadingMessage?: string;
   
-  // Toast 通知
-  toast: {
+  // 錯誤狀態
+  error?: {
     message: string;
-    type: 'success' | 'error' | 'warning' | 'info';
-    isVisible: boolean;
+    code?: string;
+    timestamp: string;
   } | null;
 }
 
@@ -57,7 +39,7 @@ interface UIActions {
   setSidebarPinned: (isPinned: boolean) => void;
   
   // 模態框操作
-  openModal: (type: string, data?: any) => void;
+  openModal: (type: string, data?: Record<string, unknown>) => void;
   closeModal: () => void;
   
   // 搜索操作
@@ -81,6 +63,24 @@ interface UIActions {
 
 type UIStore = UIState & UIActions;
 
+interface Modal {
+  id: string;
+  component: React.ComponentType<unknown>; // 使用更具體的類型
+  props?: Record<string, unknown>; // 使用更具體的類型
+  onClose?: () => void;
+}
+
+interface Toast {
+  id: string;
+  type: 'success' | 'error' | 'warning' | 'info';
+  message: string;
+  duration?: number;
+  actions?: Array<{
+    label: string;
+    onClick: () => void;
+  }>;
+}
+
 // ==================== Store Implementation ====================
 export const useUIStore = create<UIStore>()(
   persist(
@@ -88,32 +88,17 @@ export const useUIStore = create<UIStore>()(
       // ==================== Initial State ====================
       theme: 'auto',
       
-      sidebar: {
-        isOpen: false,
-        isPinned: false,
-      },
+      sidebarCollapsed: false,
+      isMobile: false,
       
-      modal: {
-        isOpen: false,
-      },
+      notifications: [],
       
-      search: {
-        isOpen: false,
-        query: '',
-        recentSearches: [],
-      },
+      modals: [],
       
-      notifications: {
-        isOpen: false,
-        unreadCount: 0,
-      },
+      isLoading: false,
+      loadingMessage: undefined,
       
-      loading: {
-        global: false,
-        page: false,
-      },
-      
-      toast: null,
+      error: undefined,
       
       // ==================== Actions ====================
       
@@ -147,139 +132,123 @@ export const useUIStore = create<UIStore>()(
       // 側邊欄操作
       toggleSidebar: () => {
         set((state) => ({
-          sidebar: {
-            ...state.sidebar,
-            isOpen: !state.sidebar.isOpen,
-          },
+          sidebarCollapsed: !state.sidebarCollapsed,
         }));
       },
       
       setSidebarOpen: (isOpen) => {
-        set((state) => ({
-          sidebar: {
-            ...state.sidebar,
-            isOpen,
-          },
-        }));
+        set({
+          sidebarCollapsed: isOpen,
+        });
       },
       
       setSidebarPinned: (isPinned) => {
-        set((state) => ({
-          sidebar: {
-            ...state.sidebar,
-            isPinned,
-          },
-        }));
+        set({
+          sidebarCollapsed: isPinned,
+        });
       },
       
       // 模態框操作
       openModal: (type, data) => {
         set({
-          modal: {
-            isOpen: true,
-            type,
-            data,
-          },
+          modals: [
+            ...get().modals,
+            {
+              id: Date.now().toString(),
+              component: type as unknown as React.ComponentType<unknown>,
+              props: data,
+            },
+          ],
         });
       },
       
       closeModal: () => {
-        set({
-          modal: {
-            isOpen: false,
-          },
-        });
+        set((state) => ({
+          modals: state.modals.filter(m => m.id !== get().modals[0].id),
+        }));
       },
       
       // 搜索操作
       toggleSearch: () => {
         set((state) => ({
-          search: {
-            ...state.search,
-            isOpen: !state.search.isOpen,
-          },
+          sidebarCollapsed: !state.sidebarCollapsed,
         }));
       },
       
       setSearchQuery: (query) => {
-        set((state) => ({
-          search: {
-            ...state.search,
-            query,
-          },
-        }));
+        set({
+          loadingMessage: query,
+        });
       },
       
       addRecentSearch: (query) => {
         if (!query.trim()) return;
         
         set((state) => {
-          const recent = state.search.recentSearches.filter(s => s !== query);
+          const recent = state.notifications.filter(n => n.id !== query);
           return {
-            search: {
-              ...state.search,
-              recentSearches: [query, ...recent].slice(0, 10), // 最多保存 10 個
-            },
+            notifications: [
+              ...recent.slice(0, 10),
+              {
+                id: query,
+                type: 'info',
+                message: query,
+              },
+            ],
           };
         });
       },
       
       clearRecentSearches: () => {
-        set((state) => ({
-          search: {
-            ...state.search,
-            recentSearches: [],
-          },
-        }));
+        set({
+          notifications: [],
+        });
       },
       
       // 通知操作
       toggleNotifications: () => {
         set((state) => ({
-          notifications: {
-            ...state.notifications,
-            isOpen: !state.notifications.isOpen,
-          },
+          notifications: state.notifications.map(n => ({
+            ...n,
+            type: n.type === 'info' ? 'success' : 'info',
+          })),
         }));
       },
       
-      setUnreadCount: (count) => {
+      setUnreadCount: () => {
         set((state) => ({
-          notifications: {
-            ...state.notifications,
-            unreadCount: count,
-          },
+          notifications: state.notifications.map(n => ({
+            ...n,
+            type: n.type === 'info' ? 'success' : 'info',
+          })),
         }));
       },
       
       // 載入狀態操作
       setGlobalLoading: (loading) => {
-        set((state) => ({
-          loading: {
-            ...state.loading,
-            global: loading,
-          },
-        }));
+        set({
+          isLoading: loading,
+        });
       },
       
       setPageLoading: (loading) => {
-        set((state) => ({
-          loading: {
-            ...state.loading,
-            page: loading,
-          },
-        }));
+        set({
+          isLoading: loading,
+        });
       },
       
       // Toast 操作
       showToast: (message, type) => {
-        set({
-          toast: {
-            message,
-            type,
-            isVisible: true,
-          },
-        });
+        set((state) => ({
+          notifications: [
+            ...state.notifications,
+            {
+              id: Date.now().toString(),
+              type,
+              message,
+            },
+          ],
+        }));
         
         // 3秒後自動隱藏
         setTimeout(() => {
@@ -288,7 +257,9 @@ export const useUIStore = create<UIStore>()(
       },
       
       hideToast: () => {
-        set({ toast: null });
+        set((state) => ({
+          notifications: state.notifications.filter(n => n.id !== get().notifications[0].id),
+        }));
       },
     }),
     {
@@ -296,12 +267,8 @@ export const useUIStore = create<UIStore>()(
       storage: createJSONStorage(() => localStorage),
       partialize: (state) => ({
         theme: state.theme,
-        sidebar: {
-          isPinned: state.sidebar.isPinned,
-        },
-        search: {
-          recentSearches: state.search.recentSearches,
-        },
+        sidebarCollapsed: state.sidebarCollapsed,
+        notifications: state.notifications.map(n => n.id),
       }),
     }
   )

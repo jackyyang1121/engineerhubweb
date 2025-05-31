@@ -176,7 +176,7 @@ export const chatAPI = {
     messages: Message[]; 
     total: number; 
   }> {
-    const params: any = { q: query };
+    const params: Record<string, string> = { q: query };
     if (conversationId) {
       params.conversation_id = conversationId;
     }

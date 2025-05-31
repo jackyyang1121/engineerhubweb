@@ -34,8 +34,12 @@ interface RecommendedUser {
   is_following: boolean;
 }
 
-
-
+// 熱門話題項目類型
+interface TrendingTopicItem {
+  name: string;
+  count?: number;
+  [key: string]: unknown;
+}
 
 const HomePage: React.FC = () => {
   const { user, isAuthenticated, token } = useAuthStore();
@@ -80,7 +84,9 @@ const HomePage: React.FC = () => {
       const response = await searchAPI.getTrendingTopics();
       // 確保 response.trending_topics 是正確的格式
       if (Array.isArray(response.trending_topics)) {
-        const topics = response.trending_topics.map((topic: any) => typeof topic === 'string' ? topic : topic.name || topic);
+        const topics = response.trending_topics.map((topic: string | TrendingTopicItem) => 
+          typeof topic === 'string' ? topic : (topic.name || String(topic))
+        );
         setTrendingTopics(topics);
       } else {
         setTrendingTopics([]);

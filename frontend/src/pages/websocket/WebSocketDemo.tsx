@@ -57,7 +57,7 @@ const WebSocketDemo: React.FC = () => {
   };
 
   // 發送測試訊息
-  const sendTestMessage = (ws: any, type: string) => {
+  const sendTestMessage = (ws: ReturnType<typeof useWebSocket>, type: string) => {
     const testMessage = {
       type: 'test',
       data: {

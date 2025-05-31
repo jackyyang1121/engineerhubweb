@@ -9,13 +9,27 @@ interface ResetPasswordInputs {
   new_password2: string;
 }
 
+// API 錯誤響應類型
+interface ResetPasswordErrorResponse {
+  response?: {
+    data?: {
+      new_password1?: string | string[];
+      new_password2?: string | string[];
+      non_field_errors?: string | string[];
+      detail?: string;
+      [key: string]: unknown;
+    };
+  };
+  message?: string;
+}
+
 const ResetPasswordPage = () => {
   const [searchParams] = useSearchParams();
   const [isLoading, setIsLoading] = useState(false);
   const [isCompleted, setIsCompleted] = useState(false);
   const [serverErrors, setServerErrors] = useState<Record<string, string[]>>({});
   
-  // 从URL参数获取uid和token
+  // 從URL參數獲取uid和token
   const uid = searchParams.get('uid');
   const token = searchParams.get('token');
   
@@ -31,7 +45,7 @@ const ResetPasswordPage = () => {
   
   const onSubmit = async (data: ResetPasswordInputs) => {
     if (!uid || !token) {
-      toast.error('无效的密码重置链接');
+      toast.error('無效的密碼重設連結');
       return;
     }
     
@@ -44,13 +58,18 @@ const ResetPasswordPage = () => {
         new_password1: data.new_password1,
         new_password2: data.new_password2
       });
-      toast.success('密码重置成功！');
+      toast.success('密碼重設成功！');
       setIsCompleted(true);
-    } catch (error: any) {
-      console.error('密码重置错误:', error);
+    } catch (error: unknown) {
+      console.error('密碼重設錯誤:', error);
+      
+      // 類型保護函數
+      const isResetPasswordError = (err: unknown): err is ResetPasswordErrorResponse => {
+        return typeof err === 'object' && err !== null && 'response' in err;
+      };
       
       // 處理後端返回的詳細錯誤信息
-      if (error.response?.data) {
+      if (isResetPasswordError(error) && error.response?.data) {
         const errorData = error.response.data;
         
         // 如果有字段特定的錯誤
@@ -89,10 +108,10 @@ const ResetPasswordPage = () => {
         } else if (errorData.detail) {
           toast.error(errorData.detail);
         } else {
-          toast.error('密码重置失败，请重试或获取新的重置链接');
+          toast.error('密碼重設失敗，請重試或獲取新的重設連結');
         }
       } else {
-        toast.error('密码重置失败，请重试或获取新的重置链接');
+        toast.error('密碼重設失敗，請重試或獲取新的重設連結');
       }
     } finally {
       setIsLoading(false);

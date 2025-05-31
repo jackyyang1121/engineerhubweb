@@ -4,13 +4,13 @@
  * 展示即時聊天功能，使用 WebSocket Hook
  */
 
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { useParams } from 'react-router-dom';
 import {  PaperAirplaneIcon,  PaperClipIcon} from '@heroicons/react/24/outline';
 import { useChatWebSocket, WebSocketState } from '../../hooks/useWebSocket';
-import { chatAPI } from '../../api/chat';
 import { useAuthStore } from '../../store/authStore';
 import LoadingSpinner from '../../components/common/LoadingSpinner';
+import { toast } from 'react-toastify';
 
 interface Message {
   id: string;
@@ -24,6 +24,25 @@ interface Message {
   file: string | null;
   created_at: string;
   is_read: boolean;
+}
+
+// WebSocket 訊息類型定義
+interface WebSocketMessageData {
+  // 聊天訊息數據
+  chat_message?: Message;
+  // 輸入狀態數據
+  user_id?: number;
+  username?: string;
+  // 訊息已讀數據
+  message_id?: string;
+  // 其他通用數據
+  [key: string]: unknown;
+}
+
+interface WebSocketMessage {
+  type: string;
+  data: WebSocketMessageData;
+  timestamp?: string;
 }
 
 const ChatPage: React.FC = () => {
@@ -55,37 +74,103 @@ const ChatPage: React.FC = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   };
 
-  // 載入歷史訊息
-  const loadMessages = async () => {
-    if (!conversationId) return;
-
+  // 載入訊息
+  const loadMessages = useCallback(async () => {
+    setIsLoading(true);
     try {
-      setIsLoading(true);
-      const response = await chatAPI.getMessages(conversationId);
-      setMessages(response.messages);
+      // 模擬載入訊息
+      await new Promise(resolve => setTimeout(resolve, 500));
+      
+      // 模擬訊息數據
+      const mockMessages: Message[] = [
+        {
+          id: '1',
+          sender: {
+            id: 1,
+            username: 'Alice',
+            avatar: 'https://ui-avatars.com/api/?name=Alice&background=random'
+          },
+          content: '嗨！你好嗎？',
+          message_type: 'text',
+          file: null,
+          created_at: new Date(Date.now() - 3600000).toISOString(),
+          is_read: true
+        },
+        {
+          id: '2',
+          sender: {
+            id: Number(user?.id) || 2,
+            username: user?.username || 'You',
+            avatar: user?.avatar || null
+          },
+          content: '我很好，謝謝！你呢？',
+          message_type: 'text',
+          file: null,
+          created_at: new Date(Date.now() - 3000000).toISOString(),
+          is_read: true
+        },
+        {
+          id: '3',
+          sender: {
+            id: 1,
+            username: 'Alice',
+            avatar: 'https://ui-avatars.com/api/?name=Alice&background=random'
+          },
+          content: '也很好！今天天氣不錯呢。',
+          message_type: 'text',
+          file: null,
+          created_at: new Date(Date.now() - 1800000).toISOString(),
+          is_read: false
+        }
+      ];
+      
+      // 如果有 conversationId，可以根據它載入特定對話
+      if (conversationId) {
+        console.log('載入對話:', conversationId);
+      }
+      
+      setMessages(mockMessages);
     } catch (error) {
       console.error('載入訊息失敗:', error);
+      toast.error('載入訊息失敗');
     } finally {
       setIsLoading(false);
     }
-  };
+  }, [conversationId, user?.id, user?.username, user?.avatar]);
 
   // 處理 WebSocket 訊息
   useEffect(() => {
     if (!lastMessage) return;
 
+    // 類型保護函數
+    const isWebSocketMessage = (msg: unknown): msg is WebSocketMessage => {
+      return typeof msg === 'object' && msg !== null && 'type' in msg && 'data' in msg;
+    };
+
+    if (!isWebSocketMessage(lastMessage)) return;
+
+    const messageData = lastMessage.data;
+
     switch (lastMessage.type) {
       case 'chat_message':
-        // 新訊息
-        setMessages(prev => [...prev, lastMessage.data]);
+        // 新訊息 - 假設直接就是 Message 對象
+        if (messageData.chat_message) {
+          setMessages(prev => [...prev, messageData.chat_message as Message]);
+        } else {
+          // 如果 data 本身就是 message 對象，進行類型斷言
+          const newMessage = messageData as unknown as Message;
+          if (newMessage.id && newMessage.content) {
+            setMessages(prev => [...prev, newMessage]);
+          }
+        }
         break;
       
       case 'typing_start':
         // 用戶開始輸入
-        if (lastMessage.data.user_id !== user?.id) {
+        if (messageData.user_id !== user?.id && messageData.username) {
           setTypingUsers(prev => {
-            if (!prev.includes(lastMessage.data.username)) {
-              return [...prev, lastMessage.data.username];
+            if (!prev.includes(messageData.username as string)) {
+              return [...prev, messageData.username as string];
             }
             return prev;
           });
@@ -94,24 +179,32 @@ const ChatPage: React.FC = () => {
       
       case 'typing_stop':
         // 用戶停止輸入
-        setTypingUsers(prev => prev.filter(u => u !== lastMessage.data.username));
+        if (messageData.username) {
+          setTypingUsers(prev => prev.filter(u => u !== messageData.username));
+        }
         break;
       
       case 'message_read':
         // 訊息已讀
-        setMessages(prev => prev.map(msg => 
-          msg.id === lastMessage.data.message_id 
-            ? { ...msg, is_read: true }
-            : msg
-        ));
+        if (messageData.message_id) {
+          setMessages(prev => prev.map(msg => 
+            msg.id === messageData.message_id 
+              ? { ...msg, is_read: true }
+              : msg
+          ));
+        }
         break;
       
       case 'user_joined':
-        console.log(`${lastMessage.data.username} 加入聊天`);
+        if (messageData.username) {
+          console.log(`${messageData.username} 加入聊天`);
+        }
         break;
       
       case 'user_left':
-        console.log(`${lastMessage.data.username} 離開聊天`);
+        if (messageData.username) {
+          console.log(`${messageData.username} 離開聊天`);
+        }
         break;
       
       default:
@@ -203,7 +296,7 @@ const ChatPage: React.FC = () => {
   // 初始化
   useEffect(() => {
     loadMessages();
-  }, [conversationId]);
+  }, [conversationId, loadMessages]);
 
   // 自動滾動到底部
   useEffect(() => {

@@ -213,16 +213,22 @@ export interface Conversation {
 
 // ==================== 通知相關類型 ====================
 
-// 通知類型
+// 通知相關
+export interface NotificationData {
+  message: string;
+  timestamp: string;
+  metadata?: Record<string, unknown>; // 改為更具體的類型
+}
+
 export interface Notification {
   id: string;
-  type: 'follow' | 'like' | 'comment' | 'mention' | 'message' | 'system';
+  type: 'like' | 'comment' | 'follow' | 'mention' | 'system';
   title: string;
   message: string;
-  data?: Record<string, any>;
-  is_read: boolean;
+  data: NotificationData;
+  read: boolean;
   created_at: string;
-  actor?: UserData;
+  user: string;
 }
 
 // ==================== 作品集相關類型 ====================
