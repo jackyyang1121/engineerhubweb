@@ -628,6 +628,9 @@ EMAIL_HOST_PASSWORD = config('EMAIL_HOST_PASSWORD', default='')
 # DEFAULT_FROM_EMAIL: 預設發件人地址。
 DEFAULT_FROM_EMAIL = config('DEFAULT_FROM_EMAIL', default='noreply@engineerhub.com')
 
+
+#只要有設定好這些，就可以用 Django 寄信，通常跟使用者驗證（像是 dj-rest-auth）或註冊流程綁在一起，寄驗證信、重設密碼信等。
+
 # ==================== 日誌設置 ====================
 # LOGGING: 配置日誌記錄，支援控制台、文件和郵件通知。
 LOGGING = {
