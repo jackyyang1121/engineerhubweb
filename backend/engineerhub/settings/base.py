@@ -177,10 +177,6 @@ DJANGO_APPS = [
 
 
 
-#####################################讀到這邊#####################################################################
-
-
-
 
 # THIRD_PARTY_APPS: 第三方應用程式，擴展 Django 功能，如 REST API、認證、WebSocket 等。
 THIRD_PARTY_APPS = [
@@ -213,7 +209,7 @@ THIRD_PARTY_APPS = [
     # 搜尋服務: 全文搜尋功能（可動態移除）
     'algoliasearch_django',             # Algolia 搜尋整合
     
-    # 開發工具: 提升開發效率
+    # 開發工具: 提升開發效率(可在終端機輸入指令但我目前不太會用)
     'django_extensions',                # 額外管理命令
     'django_filters',                   # 過濾查詢
 ]
@@ -247,6 +243,12 @@ MIDDLEWARE = [
     'django.contrib.messages.middleware.MessageMiddleware', # 消息框架 **Django 自動生成**
     'django.middleware.clickjacking.XFrameOptionsMiddleware', # 防止點擊劫持 **Django 自動生成**
 ]
+
+# 可以想像：
+# INSTALLED_APPS 是「你專案有什麼工具箱」。
+# MIDDLEWARE 是「你用來檢查和處理每次用工具箱取出的東西的檢查點」。
+
+
 
 # ==================== URL 配置 ====================
 # ROOT_URLCONF: 指定 URL 路由配置文件的路徑，指向專案的主 URL 配置文件。
