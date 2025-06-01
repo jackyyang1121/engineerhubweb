@@ -11,7 +11,9 @@
     <!-- 設定網頁的標題，這裡是 Vite + React + TS。 -->
   </head>
   <body>
-    <div id="root"></div>
+    <div id="root"></div>  
+    <!-- React 本身並不會「自動」找到 HTML 中的某個元素來插入它的內容，而是需要「掛載點（mount point）」。<div id="root"></div> 正是這個掛載點。。 -->
+     <!-- 在main.tsx的ReactDOM.createRoot(document.getElementById('root')!)的功能是可以把React App加載到root上(因為document.getElementById('root')!)的功能-->
     <script type="module" src="/src/main.tsx"></script>  
     <!-- 執行 main.tsx -->
   </body>
