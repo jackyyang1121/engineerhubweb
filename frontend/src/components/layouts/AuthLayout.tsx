@@ -17,7 +17,6 @@ const AuthLayout = () => {
         <div className="absolute bottom-0 left-0 w-72 h-72 bg-pink-500/20 rounded-full mix-blend-multiply filter blur-xl animate-float" style={{ animationDelay: '4s' }}></div>
         {/* 在右下角添加一個靛藍色圓形，動畫延遲 6 秒，完成四個角落的裝飾佈局。 */}
         <div className="absolute bottom-0 right-0 w-72 h-72 bg-indigo-500/20 rounded-full mix-blend-multiply filter blur-xl animate-float" style={{ animationDelay: '6s' }}></div>
-      {/* 結束動態背景裝飾區塊，這些圓形共同營造抽象的視覺氛圍。 */}
       </div>
       
       {/* 添加一個網格背景層，覆蓋整個容器，使用白色半透明網格圖案，增加背景的層次感。 */}
@@ -38,13 +37,11 @@ const AuthLayout = () => {
                   {/* 顯示文字 "EH"，設置白色粗體字，字體大小為 2xl，作為品牌縮寫。 */}
                   <span className="text-white font-black text-2xl">EH</span>
                   {/* <span>是行內元素，用來包裹文字，方便套用樣式或操作 */}
-                {/* 結束圖標背景區域，完成品牌圖標的視覺設計。 */}
                 </div>
                 {/* 添加綠色狀態指示器，位於圖標右上角，帶動畫脈動效果，表示活躍狀態。 */}
                 <div className="absolute -top-2 -right-2 w-6 h-6 bg-green-400 rounded-full border-4 border-indigo-900 animate-pulse"></div>
-              {/* 結束圖標容器，圖標和指示器形成一個完整的品牌標識單元。 */}
               </div>
-              {/* 開始品牌名稱和標語區塊，垂直排列標題和副標題。 */}
+              {/* 品牌名稱和標語區塊，垂直排列標題和副標題。 */}
               <div>
                 {/* 顯示品牌名稱 "EngineerHub"，使用漸變色文字效果，字體設為粗體 3xl。 */}
                 <h1 className="text-3xl font-bold bg-gradient-to-r from-blue-400 via-purple-400 to-pink-400 bg-clip-text text-transparent">
@@ -52,7 +49,6 @@ const AuthLayout = () => {
                 </h1>
                 {/* 添加副標題 "工程師專屬社群平台"，文字顏色設為靛藍色，作為品牌描述。 */}
                 <p className="text-indigo-300">工程師專屬社群平台</p>
-              {/* 結束品牌名稱和標語區塊，形成完整的品牌資訊展示。 */}
               </div>
             </div>
             
@@ -76,7 +72,6 @@ const AuthLayout = () => {
               {/* 顯示簡介內容，描述平台功能，鼓勵用戶參與和成長。 */}
               在這裡分享代碼、交流技術、展示項目，
               與世界各地的工程師建立連接，共同成長。
-            {/* 結束簡介文字，提供平台的價值主張。 */}
             </p>
             
             {/* 開始功能列表區塊，使用 space-y-4 設置每個功能項之間的垂直間距。 */}
@@ -87,7 +82,6 @@ const AuthLayout = () => {
                 <div className="w-2 h-2 bg-green-400 rounded-full"></div>
                 {/* 顯示功能描述 "技術討論與分享"，文字顏色設為靛藍色。 */}
                 <span className="text-indigo-200">技術討論與分享</span> 
-              {/* 結束第一個功能項，完成單項功能的展示。 */}
               </div>
               {/* 開始第二個功能項，結構與第一項相同，僅顏色和文字不同。 */}
               <div className="flex items-center space-x-3">
@@ -95,7 +89,6 @@ const AuthLayout = () => {
                 <div className="w-2 h-2 bg-blue-400 rounded-full"></div>
                 {/* 顯示功能描述 "代碼片段展示"，文字顏色保持一致。 */}
                 <span className="text-indigo-200">代碼片段展示</span>
-              {/* 結束第二個功能項。 */}
               </div>
               {/* 開始第三個功能項，繼續使用相同結構。 */}
               <div className="flex items-center space-x-3">
@@ -103,7 +96,6 @@ const AuthLayout = () => {
                 <div className="w-2 h-2 bg-purple-400 rounded-full"></div>
                 {/* 顯示功能描述 "項目合作機會"。 */}
                 <span className="text-indigo-200">項目合作機會</span>
-              {/* 結束第三個功能項。 */}
               </div>
               {/* 開始第四個功能項。 */}
               <div className="flex items-center space-x-3">
@@ -111,13 +103,9 @@ const AuthLayout = () => {
                 <div className="w-2 h-2 bg-pink-400 rounded-full"></div>
                 {/* 顯示功能描述 "職業發展交流"。 */}
                 <span className="text-indigo-200">職業發展交流</span>
-              {/* 結束第四個功能項。 */}
               </div>
-            {/* 結束功能列表區塊，展示平台的四個核心功能。 */}
             </div>
-          {/* 結束品牌區域的內容容器。 */}
           </div>
-        {/* 結束左側品牌區域，僅在較大屏幕顯示。 */}
         </div>
         
         {/* 開始右側表單區域，設置寬度為全屏（lg 屏幕時佔一半），內容置中，內邊距為 8。 */}
@@ -126,14 +114,13 @@ const AuthLayout = () => {
           <div className="w-full max-w-md">
             {/* 使用 Outlet 組件，作為子路由的渲染位置，例如登錄或註冊頁面。 */}
             <Outlet />
-            {/* Outlet 結束，React Router 會根據 URL 將對應的子路由內容插入這裡。 */}
-          {/* 結束表單區域的內容容器。 */}
+            {/* Outlet 是 React Router（從 react-router-dom 匯入）提供的一個組件，用於在 巢狀路由 中，指定子路由要被渲染的位置。 */}
+            {/* 簡單來說： */}
+            {/* 如果父路由（例如 AuthLayout）定義了 <Outlet />，那它的子路由（例如 login、register）的 element 內容，就會被插入在 <Outlet /> 的位置。 */}
+            {/* <Outlet /> 就是一个占位符，React Router 會根據當前 URL 把對應子路由的组件"插"到這個位置 */}
           </div>
-        {/* 結束右側表單區域，完成頁面右半部分的佈局。 */}
         </div>
-      {/* 結束主要內容區塊，左右區域形成完整的頁面結構。 */}
       </div>
-    {/* 結束全屏容器，完成整個頁面的設計。 */}
     </div>
   );
 };
