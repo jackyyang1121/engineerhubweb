@@ -37,6 +37,7 @@ const AuthLayout = () => {
                 <div className="w-16 h-16 bg-gradient-to-r from-blue-500 via-purple-500 to-pink-500 rounded-2xl flex items-center justify-center shadow-2xl">
                   {/* 顯示文字 "EH"，設置白色粗體字，字體大小為 2xl，作為品牌縮寫。 */}
                   <span className="text-white font-black text-2xl">EH</span>
+                  {/* <span>是行內元素，用來包裹文字，方便套用樣式或操作 */}
                 {/* 結束圖標背景區域，完成品牌圖標的視覺設計。 */}
                 </div>
                 {/* 添加綠色狀態指示器，位於圖標右上角，帶動畫脈動效果，表示活躍狀態。 */}
@@ -48,13 +49,11 @@ const AuthLayout = () => {
                 {/* 顯示品牌名稱 "EngineerHub"，使用漸變色文字效果，字體設為粗體 3xl。 */}
                 <h1 className="text-3xl font-bold bg-gradient-to-r from-blue-400 via-purple-400 to-pink-400 bg-clip-text text-transparent">
                   EngineerHub
-                {/* 結束標題，完成品牌名稱的渲染。 */}
                 </h1>
                 {/* 添加副標題 "工程師專屬社群平台"，文字顏色設為靛藍色，作為品牌描述。 */}
                 <p className="text-indigo-300">工程師專屬社群平台</p>
               {/* 結束品牌名稱和標語區塊，形成完整的品牌資訊展示。 */}
               </div>
-            {/* 結束品牌標識區塊，圖標和文字排列整齊，具有視覺吸引力。 */}
             </div>
             
             {/* 顯示主要標語，設置文字大小為 4xl，加粗，行距緊湊，底部間距為 6。 */}
