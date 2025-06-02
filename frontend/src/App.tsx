@@ -181,13 +181,15 @@ function App() {
     {/* 因為我 vite.config.js 裡面用了 @vitejs/plugin-react，所以我在寫 JSX 的時候可以不用再手動 import React from 'react'。 */}
       {/* 使用 Routes 組件定義應用程式的路由結構 */}
       <Routes>
-        {/* 定義身份驗證相關路由，使用 AuthLayout 作為外層布局 */}
+      {/* Routes作為所有路由定義的容器，負責管理應用程式的路由結構。 */}
+        {/* 定義身份驗證相關路由，使用 AuthLayout.tsx 作為外層布局 */}
         <Route path="/" element={<AuthLayout />}>
-          {/* AuthLayout功能是 */}
+        {/* <Route>定義單個路由，path：指定 URL 路徑，element：指定該路徑匹配時要渲染的 JSX 元素 */}
           {/* 定義登錄頁面路由，使用 GuestRoute 確保只有未認證用戶可訪問 */}
           <Route path="login" element={
             <GuestRoute>
               <LoginPage />
+              {/* 導入 LoginPage.tsx 頁面 */}
             </GuestRoute>
           } />
           {/* 定義註冊頁面路由，使用 GuestRoute 確保只有未認證用戶可訪問 */}

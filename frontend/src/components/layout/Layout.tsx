@@ -11,7 +11,7 @@ interface LayoutProps {
 }
 
 const Layout: React.FC<LayoutProps> = ({ children }) => {
-  const { loading } = useUIStore();
+  const { isLoading: globalLoading } = useUIStore();
   const { checkAuth, isLoading } = useAuthStore();
 
   // 初始化應用
@@ -34,7 +34,7 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
   return (
     <div className="min-h-screen bg-gray-50 dark:bg-gray-900 transition-colors duration-200">
       {/* 全局載入遮罩 */}
-      {loading.global && (
+      {globalLoading && (
         <Loading 
           fullScreen={true}
           size="lg"
@@ -52,19 +52,6 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
 
       {/* 全局 Toast 通知 */}
       <GlobalToast />
-
-      {/* 頁面載入遮罩 */}
-      {loading.page && (
-        <div className="fixed inset-0 z-40 bg-white/80 dark:bg-gray-900/80 backdrop-blur-sm">
-          <div className="flex items-center justify-center h-full">
-            <Loading 
-              size="lg"
-              text="載入中..."
-              color="primary"
-            />
-          </div>
-        </div>
-      )}
     </div>
   );
 };

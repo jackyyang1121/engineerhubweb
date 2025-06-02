@@ -72,6 +72,9 @@ const AuthLayout = () => {
         <div className="w-full lg:w-1/2 flex items-center justify-center p-8">
           <div className="w-full max-w-md">
             <Outlet />
+            {/* Outlet 是 React Router（從 react-router-dom 匯入）提供的一個組件，用於在 巢狀路由 中，指定子路由要被渲染的位置。 */}
+            {/* 簡單來說： */}
+            {/* 如果父路由（例如 AuthLayout）定義了 <Outlet />，那它的子路由（例如 login、register）的 element 內容，就會被插入在 <Outlet /> 的位置。 */}
           </div>
         </div>
       </div>
