@@ -10,7 +10,7 @@ import {
   UserIcon,
   Cog6ToothIcon,
   BookmarkIcon,
-  ArrowLeftOnRectangleIcon,
+  ArrowRightStartOnRectangleIcon,
   DocumentPlusIcon,
 } from '@heroicons/react/24/outline';
 import {
@@ -151,7 +151,7 @@ const MainNavbar = () => {
             onClick={() => logout()}
             className="p-3 text-slate-400 hover:text-red-400 bg-white/5 hover:bg-red-500/10 rounded-xl transition-all duration-300 hover:scale-110"
           >
-            <ArrowLeftOnRectangleIcon className="h-5 w-5" />
+            <ArrowRightStartOnRectangleIcon className="h-5 w-5" />
           </button>
         </div>
         

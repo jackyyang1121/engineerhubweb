@@ -4,7 +4,7 @@ import {
   LockClosedIcon,
   BellIcon,
   ShieldCheckIcon,
-  ArrowLeftOnRectangleIcon,
+  ArrowRightStartOnRectangleIcon,
 } from '@heroicons/react/24/outline';
 
 import ProfileSettingsForm from '../../components/settings/ProfileSettingsForm';
@@ -47,7 +47,7 @@ const SettingsPage = () => {
     { id: 'account', name: '帳號設置', icon: LockClosedIcon },
     { id: 'notifications', name: '通知設置', icon: BellIcon },
     { id: 'privacy', name: '隱私設置', icon: ShieldCheckIcon },
-    { id: 'delete_account', name: '刪除帳號', icon: ArrowLeftOnRectangleIcon, danger: true },
+    { id: 'delete_account', name: '刪除帳號', icon: ArrowRightStartOnRectangleIcon, danger: true },
   ];
 
   return (
@@ -81,7 +81,7 @@ const SettingsPage = () => {
                 onClick={handleLogout}
                 className="flex items-center px-4 py-3 text-left text-gray-700 hover:bg-gray-50 mt-4 border-t border-gray-200"
               >
-                <ArrowLeftOnRectangleIcon className="h-5 w-5 mr-3" />
+                <ArrowRightStartOnRectangleIcon className="h-5 w-5 mr-3" />
                 <span>登出</span>
               </button>
             </nav>
