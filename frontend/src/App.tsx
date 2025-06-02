@@ -188,6 +188,8 @@ function App() {
           {/* 定義登錄頁面路由，使用 GuestRoute 確保只有未認證用戶可訪問 */}
           <Route path="login" element={
             <GuestRoute>
+            {/* <GuestRoute> ... </GuestRoute> 是自定義組件，用於包裹頁面元件。 */}
+            {/* GuestRoute：限制只有未認證的用戶可以訪問 */}
               <LoginPage />
               {/* 導入 LoginPage.tsx 頁面 */}
             </GuestRoute>
@@ -217,6 +219,8 @@ function App() {
           {/* 定義首頁路由（根路徑），使用 ProtectedRoute 確保只有已認證用戶可訪問 */}
           <Route index element={
             <ProtectedRoute>
+            {/* <ProtectedRoute> ... </ProtectedRoute> 是自定義組件，用於包裹頁面元件。 */}
+            {/* ProtectedRoute：限制只有已認證的用戶可以訪問 */}
               <HomePage />
             </ProtectedRoute>
           } />
