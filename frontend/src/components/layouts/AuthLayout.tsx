@@ -6,8 +6,11 @@ import { Outlet } from 'react-router-dom';
 
 const AuthLayout = () => {
   return (
+  // 創建一個全屏容器，設置背景漸層並隱藏溢出內容。 
     <div className="min-h-screen bg-gradient-to-br from-indigo-900 via-purple-900 to-pink-900 relative overflow-hidden">
       {/* 創建一個全屏容器，設置最小高度為螢幕高度，使用漸變背景從深藍到紫色再到粉紅色，並隱藏溢出內容。 */}
+      
+      {/* 添加動態背景裝飾，包含多個模糊彩色圓形，增強視覺效果。 */}
       <div className="absolute inset-0">
         {/* 在左上角添加一個藍色圓形，設置寬高為 72 單位，半透明並帶模糊效果，應用漂浮動畫。 */}
         <div className="absolute top-0 left-0 w-72 h-72 bg-blue-500/20 rounded-full mix-blend-multiply filter blur-xl animate-float"></div>
@@ -19,14 +22,14 @@ const AuthLayout = () => {
         <div className="absolute bottom-0 right-0 w-72 h-72 bg-indigo-500/20 rounded-full mix-blend-multiply filter blur-xl animate-float" style={{ animationDelay: '6s' }}></div>
       </div>
       
-      {/* 添加一個網格背景層，覆蓋整個容器，使用白色半透明網格圖案，增加背景的層次感。 */}
+      {/* 疊加一個半透明網格背景，增加背景的層次感。 */}
       <div className="absolute inset-0 bg-grid-white/5"></div>
       
-      {/* 開始主要內容區塊，設置相對定位並將 z-index 設為 10，確保內容顯示在背景之上。 */}
+      {/* 設置主要內容區塊，確保內容疊在背景之上並佔滿螢幕高度。 */}
       <div className="relative z-10 flex min-h-screen">
-        {/* 開始左側品牌區域，僅在 lg 屏幕（寬度 >= 1024px）顯示，佔據一半寬度，內容置中。 */}
+        {/* 左側品牌區域，僅在較大屏幕顯示，展示品牌資訊。 */}
         <div className="hidden lg:flex lg:w-1/2 items-center justify-center p-12">
-          {/* 限制品牌區域的內容寬度為 max-w-md，並設置文字顏色為白色，提升可讀性。 */}
+          {/* 限制品牌內容寬度並設置白色文字，包含標識和描述。 */}
           <div className="max-w-md text-white">
             {/* 創建品牌標識區塊，使用 flex 佈局排列圖標和文字，底部間距設為 8。 */}
             <div className="flex items-center space-x-4 mb-8">
@@ -62,9 +65,7 @@ const AuthLayout = () => {
               <span className="bg-gradient-to-r from-blue-400 to-purple-400 bg-clip-text text-transparent">
                 {/* 顯示標語第二部分 "分享技術智慧"，強調技術分享的主題。 */}
                 分享技術智慧
-              {/* 結束 <span>，完成漸變色文字效果的應用。 */}
               </span>
-            {/* 結束標語區域，標語分行且具有視覺層次感。 */}
             </h2>
             
             {/* 添加簡介文字，設置文字大小為 xl，顏色為靛藍色，行距放鬆，底部間距為 8。 */}
@@ -74,7 +75,7 @@ const AuthLayout = () => {
               與世界各地的工程師建立連接，共同成長。
             </p>
             
-            {/* 開始功能列表區塊，使用 space-y-4 設置每個功能項之間的垂直間距。 */}
+            {/* 展示平台功能列表，使用垂直間距排列四個功能項。 */}
             <div className="space-y-4">
               {/* 開始第一個功能項，使用 flex 佈局排列圓點和文字，間距設為 3。 */}
               <div className="flex items-center space-x-3">
@@ -108,9 +109,9 @@ const AuthLayout = () => {
           </div>
         </div>
         
-        {/* 開始右側表單區域，設置寬度為全屏（lg 屏幕時佔一半），內容置中，內邊距為 8。 */}
+        {/* 右側表單區域，用於渲染子路由內容，保持內容居中。 */}
         <div className="w-full lg:w-1/2 flex items-center justify-center p-8">
-          {/* 限制表單區域的內容寬度為 max-w-md，確保子路由內容不會過寬。 */}
+          {/* 限制表單內容寬度並渲染子路由組件。 */}
           <div className="w-full max-w-md">
             {/* 使用 Outlet 組件，作為子路由的渲染位置，例如登錄或註冊頁面。 */}
             <Outlet />
@@ -124,6 +125,7 @@ const AuthLayout = () => {
     </div>
   );
 };
+
 
 {/* <span> 是「行內元素」 */}
 {/* 🔸 適合用在：短字串或一小段文字（或局部文字），比如要改變樣式（顏色、粗體、斜體等），或是需要在行內包住特定字詞。 */}
