@@ -100,6 +100,7 @@ ReactDOM.createRoot(document.getElementById('root')!).render(
       {/* 讓你在瀏覽器裡看到快取的資料狀態（比如：現在有幾個 query？資料是 fresh 還是 stale？fetching 狀態、error 狀態等等） */}
       {/* 如果資料快取或查詢有問題，就能直接從 Devtools 面板觀察和除錯。 */}
       {/* 呼應QueryClient建立的資料快取功能 */}
+      {/* 相關設定在authStore.ts */}
     </QueryClientProvider>
   </React.StrictMode>,
 );
