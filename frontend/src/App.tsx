@@ -54,6 +54,8 @@ import MessagesPage from './pages/MessagesPage';
 import ChatPage from './pages/chat/ChatPage';
 // 導入 SavedPostsPage 組件，定義用戶保存的貼文頁面。
 import SavedPostsPage from './pages/saved/SavedPostsPage';
+// 導入 ExplorePage 組件，定義探索頁面（例如發現新內容的頁面）。
+import ExplorePage from './pages/explore/ExplorePage';
 
 
 // **類型定義**
@@ -110,12 +112,8 @@ const GuestRoute = ({ children }: GuestRouteProps) => {
   return <>{children}</>;
 };
 
-// 導入 ExplorePage 組件，定義探索頁面（例如發現新內容的頁面）。
-import ExplorePage from './pages/explore/ExplorePage';
-
 
 // **404 頁面**
-
 // 定義 NotFoundPage 組件，當用戶訪問不存在的路由時顯示 404 頁面。
 const NotFoundPage = () => (
   // 外層 div 設置最小高度為螢幕高度，使用灰色背景並置中內容。
@@ -314,3 +312,79 @@ export default App;
 
 // 如果要用一句話總結：
 // path="/" 是路由結構的起點，真正的路徑要靠子路由來決定，Layout 只負責包裝和控制子路由的顯示，不會同時渲染兩個 Layout。
+
+
+/*
+📱 1. 首次開啟應用
+假設你是一個尚未註冊或登入的用戶，打開了 http://localhost:5173/（或類似網址）：
+進入 <App /> 組件時，useEffect(() => { checkAuth() }, [checkAuth]) 會執行：
+這段程式碼會呼叫 useAuthStore 內的 checkAuth()，確認你是否持有有效的 token（例如從 localStorage 或 cookie）。
+如果沒有（因為你尚未登入），isAuthenticated 會是 false。
+接著，程式進入 <Routes>，開始判斷路由。
+
+🚫 2. 你想去首頁 /
+因為程式碼設定首頁路由（index）需要認證：
+<Route index element={
+  <ProtectedRoute>
+    <HomePage />
+  </ProtectedRoute>
+} />
+<ProtectedRoute> 會執行：
+讀取 useAuthStore 的 isAuthenticated，判斷你沒登入（false）。
+這時就會執行：
+return <Navigate to="/login" state={{ from: location }} replace />;
+也就是把你重導到 /login 頁面，並把你本來要去的頁面存在 location.state.from 中（方便未來登入完成後跳回）。
+
+📝 3. 你到 /login
+進到 /login：
+<Route path="login" element={
+  <GuestRoute>
+    <LoginPage />
+  </GuestRoute>
+} />
+<GuestRoute> 會執行：
+讀取 isAuthenticated，還是 false。
+你沒登入，所以正常顯示 <LoginPage />。
+但你其實還沒註冊帳號，所以你點選了「註冊」按鈕，跳轉到 /register。
+
+📝 4. 你到 /register
+程式會跑到：
+<Route path="register" element={
+  <GuestRoute>
+    <RegisterPage />
+  </GuestRoute>
+} />
+<GuestRoute> 一樣執行：
+檢查 isAuthenticated，仍然 false。
+讓你看到 <RegisterPage />。
+在 <RegisterPage />：
+你填完表單（email、password）。
+按下「註冊」。
+這個動作大概會呼叫：
+POST /api/register 或類似的後端 API。
+註冊成功後，後端會回傳一個 token（假設 JWT）。
+在 RegisterPage 裡，通常會呼叫 useAuthStore().setAuth(token) 之類的 function，存下 token 並把 isAuthenticated 設為 true。
+
+🔑 5. 註冊完成、成功拿到 token
+此時：
+useAuthStore 裡面的 isAuthenticated 變成 true。
+你可能會直接呼叫 navigate("/")（或 history.push("/")），程式碼把你跳轉到首頁 /。
+<Routes> 再次執行：
+進到 <Route index element={<ProtectedRoute>...</ProtectedRoute>}>。
+<ProtectedRoute> 讀到 isAuthenticated 是 true。
+這次直接 return <>{children}</>，所以 HomePage 就會渲染了，恭喜你看到首頁。
+
+🔄 如果在 /login 登入
+如果一開始就有帳號，你在 /login：
+填表登入（類似 POST /api/login）。
+API 成功後同樣會返回一個 token。
+呼叫 useAuthStore().setAuth(token)。
+isAuthenticated 變成 true。
+useLocation().state.from 如果有的話（例如剛剛被 ProtectedRoute redirect 過來的），你就會被 navigate(state.from.pathname) 送回去；否則預設可以送到 /。
+
+🔄 如果在已登入狀態下到 /login
+如果你本來就登入（isAuthenticated 是 true）：
+<GuestRoute> 直接執行：
+return <Navigate to="/" replace />;
+直接把你丟回首頁，不讓你看登入畫面。
+*/

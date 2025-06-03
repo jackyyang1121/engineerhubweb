@@ -31,7 +31,9 @@ export const login = async (credentials: LoginData): Promise<TokenResponse> => {
     password: credentials.password
   };
   const response = await api.post('/simple-auth/login/', loginData);
-  return response.data;
+  //對應到後端backend/engineerhub/urls.py的路由path('api/simple-auth/login/', SimpleLoginView.as_view(), name='simple_login')
+  //對應到後端backend/engineerhub/views.py的SimpleLoginView視圖
+  return response.data;    //回傳response.data就是後端拿到的access_token和refresh_token
 };
 
 // 登出

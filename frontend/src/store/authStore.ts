@@ -19,6 +19,9 @@ interface AuthState { // 定義 AuthState 接口，描述認證 store 的狀態�
 
   // 登錄
   login: (email: string, password: string) => Promise<void>;   //表示這個函式回傳一個 Promise，裡面不含任何有意義的資料（void）
+  //✅ => 是箭頭函式符號（在這裡只是描述函式的型態）
+  //✅ Promise<void> 表示它是一個非同步函式，並且不會有實際回傳值（只要完成就算成功）
+
   // 註冊
   register: (userData: authApi.RegisterData) => Promise<void>;
   // 登出
@@ -89,10 +92,11 @@ export const useAuthStore = create<AuthState>()( // 使用 create 函數創建�
           set({ isLoading: true, error: null }); // 設置加載狀態為 true，清除錯誤訊息
           try {
             const response = await authApi.login({ email, password }); // 調用 authApi 的 login 函數進行登錄
+            // authApi.login({ email, password })調用authApi 的 login 函數並連到後端backend/accounts/views.py試圖內的login函式去儲存token
 
             // 同步 token 到 localStorage
-            localStorage.setItem('engineerhub_token', response.access_token); // 將訪問令牌存入 localStorage
-            localStorage.setItem('engineerhub_refresh_token', response.refresh_token); // 將刷新令牌存入 localStorage
+            localStorage.setItem('engineerhub_token', response.access_token); // 將後端儲存的訪問令牌存入 localStorage
+            localStorage.setItem('engineerhub_refresh_token', response.refresh_token); // 將後端儲存的刷新令牌存入 localStorage
 
             set({ // 更新 store 狀態
               token: response.access_token,
@@ -105,6 +109,11 @@ export const useAuthStore = create<AuthState>()( // 使用 create 函數創建�
             set({ 
               isLoading: false, 
               error: error instanceof Error ? error.message : '登錄失敗' // 設置錯誤訊息
+              // Error 是 JavaScript 內建的錯誤物件，一出錯就會回傳Error物件(錯誤訊息)
+              // instanceof 是 JavaScript 的一個運算子，用來檢查某個值（物件）是不是某個類型（constructor）的實例。
+              // 判斷 error 是不是 Error 物件的實例
+              // 如果是 Error 物件，就執行 error.message（取出錯誤訊息）。
+              // 否則就直接回傳 '登錄失敗'（因為它可能只是個字串或其他型別，不一定有 message 屬性）。
             });
             throw error; // 重新拋出錯誤，以便調用方處理
           }
@@ -132,6 +141,9 @@ export const useAuthStore = create<AuthState>()( // 使用 create 函數創建�
               error: error instanceof Error ? error.message : '註冊失敗' // 設置錯誤訊息
             });
             throw error; // 重新拋出錯誤
+            //throw error 是 JavaScript 中用來拋出錯誤的語法。
+            //當你遇到錯誤時，可以使用 throw 語法來拋出錯誤，這樣錯誤可以被捕獲並處理。
+            //不能用return，因為return沒辦法和catch一起使用
           }
         },
 
@@ -141,7 +153,7 @@ export const useAuthStore = create<AuthState>()( // 使用 create 函數創建�
             await authApi.logout(); // 調用 authApi 的 logout 函數進行登出
           } catch (error) {
             console.error('登出時出錯', error); // 記錄登出錯誤
-          } finally {
+          } finally { //finally 是 JavaScript 中 try...catch...finally 語法的一部分，用來保證「不論 try 區塊裡的程式碼是否執行成功（沒有錯誤）或失敗（有錯誤），都一定會執行 finally 區塊裡的程式碼」。
             // 清除 localStorage 中的 token
             localStorage.removeItem('engineerhub_token'); // 移除訪問令牌
             localStorage.removeItem('engineerhub_refresh_token'); // 移除刷新令牌
@@ -160,8 +172,8 @@ export const useAuthStore = create<AuthState>()( // 使用 create 函數創建�
           const { token, refreshAuth } = get(); // 從 store 中獲取 token 和 refreshAuth 方法
 
           console.log('🔐 檢查認證狀態:', {
-            hasToken: !!token,
-            tokenPreview: token ? token.substring(0, 20) + '...' : 'None'
+            hasToken: !!token,   //兩個驚嘆號是布林運算子，用來檢查token是否存在，邏輯是：如果token存在，則為true，否則為false
+            tokenPreview: token ? token.substring(0, 20) + '...' : 'None'  //如果token存在，則顯示token的前20個字元，否則顯示'None'
           }); // 記錄調試信息
 
           // 如果沒有令牌，則未認證
