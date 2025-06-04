@@ -86,7 +86,6 @@ const PostDetailPage = () => {
             post={post} 
             onPostUpdated={handlePostUpdated}
             onPostDeleted={handlePostDeleted}
-            isDetailView
           />
         )}
       </div>

@@ -102,15 +102,18 @@ const Toast: React.FC<ToastProps> = ({
 
 // 全局 Toast 容器組件
 export const GlobalToast: React.FC = () => {
-  const { toast, hideToast } = useUIStore();
+  const { notifications, hideToast } = useUIStore();
+  
+  // 獲取最新的通知作為當前 toast
+  const currentToast = notifications[notifications.length - 1];
 
-  if (!toast) return null;
+  if (!currentToast) return null;
 
   return (
     <Toast
-      message={toast.message}
-      type={toast.type}
-      isVisible={toast.isVisible}
+      message={currentToast.message}
+      type={currentToast.type}
+      isVisible={true}
       onClose={hideToast}
     />
   );

@@ -16,7 +16,6 @@ import { ToastContainer } from 'react-toastify';
 // 導入 ToastContainer 的預設樣式檔案，確保通知訊息有適當的視覺效果。
 import 'react-toastify/dist/ReactToastify.css';
 
-
 // **布局組件**
 // 導入 MainLayout 組件，作為應用程式主要頁面的整體布局（如包含導航欄、側邊欄等）。
 import MainLayout from './components/layouts/MainLayout';
@@ -78,9 +77,10 @@ interface GuestRouteProps {
 // **保護路由組件**
 
 // 定義 ProtectedRoute 組件，用於保護需要認證的路由，只有已認證用戶才能訪問。
-const ProtectedRoute = ({ children }: ProtectedRouteProps) => {
+const ProtectedRoute = ({ children }: ProtectedRouteProps) => {   
   // 從 useAuthStore 中獲取 isAuthenticated 狀態，判斷用戶是否已認證。
   const isAuthenticated = useAuthStore(state => state.isAuthenticated);
+  // 這邊的state只是自定義變數，可以亂取，重點是拿後面的state.isAuthenticated，看isAuthenticated是否為true
   
   // 使用 useLocation 鉤子獲取當前路由位置，用於重定向時保存來源路徑（例如登入後跳回原頁面）。
   const location = useLocation();
@@ -88,11 +88,46 @@ const ProtectedRoute = ({ children }: ProtectedRouteProps) => {
   // 如果用戶未認證，重定向到登錄頁面，並將當前位置傳遞給 state（用於登入後跳回），replace 表示替換當前歷史記錄。
   if (!isAuthenticated) {
     return <Navigate to="/login" state={{ from: location }} replace />;
+    //state 是 react-router-dom（React Router）裡 <Navigate> 元件的 一個 prop，並不是 TypeScript 內建的，也不是 JavaScript 內建的。
+    //這裡的 state={{ from: location }} 是把目前頁面的 location（也就是目前 URL 狀態）包起來，傳給 /login 頁面，方便 /login 頁面知道用戶從哪裡來。
+    //location 是 react-router-dom 提供的一個hook，用於獲取當前路由位置。
   }
   
   // 如果用戶已認證，渲染子組件（即被保護的頁面內容）。
   return <>{children}</>;
+  /*
+  { children } 是什麼？
+  👉 { children } 是 React 的一個很重要的概念，代表 元件內部包裹的 JSX 內容。
+  👉 例如：
+  <ProtectedRoute>
+    <HomePage />
+  </ProtectedRoute>
+  這裡的 <HomePage /> 就是 children。
+
+  為什麼可以直接用 {children}？
+  在 TypeScript（或 JavaScript）裡，當你寫 ({ children })，就是用「解構賦值」從 props 中取出 children。
+  JSX 元件的 props 預設就有 children 這個屬性，代表元件包裹的東西。
+   
+  */
 };
+/*
+hook 是什麼？
+👉 Hook 就是「一個能讓你在函式元件中使用 React 功能的工具」。
+
+舉個超簡單的比喻：
+🧩 可以把 Hook 想像成 React 給你的一些「便利工具」，讓你在函式元件裡做到以前只能在 class 元件裡做的事（像是：管理狀態、處理副作用、取得 router 資訊…等等）。
+
+hook 有哪些？
+最常用的有：
+✅ useState → 管理「狀態」，像是表單資料、計數器值。
+✅ useEffect → 處理「副作用」，像是向 API 發送請求或監聽事件。
+✅ useContext → 讀取全域 context（跨元件共享資料）。
+✅ useLocation（react-router 提供）→ 取得目前路由的資料。
+✅ useNavigate（react-router 提供）→ 幫你導向到別的頁面。
+
+hook 的白話定義
+📝 hook 是一個以 use 開頭的函式，幫助你在函式元件裡做一些「React 特有的事」。
+*/
 
 
 // **訪客路由組件**
@@ -216,7 +251,14 @@ function App() {
         {/* 定義應用程式主要路由，使用 MainLayout 作為外層布局 */}
         <Route path="/" element={<MainLayout />}>
           {/* 定義首頁路由（根路徑），使用 ProtectedRoute 確保只有已認證用戶可訪問 */}
-          <Route index element={
+          <Route index element={   
+          //<Route index> 表示「在父層 <Route> 的 path 剛好完全匹配時，顯示的預設子路由」。也就是它可以幫你在父層路由下，定義「預設頁面」或「首頁內容」。
+          /*
+          當網址 完全匹配父路由 /，而且沒有再接其他子路徑（例如 /explore、/notifications）時。
+          例如：
+          / 👉 會跑 <Route index>
+          /explore 👉 不會跑 <Route index>，會找 <Route path="explore">。
+          */
             <ProtectedRoute>
             {/* <ProtectedRoute> ... </ProtectedRoute> 是自定義組件，用於包裹頁面元件。 */}
             {/* ProtectedRoute：限制只有已認證的用戶可以訪問 */}

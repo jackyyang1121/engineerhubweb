@@ -205,9 +205,9 @@ const Header: React.FC<HeaderProps> = ({ className = '' }) => {
                   aria-label="通知"
                 >
                   <BellIcon className="h-6 w-6" />
-                  {notifications.unreadCount > 0 && (
+                  {notifications.length > 0 && (
                     <span className="absolute -top-1 -right-1 h-4 w-4 bg-red-500 text-white text-xs rounded-full flex items-center justify-center">
-                      {notifications.unreadCount > 99 ? '99+' : notifications.unreadCount}
+                      {notifications.length > 99 ? '99+' : notifications.length}
                     </span>
                   )}
                 </button>

@@ -30,11 +30,13 @@ import { useAuthStore } from '../../store/authStore';
 interface PostCardProps {
   post: Post;
   onPostDeleted?: () => void;
+  onPostUpdated?: () => void;
 }
 
 const PostCard: React.FC<PostCardProps> = ({
   post,
-  onPostDeleted
+  onPostDeleted,
+  onPostUpdated
 }) => {
   const [isLiked, setIsLiked] = useState(post.is_liked);
   const [isSaved, setIsSaved] = useState(post.is_saved);
@@ -61,6 +63,9 @@ const PostCard: React.FC<PostCardProps> = ({
         setIsLiked(true);
         setLikesCount(prev => prev + 1);
       }
+      if (onPostUpdated) {
+        onPostUpdated();
+      }
     } catch (error) {
       toast.error('操作失败，请重试');
       console.error('点赞/取消点赞失败:', error);
@@ -76,6 +81,9 @@ const PostCard: React.FC<PostCardProps> = ({
       } else {
         await postApi.savePost(post.id);
         setIsSaved(true);
+      }
+      if (onPostUpdated) {
+        onPostUpdated();
       }
     } catch (error) {
       toast.error('操作失败，请重试');

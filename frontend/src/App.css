@@ -1,3 +1,18 @@
+/*
+Vite 預設的樣式檔案
+定義了一些基本的組件樣式（logo 動畫、卡片等）
+*/
+
+/*
+🚫 目前沒有顯示作用，因為：
+你的專案沒有引入這個檔案
+你使用的是 index.css 和 TailwindCSS
+這是 Vite 範本的預設檔案，通常會被替換
+*/
+
+
+
+
 #root {
   max-width: 1280px;
   margin: 0 auto;
@@ -40,3 +55,4 @@
 .read-the-docs {
   color: #888;
 }
+
