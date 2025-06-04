@@ -302,7 +302,7 @@ class UserViewSet(ModelViewSet):
         """根據操作設置權限"""
         if self.action in ['update', 'partial_update', 'destroy']:
             permission_classes = [IsAuthenticated, IsOwnerOrReadOnly]
-        elif self.action in ['list', 'retrieve', 'search']:
+        elif self.action in ['list', 'retrieve', 'search', 'recommended', 'trending', 'online']:
             permission_classes = [AllowAny]
         else:
             permission_classes = [IsAuthenticated]
@@ -529,6 +529,114 @@ class UserViewSet(ModelViewSet):
 
         serializer = UserSerializer(trending_users, many=True)
         return Response(serializer.data)
+
+    @action(detail=False, methods=['get'], permission_classes=[AllowAny])
+    def recommended(self, request):
+        """
+        獲取推薦用戶
+        GET /users/recommended/
+        """
+        try:
+            current_user = request.user if request.user.is_authenticated else None
+            
+            # 檢查緩存
+            cache_key = f'recommended_users_{current_user.id if current_user else "anonymous"}'
+            recommended_users = cache.get(cache_key)
+            
+            if recommended_users is None:
+                # 獲取推薦用戶的邏輯
+                if current_user and current_user.is_authenticated:
+                    # 已登入用戶：基於關注網絡和技能匹配推薦
+                    recommended_users = self._get_personalized_recommendations(current_user)
+                else:
+                    # 未登入用戶：推薦熱門用戶
+                    recommended_users = self._get_popular_users()
+                
+                # 緩存30分鐘
+                cache.set(cache_key, recommended_users, 1800)
+            
+            # 序列化用戶數據，包含 is_following 信息
+            user_data = []
+            for user in recommended_users:
+                serializer = UserSerializer(user, context={'request': request})
+                user_data.append(serializer.data)
+            
+            return Response({
+                'users': user_data,
+                'total_count': len(user_data)
+            })
+            
+        except Exception as e:
+            logger.error(f"獲取推薦用戶失敗: {str(e)}")
+            return Response(
+                {'detail': f'獲取推薦用戶失敗: {str(e)}'},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR
+            )
+    
+    def _get_personalized_recommendations(self, user, limit=10):
+        """
+        為已登入用戶獲取個性化推薦
+        """
+        try:
+            # 獲取用戶已關注的人
+            following_ids = user.following.values_list('id', flat=True)
+            
+            # 獲取用戶關注的人也關注的人（二度關注）
+            second_degree_follows = User.objects.filter(
+                followers__in=following_ids
+            ).exclude(
+                id__in=list(following_ids) + [user.id]
+            ).annotate(
+                mutual_count=Count('followers', filter=Q(followers__in=following_ids))
+            ).filter(
+                is_active=True,
+                mutual_count__gt=0
+            ).order_by('-mutual_count', '-followers_count')[:limit//2]
+            
+            # 獲取技能相關的用戶
+            user_skills = getattr(user, 'skill_tags', []) or []
+            skill_based_users = User.objects.filter(
+                skill_tags__overlap=user_skills
+            ).exclude(
+                id__in=list(following_ids) + [user.id]
+            ).exclude(
+                id__in=[u.id for u in second_degree_follows]
+            ).filter(
+                is_active=True
+            ).order_by('-followers_count')[:limit//2]
+            
+            # 合併推薦結果
+            recommended = list(second_degree_follows) + list(skill_based_users)
+            
+            # 如果推薦數量不足，補充熱門用戶
+            if len(recommended) < limit:
+                popular_users = self._get_popular_users(
+                    limit=limit - len(recommended),
+                    exclude_ids=[user.id] + list(following_ids) + [u.id for u in recommended]
+                )
+                recommended.extend(popular_users)
+            
+            return recommended[:limit]
+            
+        except Exception as e:
+            logger.error(f"獲取個性化推薦失敗: {str(e)}")
+            return self._get_popular_users(limit)
+    
+    def _get_popular_users(self, limit=10, exclude_ids=None):
+        """
+        獲取熱門用戶
+        """
+        exclude_ids = exclude_ids or []
+        
+        return User.objects.filter(
+            is_active=True
+        ).exclude(
+            id__in=exclude_ids
+        ).order_by(
+            '-followers_count', 
+            '-posts_count', 
+            '-created_at'
+        )[:limit]
 
 
 class PortfolioProjectViewSet(ModelViewSet):

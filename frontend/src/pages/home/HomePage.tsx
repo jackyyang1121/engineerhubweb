@@ -9,7 +9,7 @@
  * 5. 無限滾動載入
  */
 
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { PlusIcon, SparklesIcon, UserGroupIcon, FireIcon } from '@heroicons/react/24/outline';
 import { useInfiniteQuery } from '@tanstack/react-query';
 import { useInView } from 'react-intersection-observer';
@@ -47,6 +47,10 @@ const HomePage: React.FC = () => {
   const [trendingTopics, setTrendingTopics] = useState<string[]>([]);
   const [recommendedUsers, setRecommendedUsers] = useState<RecommendedUser[]>([]);
   
+  // 防止重複調用的ref
+  const isLoadingRecommendedUsers = useRef(false);
+  const lastLoadTime = useRef<number>(0);
+
   // 無限滾動載入檢測
   const { ref: loadMoreRef, inView } = useInView({
     threshold: 0,
@@ -99,12 +103,26 @@ const HomePage: React.FC = () => {
 
   // 載入推薦用戶
   const loadRecommendedUsers = useCallback(async () => {
+    const now = Date.now();
+    
+    // 防止重複調用或短時間內重複載入（5分鐘緩存）
+    if (isLoadingRecommendedUsers.current || (now - lastLoadTime.current < 5 * 60 * 1000)) {
+      return;
+    }
+    
+    isLoadingRecommendedUsers.current = true;
+    console.log('🔄 開始載入推薦用戶...');
+    
     try {
       const response = await getRecommendedUsers();
+      console.log('✅ 推薦用戶載入成功:', response.users.length, '個用戶');
       setRecommendedUsers(response.users || []);
+      lastLoadTime.current = now;
     } catch (error) {
-      console.error('載入推薦用戶失敗:', error);
+      console.error('❌ 載入推薦用戶失敗:', error);
       setRecommendedUsers([]);
+    } finally {
+      isLoadingRecommendedUsers.current = false;
     }
   }, []);
 

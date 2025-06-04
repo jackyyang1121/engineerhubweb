@@ -397,9 +397,17 @@ export const getFeed = async (page = 1, pageSize = 10): Promise<PaginatedRespons
 export const getRecommendedUsers = async (): Promise<RecommendedUsersResponse> => {
   try {
     const response = await api.get('/users/recommended/');
+    
+    // 驗證響應數據結構
+    if (!response.data || !Array.isArray(response.data.users)) {
+      console.warn('推薦用戶API返回異常數據格式:', response.data);
+      return { users: [], total_count: 0 };
+    }
+    
     return response.data;
-  } catch (error) {
-    console.error('獲取推薦用戶錯誤:', error);
+  } catch (error: unknown) {
+    const apiError = error as PostAPIError;
+    console.error('獲取推薦用戶錯誤:', apiError);
     throw error;
   }
 }; 
