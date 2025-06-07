@@ -102,7 +102,7 @@ const LoginPage = () => { // 定義 LoginPage 組件，這是一個函數式組�
               placeholder="請輸入您的電子郵件" // 輸入框的占位符文字
               className={`w-full px-4 py-3 bg-white/10 backdrop-blur-sm border border-white/20 rounded-xl text-white placeholder-white/60 focus:outline-none focus:ring-2 focus:ring-blue-400 focus:border-transparent transition-all duration-300 ${errors.email ? 'border-red-400 ring-2 ring-red-400' : ''}`} // 輸入框樣式，包含背景、邊框、圓角、文字顏色等，若有錯誤則顯示紅色邊框
               {...register('email', { // 將該字段註冊到表單中，並設置驗證規則
-                required: '請輸入電子郵件', // 必填字段，若未填寫則顯示錯誤訊息
+                required: '請輸入電子郵件', // 必填字段，若未填寫則顯示此錯誤訊息
                 pattern: { // 使用正則表達式驗證電子郵件格式
                   value: /^[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}$/i, // 電子郵件格式的正則表達式
                   message: '請輸入有效的電子郵件地址' // 格式無效時的錯誤訊息

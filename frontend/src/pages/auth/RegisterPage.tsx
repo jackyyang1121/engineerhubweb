@@ -5,7 +5,14 @@ import { toast } from 'react-toastify';
 import { EyeIcon, EyeSlashIcon } from '@heroicons/react/24/outline';
 import { useAuthStore } from '../../store/authStore';
 
-interface RegisterFormInputs {  username: string;  email: string;  password1: string;  password2: string;  first_name: string;  last_name: string;  terms: boolean;}
+interface RegisterFormInputs {  
+  username: string;  
+  email: string;  
+  password1: string;  
+  password2: string;  
+  first_name: string;  
+  last_name: string;  
+  terms: boolean;}
 
 // API 錯誤響應類型
 interface RegisterErrorResponse {

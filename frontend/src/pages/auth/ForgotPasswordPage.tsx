@@ -1,3 +1,5 @@
+//研究完畢
+
 import { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { useForm } from 'react-hook-form';
@@ -19,9 +21,14 @@ const ForgotPasswordPage = () => {
   } = useForm<ForgotPasswordFormInputs>();
   
   const onSubmit = async (data: ForgotPasswordFormInputs) => {
+    /*
+    ✔️ 這裡的 : 是 型別註解，表示 data 這個參數必須符合 ForgotPasswordFormInputs 的型別規則。
+    ✔️ 它不會真的賦值，而是讓編譯器「檢查和保護」程式碼的型別正確性。
+    ✔️ 也因此可以在後面直接使用 data.email，因為 TypeScript 知道 data 裡面一定有 email 這個屬性。
+    */
     setIsLoading(true);
     try {
-      await forgotPassword(data.email);
+      await forgotPassword(data.email);  // 呼叫 forgotPassword 函數(來自../../api/authApi.ts，而到這邊又會連後端url，再由後端去操作，並傳入data.email)
       setIsSubmitted(true);
       toast.success('重置密碼連結已發送到您的郵箱');
     } catch (error) {
