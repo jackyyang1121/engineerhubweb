@@ -19,6 +19,7 @@ class CommentSerializer(serializers.ModelSerializer):
     author_details = UserSerializer(source='user', read_only=True)
     replies_count = serializers.SerializerMethodField()
     is_liked = serializers.SerializerMethodField()
+    replies = serializers.SerializerMethodField()
     
     class Meta:
         model = Comment
@@ -26,7 +27,7 @@ class CommentSerializer(serializers.ModelSerializer):
             'id', 'user', 'post', 'parent', 'content', 
             'created_at', 'updated_at', 'author_details',
             'replies_count', 'likes_count', 'is_liked',
-            'is_deleted', 'is_edited'
+            'is_deleted', 'is_edited', 'replies'
         ]
         read_only_fields = ['id', 'user', 'created_at', 'updated_at', 'likes_count', 'is_deleted', 'is_edited']
     
@@ -44,6 +45,15 @@ class CommentSerializer(serializers.ModelSerializer):
         if request and request.user.is_authenticated:
             return CommentLike.objects.filter(user=request.user, comment=obj).exists()
         return False
+    
+    def get_replies(self, obj):
+        """
+        獲取評論的回覆列表（只對頂層評論返回回覆，避免無限嵌套）
+        """
+        if obj.parent is None:  # 只有頂層評論才返回回覆
+            replies = obj.replies.filter(is_deleted=False).order_by('created_at')
+            return ReplySerializer(replies, many=True, context=self.context).data
+        return []
     
     def validate(self, data):
         """

@@ -168,7 +168,7 @@ class RecommendationEngine:
             if not following_users:
                 return []
             
-            # 獲取追蹤用戶的最新貼文
+            # 獲取追蹤用戶的最新貼文（按時間倒序）
             posts = Post.objects.filter(
                 author__in=following_users,
                 is_published=True,

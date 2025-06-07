@@ -13,30 +13,7 @@ export const getCommentsByPostId = async (postId: string, page = 1, limit = 10):
     return response.data;
   } catch (error) {
     console.error('獲取評論失敗:', error);
-    // 返回模擬數據用於開發
-    return {
-      results: Array.from({ length: 3 }, (_, i) => ({
-        id: `comment-${postId}-${i}`,
-        content: `這是第 ${i + 1} 條測試評論。評論內容可以非常豐富，包括代碼分享、技術討論等。`,
-        created_at: new Date(Date.now() - i * 3600000).toISOString(),
-        updated_at: i % 3 === 0 ? new Date(Date.now() - i * 1800000).toISOString() : undefined,
-        likes_count: Math.floor(Math.random() * 10),
-        replies_count: i === 0 ? 2 : 0,
-        is_liked: Math.random() > 0.5,
-        is_deleted: false,
-        is_edited: i % 3 === 0,
-        user: {
-          id: `user-${i}`,
-          username: `test_user_${i}`,
-          display_name: `Test User ${i}`,
-          avatar: `https://ui-avatars.com/api/?name=User${i}&background=random`
-        },
-        post: postId
-      })),
-      count: 3,
-      next: null,
-      previous: null
-    };
+    throw error;
   }
 };
 
@@ -47,30 +24,7 @@ export const getCommentReplies = async (commentId: string, page = 1, limit = 10)
     return response.data;
   } catch (error) {
     console.error('獲取回覆失敗:', error);
-    // 返回模擬數據用於開發
-    return {
-      results: Array.from({ length: 2 }, (_, i) => ({
-        id: `reply-${commentId}-${i}`,
-        content: `這是對評論的第 ${i + 1} 條回覆。`,
-        created_at: new Date(Date.now() - i * 1800000).toISOString(),
-        likes_count: Math.floor(Math.random() * 5),
-        replies_count: 0,
-        is_liked: Math.random() > 0.5,
-        is_deleted: false,
-        is_edited: false,
-        user: {
-          id: `user-reply-${i}`,
-          username: `reply_user_${i}`,
-          display_name: `Reply User ${i}`,
-          avatar: `https://ui-avatars.com/api/?name=Reply${i}&background=random`
-        },
-        post: 'mock-post-id',
-        parent: commentId
-      })),
-      count: 2,
-      next: null,
-      previous: null
-    };
+    throw error;
   }
 };
 

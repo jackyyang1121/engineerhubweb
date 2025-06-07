@@ -17,23 +17,8 @@ import { useAuthStore } from '../../store/authStore';
 import CommentForm from './CommentForm';
 import * as commentApi from '../../api/commentApi';
 
-// 評論類型
-export interface Comment {
-  id: string;
-  content: string;
-  created_at: string;
-  updated_at?: string;
-  likes_count: number;
-  is_liked: boolean;
-  user: {
-    id: string;
-    username: string;
-    avatar?: string;
-  };
-  parent_id?: string;
-  replies_count?: number;
-  replies?: Comment[];
-}
+// 使用全局評論類型
+import type { Comment } from '../../types';
 
 interface CommentItemProps {
   comment: Comment;
@@ -78,7 +63,7 @@ const CommentItem: React.FC<CommentItemProps> = ({
   const [showActions, setShowActions] = useState(false);
   
   const currentUser = useAuthStore(state => state.user);
-  const isCommentOwner = currentUser?.id === comment.user.id;
+  const isCommentOwner = currentUser?.id === comment.author_details.id;
   
   // 格式化日期
   const formattedDate = format(new Date(comment.created_at), 'PPp', { locale: zhTW });
@@ -135,7 +120,11 @@ const CommentItem: React.FC<CommentItemProps> = ({
   
   // 回覆評論的mutation
   const replyMutation = useMutation({
-        mutationFn: (content: string) => commentApi.createComment({      post: postId,      content,      parent: comment.id    }),
+    mutationFn: (content: string) => commentApi.createComment({
+      post: postId,
+      content,
+      parent: comment.id
+    }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['comments', postId] });
       setIsReplying(false);
@@ -151,7 +140,7 @@ const CommentItem: React.FC<CommentItemProps> = ({
     }
   });
   
-  // 獲取評論的回覆
+  // 獲取評論的回覆（備用方法，主要使用後端直接返回的replies數據）
   const fetchRepliesMutation = useMutation({
     mutationFn: () => commentApi.getCommentReplies(comment.id),
     onSuccess: (data: RepliesResult) => {
@@ -207,20 +196,25 @@ const CommentItem: React.FC<CommentItemProps> = ({
   
   // 切換顯示回覆
   const handleToggleReplies = () => {
-    if (!showReplies && (!comment.replies || comment.replies.length === 0)) {
+    // 如果已經有回覆數據，直接切換顯示狀態
+    if (comment.replies && comment.replies.length > 0) {
+      setShowReplies(!showReplies);
+    } else if (!showReplies && comment.replies_count && comment.replies_count > 0) {
+      // 如果沒有回覆數據但有回覆數量，則獲取回覆
       fetchRepliesMutation.mutate();
+    } else {
+      setShowReplies(!showReplies);
     }
-    setShowReplies(!showReplies);
   };
 
   return (
     <div className={`${isReply ? 'ml-12' : ''}`}>
       <div className="flex items-start space-x-3">
         {/* 用戶頭像 */}
-        <Link to={`/profile/${comment.user.username}`} className="shrink-0">
+        <Link to={`/profile/${comment.author_details.username}`} className="shrink-0">
           <img
-            src={comment.user.avatar || `https://ui-avatars.com/api/?name=${comment.user.username}&background=random`}
-            alt={comment.user.username}
+            src={comment.author_details.avatar || `https://ui-avatars.com/api/?name=${comment.author_details.username}&background=random`}
+            alt={comment.author_details.username}
             className="w-8 h-8 rounded-full"
           />
         </Link>
@@ -230,10 +224,10 @@ const CommentItem: React.FC<CommentItemProps> = ({
           <div className="flex justify-between items-start">
             <div>
               <Link 
-                to={`/profile/${comment.user.username}`}
+                to={`/profile/${comment.author_details.username}`}
                 className="font-medium text-gray-900 hover:text-primary-600"
               >
-                {comment.user.username}
+                {comment.author_details.username}
               </Link>
               <span className="text-xs text-gray-500 ml-2">{formattedDate}</span>
               {isEdited && <span className="text-xs text-gray-500 ml-1">(已編輯)</span>}
@@ -334,7 +328,7 @@ const CommentItem: React.FC<CommentItemProps> = ({
           <CommentForm
             onSubmit={handleReplySubmit}
             isLoading={replyMutation.isPending}
-            placeholder={`回覆 @${comment.user.username}...`}
+            placeholder={`回覆 @${comment.author_details.username}...`}
             buttonText="回覆"
             autoFocus
           />

@@ -299,7 +299,7 @@ class PostViewSet(viewsets.ModelViewSet):
     @action(detail=False, methods=['get'])
     def following_posts(self, request):
         """
-        獲取關注用戶的貼文
+        獲取關注用戶的貼文（按時間倒序）
         """
         try:
             from accounts.models import Follow
@@ -310,8 +310,8 @@ class PostViewSet(viewsets.ModelViewSet):
             if not following_users:
                 return Response({"message": "您還沒有關注任何用戶", "posts": []})
             
-            # 獲取關注用戶的貼文
-            posts = Post.objects.filter(author__in=following_users)
+            # 獲取關注用戶的貼文，按時間倒序
+            posts = Post.objects.filter(author__in=following_users).order_by('-created_at')
             
             # 分頁與序列化
             page = self.paginate_queryset(posts)
@@ -331,13 +331,13 @@ class PostViewSet(viewsets.ModelViewSet):
     @action(detail=False, methods=['get'])
     def trending(self, request):
         """
-        獲取熱門貼文（過去24小時內點讚數最多）
+        獲取熱門貼文（過去24小時內，綜合考慮熱度和時間）
         """
         try:
             # 計算24小時前的時間
             yesterday = timezone.now() - timedelta(days=1)
             
-            # 獲取熱門貼文
+            # 獲取熱門貼文，同等熱度下優先顯示較新的
             trending_posts = Post.objects.filter(
                 created_at__gte=yesterday
             ).order_by('-likes_count', '-comments_count', '-created_at')
@@ -360,15 +360,15 @@ class PostViewSet(viewsets.ModelViewSet):
     @action(detail=False, methods=['get'])
     def recommendations(self, request):
         """
-        獲取推薦貼文（簡化版：最新的熱門貼文）
+        獲取推薦貼文（優先顯示最新貼文）
         """
         try:
-            # 簡化：返回最近的熱門貼文
+            # 返回最新的貼文，優先按時間排序
             from datetime import timedelta
             week_ago = timezone.now() - timedelta(days=7)
             hot_posts = Post.objects.filter(
                 created_at__gte=week_ago
-            ).order_by('-likes_count', '-comments_count', '-created_at')
+            ).order_by('-created_at', '-likes_count', '-comments_count')
             
             # 分頁與序列化
             page = self.paginate_queryset(hot_posts)
@@ -389,11 +389,11 @@ class PostViewSet(viewsets.ModelViewSet):
     @action(detail=False, methods=['get'])
     def saved(self, request):
         """
-        獲取用戶收藏的貼文
+        獲取用戶收藏的貼文（按收藏時間倒序）
         """
         try:
-            # 獲取用戶收藏的貼文
-            saved_posts = Post.objects.filter(saved_by__user=request.user)
+            # 獲取用戶收藏的貼文，按收藏時間倒序
+            saved_posts = Post.objects.filter(saved_by__user=request.user).order_by('-saved_by__created_at')
             
             # 分頁與序列化
             page = self.paginate_queryset(saved_posts)
@@ -586,8 +586,8 @@ class CommentViewSet(viewsets.ModelViewSet):
             # 獲取貼文
             post = get_object_or_404(Post, id=post_id)
             
-            # 獲取貼文的頂層評論
-            comments = Comment.objects.filter(post=post, parent=None)
+            # 獲取貼文的頂層評論（排除已刪除的評論）
+            comments = Comment.objects.filter(post=post, parent=None, is_deleted=False).order_by('created_at')
             
             # 分頁與序列化
             page = self.paginate_queryset(comments)
@@ -611,7 +611,7 @@ class CommentViewSet(viewsets.ModelViewSet):
         """
         try:
             comment = self.get_object()
-            replies = comment.replies.all()
+            replies = comment.replies.filter(is_deleted=False).order_by('created_at')
             
             # 分頁與序列化
             page = self.paginate_queryset(replies)

@@ -147,7 +147,8 @@ export interface Comment {
   is_liked: boolean;
   is_deleted: boolean;
   is_edited: boolean;
-  user: {
+  user: string; // 用戶ID
+  author_details: {
     id: string;
     username: string;
     display_name?: string;
