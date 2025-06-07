@@ -27,6 +27,12 @@ interface RegisterErrorResponse {
     };
   };
   message?: string;
+  /*
+   ? 就是 TypeScript 的可選屬性（Optional Property），它的意思是：
+  ✅ 這個 message 屬性可以「有」或「沒有」。
+  ✅ 如果有的話，它的值必須是 string。
+  ✅ 如果沒有的話，那就不會出現在這個物件裡（等於 undefined）。
+  */
 }
 
 const RegisterPage = () => {
