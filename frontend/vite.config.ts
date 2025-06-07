@@ -12,15 +12,102 @@ import react from '@vitejs/plugin-react'  //引入 Vite 官方提供的 React pl
 // https://vite.dev/config/
 export default defineConfig({   //透過 export default 輸出設定物件，這裡註冊了 plugins: [react()]，告訴 Vite 在編譯時使用 React plugin。
   plugins: [react()],
-  //vite.config.ts可以使用root屬性來指定專案的根目錄
-  //這邊沒設置所以使用預設值
-  //npm run dev後會自動去找專案內的index.html
-  //並且把index.html當作入口點
-  //然後執行index.html裡的<script type="module" src="/src/main.tsx"></script>
-  //執行main.tsx
-
-  // plugins: [react()]
-  // 就是把 @vitejs/plugin-react 這個 plugin 傳進去。
+  server: {
+    proxy: {
+      '/api': {
+        target: 'http://localhost:8000',
+        changeOrigin: true,
+      },
+      '/ws': {
+        target: 'ws://localhost:8000',
+        ws: true,
+      },
+    }
+  },
+  build: {
+    // 設置 chunk 大小警告限制
+    chunkSizeWarningLimit: 600,
+    
+    // Rollup 選項
+    rollupOptions: {
+      output: {
+        // 手動配置 chunk 分割策略
+        manualChunks: {
+          // React 相關
+          'react-vendor': ['react', 'react-dom', 'react-router-dom'],
+          
+          // 狀態管理和工具
+          'state-utils': ['zustand', '@tanstack/react-query', 'axios'],
+          
+          // UI 相關
+          'ui-vendor': ['react-toastify', 'react-hook-form', 'react-intersection-observer'],
+          
+          // 圖標
+          'icons': ['@heroicons/react/24/outline', '@heroicons/react/24/solid'],
+          
+          // 語法高亮（通常很大）
+          'syntax-highlighter': ['react-syntax-highlighter'],
+          
+          // 日期處理
+          'date-utils': ['date-fns'],
+        },
+        
+        // 自定義 chunk 命名
+        chunkFileNames: () => {
+          return `assets/js/[name]-[hash].js`;
+        },
+        
+        // 自定義入口文件命名
+        entryFileNames: 'assets/js/[name]-[hash].js',
+        
+        // 自定義資源文件命名
+        assetFileNames: (assetInfo) => {
+          const info = assetInfo.name?.split('.');
+          const extType = info?.[info.length - 1];
+          if (/\.(png|jpe?g|svg|gif|tiff|bmp|ico)$/i.test(assetInfo.name ?? '')) {
+            return `assets/images/[name]-[hash][extname]`;
+          }
+          if (extType === 'css') {
+            return `assets/css/[name]-[hash][extname]`;
+          }
+          return `assets/[name]-[hash][extname]`;
+        },
+      }
+    },
+    
+    // 壓縮選項
+    minify: 'terser',
+    terserOptions: {
+      compress: {
+        drop_console: true,      // 移除 console.log
+        drop_debugger: true,     // 移除 debugger
+        pure_funcs: ['console.log', 'console.info'],  // 移除特定函數調用
+      },
+      format: {
+        comments: false,         // 移除註釋
+      },
+    },
+    
+    // 生成源碼映射（用於生產環境調試）
+    sourcemap: false,
+  },
+  
+  // 優化依賴
+  optimizeDeps: {
+    include: [
+      'react',
+      'react-dom',
+      'react-router-dom',
+      'zustand',
+      '@tanstack/react-query',
+      'axios',
+    ],
+  },
+  
+  // 定義全局常量
+  define: {
+    __APP_VERSION__: JSON.stringify(process.env.npm_package_version),
+  },
 })
 
 //@vitejs/plugin-react 是 Vite 官方提供的 React 插件，主要目的是讓 Vite 可以正確處理 React（包含 JSX、TSX、HMR 等功能）的開發與打包。

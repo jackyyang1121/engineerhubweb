@@ -1,0 +1,33 @@
+FROM python:3.11-slim
+
+# 設置工作目錄
+WORKDIR /app
+
+# 安裝系統依賴
+RUN apt-get update && apt-get install -y \
+    gcc \
+    postgresql-client \
+    && rm -rf /var/lib/apt/lists/*
+
+# 複製 requirements
+COPY requirements.txt .
+
+# 安裝 Python 依賴
+RUN pip install --no-cache-dir -r requirements.txt
+RUN pip install gunicorn
+
+# 複製應用程式碼
+COPY . .
+
+# 創建靜態文件目錄
+RUN mkdir -p /app/static /app/media
+
+# 設置環境變量
+ENV PYTHONUNBUFFERED=1
+ENV DJANGO_SETTINGS_MODULE=engineerhub.settings.production
+
+# 暴露端口
+EXPOSE 8000 8001
+
+# 運行命令（會被 docker-compose 覆蓋）
+CMD ["gunicorn", "engineerhub.wsgi:application", "--bind", "0.0.0.0:8000"]

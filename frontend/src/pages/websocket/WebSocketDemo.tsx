@@ -4,7 +4,7 @@
  * 展示各種 WebSocket Hook 的功能和使用方法
  */
 
-import React, { useState, useRef } from 'react';
+import React, { useState } from 'react';
 import {
   SignalIcon,
   ChatBubbleLeftRightIcon,
@@ -43,29 +43,6 @@ const WebSocketDemo: React.FC = () => {
   const chatWS = useChatWebSocket();
   const notificationWS = useNotificationWebSocket();
   const presenceWS = usePresenceWebSocket();
-
-  // 自定義 WebSocket
-  const wsRef = useRef<WebSocket | null>(null);
-
-  // 連接自定義 WebSocket
-  const connectCustomWS = () => {
-    const ws = new WebSocket('ws://localhost:8000/ws/demo/');
-    
-    ws.onmessage = (event) => {
-      const message = JSON.parse(event.data);
-      logger.info('websocket', '自定義 WebSocket 收到訊息', message);
-    };
-    
-    ws.onopen = () => {
-      logger.info('websocket', '自定義 WebSocket 已連接');
-    };
-    
-    ws.onclose = () => {
-      logger.info('websocket', '自定義 WebSocket 已斷開');
-    };
-    
-    wsRef.current = ws;
-  };
 
   // 狀態顯示
   const getStateDisplay = (state: WebSocketState) => {

@@ -13,7 +13,6 @@ import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { PlusIcon, SparklesIcon, UserGroupIcon, FireIcon } from '@heroicons/react/24/outline';
 import { useInfiniteQuery, useQueryClient } from '@tanstack/react-query';
 import { useInView } from 'react-intersection-observer';
-import { toast } from 'react-toastify';
 
 import PostCard from '../../components/posts/PostCard';
 import PostEditor from '../../components/posts/PostEditor';
@@ -50,7 +49,6 @@ const HomePage: React.FC = () => {
   const [showPostEditor, setShowPostEditor] = useState(false);
   const [trendingTopics, setTrendingTopics] = useState<string[]>([]);
   const [recommendedUsers, setRecommendedUsers] = useState<RecommendedUser[]>([]);
-  const [usersLoading, setUsersLoading] = useState(false);
   
   // 防止重複調用的ref
   const isLoadingRecommendedUsers = useRef(false);

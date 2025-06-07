@@ -1,5 +1,5 @@
 // 導入 React 的 useEffect 鉤子，用於在組件渲染後執行副作用（例如檢查認證狀態）
-import { useEffect } from 'react';
+import React, { useEffect, Suspense, lazy } from 'react';
 // 從 react-router-dom 導入路由相關組件：
 // - Routes：用於定義應用程式的路由結構。
 // - Route：用於定義單一路由，指定路徑和對應的元件。
@@ -21,41 +21,33 @@ import 'react-toastify/dist/ReactToastify.css';
 import MainLayout from './components/layouts/MainLayout';
 // 導入 AuthLayout 組件，作為身份驗證相關頁面的布局（如登錄、註冊頁面）。
 import AuthLayout from './components/layouts/AuthLayout';
+import LoadingSpinner from './components/common/LoadingSpinner';
 
+// 懶加載頁面組件
+const HomePage = lazy(() => import('./pages/home/HomePage'));
+const LoginPage = lazy(() => import('./pages/auth/LoginPage'));
+const RegisterPage = lazy(() => import('./pages/auth/RegisterPage'));
+const ProfilePage = lazy(() => import('./pages/profile/ProfilePage'));
+const ExplorePage = lazy(() => import('./pages/explore/ExplorePage'));
+const SearchPage = lazy(() => import('./pages/search/SearchPage'));
+const PostDetailPage = lazy(() => import('./pages/posts/PostDetailPage'));
+const EditProfilePage = lazy(() => import('./pages/profile/ProfilePage'));
+const SettingsPage = lazy(() => import('./pages/settings/SettingsPage'));
+const MessagesPage = lazy(() => import('./pages/MessagesPage'));
+const ChatPage = lazy(() => import('./pages/chat/ChatPage'));
+const SavedPostsPage = lazy(() => import('./pages/saved/SavedPostsPage'));
+const NotificationsPage = lazy(() => import('./pages/notifications/NotificationsPage'));
+const WebSocketDemo = lazy(() => import('./pages/websocket/WebSocketDemo'));
 
-// **身份驗證頁面**
-// 導入 LoginPage 組件，定義用戶登錄頁面。
-import LoginPage from './pages/auth/LoginPage';
-// 導入 RegisterPage 組件，定義用戶註冊頁面。
-import RegisterPage from './pages/auth/RegisterPage';
-// 導入 ForgotPasswordPage 組件，定義忘記密碼頁面。
-import ForgotPasswordPage from './pages/auth/ForgotPasswordPage';
-// 導入 ResetPasswordPage 組件，定義重置密碼頁面。
-import ResetPasswordPage from './pages/auth/ResetPasswordPage';
-
-
-// **應用頁面**
-// 導入 HomePage 組件，定義應用程式的首頁。
-import HomePage from './pages/home/HomePage';
-// 導入 ProfilePage 組件，定義用戶個人資料頁面。
-import ProfilePage from './pages/profile/ProfilePage';
-// 導入 SearchPage 組件，定義搜索功能頁面。
-import SearchPage from './pages/search/SearchPage';
-// 導入 SettingsPage 組件，定義用戶設置頁面。
-import SettingsPage from './pages/settings/SettingsPage';
-// 導入 PostDetailPage 組件，定義單一貼文的詳細資訊頁面。
-import PostDetailPage from './pages/posts/PostDetailPage';
-// 導入 NotificationsPage 組件，定義通知頁面。
-import NotificationsPage from './pages/notifications/NotificationsPage';
-// 導入 MessagesPage 組件，定義訊息總覽頁面。
-import MessagesPage from './pages/MessagesPage';
-// 導入 ChatPage 組件，定義單一聊天對話頁面。
-import ChatPage from './pages/chat/ChatPage';
-// 導入 SavedPostsPage 組件，定義用戶保存的貼文頁面。
-import SavedPostsPage from './pages/saved/SavedPostsPage';
-// 導入 ExplorePage 組件，定義探索頁面（例如發現新內容的頁面）。
-import ExplorePage from './pages/explore/ExplorePage';
-
+// 加載中組件
+const PageLoader = () => (
+  <div className="min-h-screen flex items-center justify-center">
+    <div className="bg-white/70 backdrop-blur-xl rounded-2xl p-8 shadow-xl">
+      <LoadingSpinner size="lg" />
+      <p className="text-slate-600 mt-4 text-center">正在載入頁面...</p>
+    </div>
+  </div>
+);
 
 // **類型定義**
 
@@ -224,26 +216,17 @@ function App() {
             <GuestRoute>
             {/* <GuestRoute> ... </GuestRoute> 是自定義組件，用於包裹頁面元件。 */}
             {/* GuestRoute：限制只有未認證的用戶可以訪問 */}
-              <LoginPage />
-              {/* 導入 LoginPage.tsx 頁面 */}
+              <Suspense fallback={<PageLoader />}>
+                <LoginPage />
+              </Suspense>
             </GuestRoute>
           } />
           {/* 定義註冊頁面路由，使用 GuestRoute 確保只有未認證用戶可訪問 */}
           <Route path="register" element={
             <GuestRoute>
-              <RegisterPage />
-            </GuestRoute>
-          } />
-          {/* 定義忘記密碼頁面路由，使用 GuestRoute 確保只有未認證用戶可訪問 */}
-          <Route path="forgot-password" element={
-            <GuestRoute>
-              <ForgotPasswordPage />
-            </GuestRoute>
-          } />
-          {/* 定義重置密碼頁面路由，使用 GuestRoute 確保只有未認證用戶可訪問 */}
-          <Route path="reset-password" element={
-            <GuestRoute>
-              <ResetPasswordPage />
+              <Suspense fallback={<PageLoader />}>
+                <RegisterPage />
+              </Suspense>
             </GuestRoute>
           } />
         </Route>
@@ -259,64 +242,76 @@ function App() {
           / 👉 會跑 <Route index>
           /explore 👉 不會跑 <Route index>，會找 <Route path="explore">。
           */
-            <ProtectedRoute>
-            {/* <ProtectedRoute> ... </ProtectedRoute> 是自定義組件，用於包裹頁面元件。 */}
-            {/* ProtectedRoute：限制只有已認證的用戶可以訪問 */}
+            <Suspense fallback={<PageLoader />}>
               <HomePage />
-            </ProtectedRoute>
+            </Suspense>
           } />
           {/* 定義探索頁面路由，使用 ProtectedRoute 確保只有已認證用戶可訪問 */}
           <Route path="explore" element={
-            <ProtectedRoute>
+            <Suspense fallback={<PageLoader />}>
               <ExplorePage />
-            </ProtectedRoute>
+            </Suspense>
           } />
           {/* 定義通知頁面路由，使用 ProtectedRoute 確保只有已認證用戶可訪問 */}
           <Route path="notifications" element={
-            <ProtectedRoute>
+            <Suspense fallback={<PageLoader />}>
               <NotificationsPage />
-            </ProtectedRoute>
+            </Suspense>
           } />
           {/* 定義個人資料頁面路由（動態路徑 :username），使用 ProtectedRoute 確保只有已認證用戶可訪問 */}
           <Route path="profile/:username" element={
-            <ProtectedRoute>
+            <Suspense fallback={<PageLoader />}>
               <ProfilePage />
-            </ProtectedRoute>
+            </Suspense>
           } />
           {/* 定義訊息總覽頁面路由，使用 ProtectedRoute 確保只有已認證用戶可訪問 */}
           <Route path="messages" element={
-            <ProtectedRoute>
+            <Suspense fallback={<PageLoader />}>
               <MessagesPage />
-            </ProtectedRoute>
+            </Suspense>
           } />
           {/* 定義單一聊天頁面路由（動態路徑 :conversationId），使用 ProtectedRoute 確保只有已認證用戶可訪問 */}
           <Route path="messages/:conversationId" element={
-            <ProtectedRoute>
+            <Suspense fallback={<PageLoader />}>
               <ChatPage />
-            </ProtectedRoute>
+            </Suspense>
           } />
           {/* 定義貼文詳情頁面路由（動態路徑 :postId），使用 ProtectedRoute 確保只有已認證用戶可訪問 */}
           <Route path="post/:postId" element={
-            <ProtectedRoute>
+            <Suspense fallback={<PageLoader />}>
               <PostDetailPage />
-            </ProtectedRoute>
+            </Suspense>
           } />
           {/* 定義搜索頁面路由，使用 ProtectedRoute 確保只有已認證用戶可訪問 */}
           <Route path="search" element={
-            <ProtectedRoute>
+            <Suspense fallback={<PageLoader />}>
               <SearchPage />
-            </ProtectedRoute>
+            </Suspense>
           } />
           {/* 定義設置頁面路由，使用 ProtectedRoute 確保只有已認證用戶可訪問 */}
           <Route path="settings" element={
-            <ProtectedRoute>
+            <Suspense fallback={<PageLoader />}>
               <SettingsPage />
-            </ProtectedRoute>
+            </Suspense>
           } />
           {/* 定義保存的貼文頁面路由，使用 ProtectedRoute 確保只有已認證用戶可訪問 */}
           <Route path="saved" element={
-            <ProtectedRoute>
+            <Suspense fallback={<PageLoader />}>
               <SavedPostsPage />
+            </Suspense>
+          } />
+          <Route path="profile/edit" element={
+            <ProtectedRoute>
+              <Suspense fallback={<PageLoader />}>
+                <EditProfilePage />
+              </Suspense>
+            </ProtectedRoute>
+          } />
+          <Route path="websocket-demo" element={
+            <ProtectedRoute>
+              <Suspense fallback={<PageLoader />}>
+                <WebSocketDemo />
+              </Suspense>
             </ProtectedRoute>
           } />
         </Route>

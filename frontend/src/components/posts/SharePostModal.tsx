@@ -43,7 +43,7 @@ export const SharePostModal: React.FC<SharePostModalProps> = ({
 }) => {
   const [shareType, setShareType] = useState<ShareType>('quick');
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const currentUser = useAuthStore((state) => state.user);
+  const currentUser = useAuthStore(state => state.user);
   
   const { register, handleSubmit, watch, reset } = useForm<FormData>({
     defaultValues: {
