@@ -75,6 +75,45 @@ services:
     networks:
       - engineerhub_network
 
+  # ==================== Celery 服務（可選啟用） ====================
+  # 如果需要測試異步任務，取消以下註釋：
+  
+  # celery_worker:
+  #   build:
+  #     context: ./backend
+  #     dockerfile: Dockerfile.dev
+  #   container_name: engineerhub_celery_worker_dev
+  #   volumes:
+  #     - ./backend:/app
+  #   environment:
+  #     - DJANGO_SETTINGS_MODULE=engineerhub.settings.development
+  #     - DB_HOST=postgres
+  #     - REDIS_URL=redis://redis:6379/0
+  #   depends_on:
+  #     - postgres
+  #     - redis
+  #   networks:
+  #     - engineerhub_network
+  #   command: celery -A engineerhub worker -l info
+
+  # celery_beat:
+  #   build:
+  #     context: ./backend
+  #     dockerfile: Dockerfile.dev
+  #   container_name: engineerhub_celery_beat_dev
+  #   volumes:
+  #     - ./backend:/app
+  #   environment:
+  #     - DJANGO_SETTINGS_MODULE=engineerhub.settings.development
+  #     - DB_HOST=postgres
+  #     - REDIS_URL=redis://redis:6379/0
+  #   depends_on:
+  #     - postgres
+  #     - redis
+  #   networks:
+  #     - engineerhub_network
+  #   command: celery -A engineerhub beat -l info
+
 volumes:
   postgres_data:
     driver: local
