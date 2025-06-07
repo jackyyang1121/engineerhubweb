@@ -19,12 +19,40 @@ const LoginPage = () => { // 定義 LoginPage 組件，這是一個函數式組�
   
   // 用戶之前想要訪問的頁面，如果沒有指定則默認為首頁（根路徑 '/'）
   const from = (location.state as { from?: { pathname: string } })?.from?.pathname || '/';
+  /*
+  from?：表示 from 屬性是可選的（undefined 或 { pathname: string }）。
+  而這邊的from是我在App.tsx中的<Navigate>裡自定義的變數，儲存的是location
+  pathname：是 from 物件中的一個字串屬性，表示路徑（這邊是根路徑 '/'）。
+
+  這裡用了兩個 ?.（Optional Chaining），用於安全地存取深層屬性，避免出現 undefined 或 null 導致的錯誤。
+  第一個 ?.from：
+  如果 location.state as { from?: { pathname: string } } 是 undefined 或沒有 from 屬性，就直接返回 undefined，不繼續往下存取。
+  第二個 ?.pathname：
+  同理，如果 from 是 undefined 或 null，就直接返回 undefined。
+
+  || '/'
+  這部分是 邏輯或（Logical OR）：
+  如果左邊的值是「真值」（truthy），就直接回傳左邊的值。
+  如果左邊的值是「假值」（falsy），就去看右邊的值。
+  如果左邊的結果是 undefined 或 null 或其他 falsy 值（像 ''），就會回退到 '/'（首頁）。
+
+  總結：
+  1. 如果 location.state 有 from 屬性，且 from 有 pathname 屬性，就回傳 from.pathname。
+  2. 如果 location.state 沒有 from 屬性，或者 from 沒有 pathname 屬性，就回傳 '/'。
+  */
   
   const { 
     register, // register 函數，用於註冊表單字段
     handleSubmit, // handleSubmit 函數，用於處理表單提交
     formState: { errors } // formState 中的 errors 對象，用於存儲表單驗證錯誤信息
   } = useForm<LoginFormInputs>(); // 使用 useForm 鉤子，指定表單數據類型為 LoginFormInputs
+  /*
+  這裡的 useForm<LoginFormInputs>() 之所以使用 < >（尖括號），是因為 TypeScript 的泛型語法。
+  泛型是 TypeScript（和其他許多語言）的一種語法，讓函數、類別或介面可以在宣告時不指定具體的型別，而是在使用時再傳入具體的型別。這樣能提高程式的靈活性和型別安全。
+  LoginFormInputs 是我訂的介面（interface），裡面定義了表單的欄位與型別
+  我把這個介面當作泛型參數給 useForm，就是告訴它：
+  「這個表單的輸入資料結構長這樣，我希望 TypeScript 幫我根據這個結構來做型別檢查和自動補全。」
+  */
   
   const onSubmit = async (data: LoginFormInputs) => { // 定義 onSubmit 函數，處理表單提交邏輯，data 包含表單數據
     setIsLoading(true); // 設置 isLoading 為 true，表示開始加載
@@ -63,6 +91,7 @@ const LoginPage = () => { // 定義 LoginPage 組件，這是一個函數式組�
       <form className="space-y-6" onSubmit={handleSubmit(onSubmit)}> {/* 登錄表單，字段間有垂直間距，提交時觸發 onSubmit */}
         <div> {/* 電子郵件輸入區域 */}
           <label htmlFor="email" className="block text-sm font-medium text-white mb-2"> {/* 電子郵件標籤，白色中等字體 */}
+           {/* 這邊的htmlFor是與input的id屬性相對應，用於建立表單元素之間的關聯，這樣當點擊標籤時，會自動聚焦到對應的輸入框 */}
             電子郵件
           </label>
           <div className="relative"> {/* 電子郵件輸入框的相對定位容器 */}

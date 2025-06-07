@@ -30,7 +30,7 @@ import LoginPage from './pages/auth/LoginPage';
 import RegisterPage from './pages/auth/RegisterPage';
 // 導入 ForgotPasswordPage 組件，定義忘記密碼頁面。
 import ForgotPasswordPage from './pages/auth/ForgotPasswordPage';
-// 導入 ResetPasswordPage 組件，定義重置密碼頁面。
+// 導入 ResetPasswordPage 組件，定義重置密碼頁面。 
 import ResetPasswordPage from './pages/auth/ResetPasswordPage';
 
 
@@ -91,6 +91,7 @@ const ProtectedRoute = ({ children }: ProtectedRouteProps) => {
     //state 是 react-router-dom（React Router）裡 <Navigate> 元件的 一個 prop，並不是 TypeScript 內建的，也不是 JavaScript 內建的。
     //這裡的 state={{ from: location }} 是把目前頁面的 location（也就是目前 URL 狀態）包起來，傳給 /login 頁面，方便 /login 頁面知道用戶從哪裡來。
     //location 是 react-router-dom 提供的一個hook，用於獲取當前路由位置。
+    //from是自定義變數，location是react-router-dom提供的一個hook，用於獲取當前路由位置。
   }
   
   // 如果用戶已認證，渲染子組件（即被保護的頁面內容）。
@@ -338,6 +339,11 @@ function App() {
         pauseOnHover // 鼠標懸停時暫停通知
         theme="colored" // 使用彩色主題
       />
+      {/* 
+      ToastContainer 是全局的，只需要在應用的入口（通常是 App.tsx）設定一次。
+      之後，只需要在任何地方（不管是 LoginForm.tsx、Dashboard.tsx 或其他元件）呼叫 toast.success()、toast.error() 就可以使用。
+      react-toastify 會自動將提示信息渲染到剛才在 App.tsx 中設置好的 ToastContainer 上。
+ */}
     </>
   );
 }
