@@ -14,7 +14,7 @@ const ForgotPasswordPage = () => {
   const [isLoading, setIsLoading] = useState(false);
   const [isSubmitted, setIsSubmitted] = useState(false);
   
-  const { 
+  const { //解構賦值
     register, 
     handleSubmit, 
     formState: { errors } 
