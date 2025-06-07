@@ -23,12 +23,32 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { ReactQueryDevtools } from '@tanstack/react-query-devtools';
 
 // 匯入App.tsx
-import App from './App';
+import App from './App.tsx';
 
 // 匯入index.css
 import './index.css';
 
+// 導入日誌系統
+import { logger, LogLevel } from './utils/logger';
 
+// 導入全局錯誤處理器
+import { setupGlobalErrorHandlers } from './utils/errorHandler';
+
+// 設置日誌等級
+if ((import.meta as any).env?.MODE === 'production') {
+  logger.setLevel(LogLevel.WARN); // 生產環境只記錄警告以上的日誌
+} else {
+  logger.setLevel(LogLevel.DEBUG); // 開發環境記錄所有日誌
+}
+
+// 設置全局錯誤處理
+setupGlobalErrorHandlers();
+
+// 記錄應用啟動
+logger.info('info', 'EngineerHub 應用啟動', {
+  mode: (import.meta as any).env?.MODE || 'development',
+  timestamp: new Date().toISOString()
+});
 
 // 創建一個新的 React Query 的客戶端（queryClient）。
 // 這個客戶端會設定全域的預設行為，例如 staleTime、refetchOnWindowFocus、retry 次數等。
@@ -56,15 +76,11 @@ const queryClient = new QueryClient({
 // 你打開留言區，但留言都還是上次看到的，沒更新最新留言。
 // 也就是說，資料就不會跟後端保持同步。
 
-
-
-
 // 使用 React 18 提供的 createRoot API，將 React App 掛載到 HTML 中 id="root" 的元素上。
-  //在 HTML 中找不到 id="root" 的元素，這個方法就會回傳 null，而編輯器會提醒我可能是null而跑出一個提醒。 
-  //因此如果保證有id="root"的話就可以加!，功能是:告訴編輯器我保證這個值絕對不會是 null 或 undefined，所以請不要報錯。
+// 在 HTML 中找不到 id="root" 的元素，這個方法就會回傳 null，而編輯器會提醒我可能是null而跑出一個提醒。 
+// 因此如果保證有id="root"的話就可以加!，功能是:告訴編輯器我保證這個值絕對不會是 null 或 undefined，所以請不要報錯。
 ReactDOM.createRoot(document.getElementById('root')!).render(
   // 呼叫 render() 來開始渲染整個 React 應用程式。
-
 
   // 使用 React.StrictMode 包裹 App 元件：
   // 這個模式只在開發環境下額外執行檢查（例如找出不安全的生命週期），不會影響正式環境。
@@ -104,3 +120,17 @@ ReactDOM.createRoot(document.getElementById('root')!).render(
     </QueryClientProvider>
   </React.StrictMode>,
 );
+
+// 監聽應用性能
+if ('performance' in window) {
+  window.addEventListener('load', () => {
+    const perfData = performance.getEntriesByType('navigation')[0] as PerformanceNavigationTiming;
+    if (perfData) {
+      logger.info('performance', '頁面載入性能', {
+        domContentLoaded: Math.round(perfData.domContentLoadedEventEnd - perfData.domContentLoadedEventStart),
+        loadComplete: Math.round(perfData.loadEventEnd - perfData.loadEventStart),
+        totalTime: Math.round(perfData.loadEventEnd - perfData.fetchStart)
+      });
+    }
+  });
+}

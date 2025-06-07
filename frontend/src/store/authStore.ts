@@ -3,6 +3,7 @@ import { devtools, persist } from 'zustand/middleware'; // 導入 zustand 的中
 import { jwtDecode } from 'jwt-decode'; // 導入 jwt-decode 函數，用於解碼 JWT 令牌
 import type { UserData } from '../api/authApi'; // 導入 UserData 類型，從 authApi 文件中
 import * as authApi from '../api/authApi'; // 導入 authApi 模塊中的所有導出內容
+import { logger } from '../utils/logger'; // 導入統一的日誌系統
 
 interface JwtPayload { // 定義 JwtPayload 接口，用於指定 JWT 令牌解碼後的 payload 結構
   exp: number; // 令牌的過期時間（Unix 時間戳）
@@ -152,7 +153,7 @@ export const useAuthStore = create<AuthState>()( // 使用 create 函數創建�
           try {
             await authApi.logout(); // 調用 authApi 的 logout 函數進行登出
           } catch (error) {
-            console.error('登出時出錯', error); // 記錄登出錯誤
+            logger.error('auth', '登出時出錯', error); // 使用統一的日誌系統記錄錯誤
           } finally { //finally 是 JavaScript 中 try...catch...finally 語法的一部分，用來保證「不論 try 區塊裡的程式碼是否執行成功（沒有錯誤）或失敗（有錯誤），都一定會執行 finally 區塊裡的程式碼」。
             // 清除 localStorage 中的 token
             localStorage.removeItem('engineerhub_token'); // 移除訪問令牌
@@ -171,14 +172,14 @@ export const useAuthStore = create<AuthState>()( // 使用 create 函數創建�
         checkAuth: async () => { // 定義 checkAuth 方法，檢查認證狀態
           const { token, refreshAuth } = get(); // 從 store 中獲取 token 和 refreshAuth 方法
 
-          console.log('🔐 檢查認證狀態:', {
+          logger.debug('auth', '檢查認證狀態', {
             hasToken: !!token,   //兩個驚嘆號是布林運算子，用來檢查token是否存在，邏輯是：如果token存在，則為true，否則為false
             tokenPreview: token ? token.substring(0, 20) + '...' : 'None'  //如果token存在，則顯示token的前20個字元，否則顯示'None'
           }); // 記錄調試信息
 
           // 如果沒有令牌，則未認證
           if (!token) {
-            console.log('❌ 沒有 token，設為未認證');
+            logger.info('auth', '沒有 token，設為未認證');
             set({ isAuthenticated: false }); // 設置認證狀態為 false
             return false;
           }
@@ -188,7 +189,7 @@ export const useAuthStore = create<AuthState>()( // 使用 create 函數創建�
             const decoded = jwtDecode<JwtPayload>(token); // 解碼 JWT 令牌
             const currentTime = Date.now() / 1000; // 獲取當前時間（Unix 時間戳）
 
-            console.log('🔐 Token 解碼結果:', {
+            logger.debug('auth', 'Token 解碼結果', {
               exp: decoded.exp,
               currentTime,
               isExpired: decoded.exp <= currentTime,
@@ -198,26 +199,26 @@ export const useAuthStore = create<AuthState>()( // 使用 create 函數創建�
             // 如果令牌還有效，獲取最新的用戶信息
             if (decoded.exp > currentTime) {
               try {
-                console.log('✅ Token 有效，獲取用戶信息...');
+                logger.info('auth', 'Token 有效，獲取用戶信息...');
                 const user = await authApi.getCurrentUser(); // 調用 authApi 獲取當前用戶信息
-                console.log('✅ 用戶信息獲取成功:', user.username);
+                logger.info('success', `用戶信息獲取成功: ${user.username}`);
                 set({ user, isAuthenticated: true }); // 更新用戶信息和認證狀態
                 return true;
               } catch (error) {
-                console.error('❌ 獲取用戶信息失敗:', error);
+                logger.error('auth', '獲取用戶信息失敗', error);
                 // 如果獲取用戶信息失敗，嘗試刷新 token
-                console.log('🔄 嘗試刷新 token...');
+                logger.info('auth', '嘗試刷新 token...');
                 return refreshAuth(); // 調用 refreshAuth 方法刷新令牌
               }
             } else {
               // 令牌過期，嘗試刷新
-              console.log('⏰ Token 已過期，嘗試刷新...');
+              logger.warn('auth', 'Token 已過期，嘗試刷新...');
               return refreshAuth(); // 調用 refreshAuth 方法刷新令牌
             }
           } catch (error) {
             // 解碼令牌出錯，嘗試刷新
-            console.error('❌ Token 解碼失敗:', error);
-            console.log('🔄 嘗試刷新 token...');
+            logger.error('auth', 'Token 解碼失敗', error);
+            logger.info('auth', '嘗試刷新 token...');
             return refreshAuth(); // 調用 refreshAuth 方法刷新令牌
           }
         },
@@ -225,13 +226,13 @@ export const useAuthStore = create<AuthState>()( // 使用 create 函數創建�
         refreshAuth: async () => { // 定義 refreshAuth 方法，刷新認證令牌
           const { refreshToken } = get(); // 從 store 中獲取 refreshToken
 
-          console.log('🔄 嘗試刷新認證:', {
+          logger.debug('auth', '嘗試刷新認證', {
             hasRefreshToken: !!refreshToken,
             refreshTokenPreview: refreshToken ? refreshToken.substring(0, 20) + '...' : 'None'
           }); // 記錄調試信息
 
           if (!refreshToken) { // 如果沒有 refreshToken
-            console.log('❌ 沒有 refresh token，清除認證狀態');
+            logger.warn('auth', '沒有 refresh token，清除認證狀態');
             // 清除所有 token
             localStorage.removeItem('engineerhub_token');
             localStorage.removeItem('engineerhub_refresh_token');
@@ -246,7 +247,7 @@ export const useAuthStore = create<AuthState>()( // 使用 create 函數創建�
           }
 
           try {
-            console.log('🔄 調用 refresh token API...');
+            logger.info('auth', '調用 refresh token API...');
             // 使用 fetch 調用刷新 token 的 API
             const response = await fetch(`${import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000/api'}/auth/token/refresh/`, {
               method: 'POST',
@@ -263,7 +264,7 @@ export const useAuthStore = create<AuthState>()( // 使用 create 函數創建�
             }
 
             const data = await response.json(); // 解析響應數據
-            console.log('✅ Token 刷新成功');
+            logger.info('success', 'Token 刷新成功');
 
             // 同步新 token 到 localStorage
             localStorage.setItem('engineerhub_token', data.access); // 存儲新的訪問令牌
@@ -282,7 +283,7 @@ export const useAuthStore = create<AuthState>()( // 使用 create 函數創建�
             });
             return true;
           } catch (error) { // 捕獲刷新過程中的錯誤
-            console.error('❌ Token 刷新失敗:', error);
+            logger.error('auth', 'Token 刷新失敗', error);
             // 清除所有 token
             localStorage.removeItem('engineerhub_token');
             localStorage.removeItem('engineerhub_refresh_token');
