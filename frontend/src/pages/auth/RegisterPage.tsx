@@ -61,10 +61,12 @@ const RegisterPage = () => {
 
   const password1 = watch('password1'); // 這行的作用是「監視表單中 password1 這個欄位的值變化」，它會即時反映用戶輸入的密碼。
   
-  const onSubmit = async (data: RegisterFormInputs) => {
+  const onSubmit = async (data: RegisterFormInputs) => {  //要提交時用戶輸入的資料都已經存在RegisterFormInputs的裡面並傳給data了
+    //這個函式是當用戶按下註冊按鈕時，就會觸發的函式
     setIsLoading(true);
     setServerErrors({});
     
+    //以下測的錯誤就是後端API 回應的實際錯誤(例如：username已經被註冊過、HTTP 400 響應...)
     try {
       await register({
         username: data.username,
@@ -81,11 +83,42 @@ const RegisterPage = () => {
       
       // 類型保護函數
       const isRegisterError = (err: unknown): err is RegisterErrorResponse => {
+        /*
+        err 是傳進來的錯誤物件，型別是 unknown。
+        unknown 是 TypeScript 的安全型別，表示「我不確定它是什麼」。
+        TypeScript 不知道 err 是什麼型別（可能是 Error、string、number，通通都可能）。
+        所以如果我寫 err.response，TypeScript 會報錯：「我不知道這個東西有沒有 response 屬性啊！」
+        err is RegisterErrorResponse就是型別保護，就是幫 TypeScript 說「我幫你檢查好了！」
+        如果回傳 true，TypeScript 會把 err 視為 RegisterErrorResponse。(基本上都會回傳true除非RegisterErrorResponse的型別設置有誤)
+        這樣我可以在後續程式裡可以安全地使用 err.response 等屬性，不用再額外判斷或斷言。
+        */
         return typeof err === 'object' && err !== null && 'response' in err;
+        /*
+        typeof err === 'object' && err !== null && 'response' in err;
+        這行是 TypeScript 的型別檢查，確保 err 是物件，不是 null，並且有 response 屬性。
+        */
+       /*
+       可以這樣理解：
+       typeof err === 'object' → 這是問：「你是不是一個盒子？」
+       err !== null → 這是問：「你不是空的盒子？」
+       'response' in err → 這是問：「盒子裡有沒有一個叫 response 的東西？」
+
+       最後，如果這三個條件都成立，TypeScript 會說：「好，我確定 err 是 RegisterErrorResponse 型別的物件。」並回傳true
+       */
       };
       
       // 處理後端返回的詳細錯誤信息
-      if (isRegisterError(error) && error.response?.data) {
+      if (isRegisterError(error) && error.response?.data) { // 這邊的error是上面catch抓到的error
+        /*
+        先確認 error 是「帶有 response 的錯誤物件」 （用 isRegisterError(error) 判斷）
+        如果是，才嘗試拿 error.response.data 的內容
+        如果不是，整個判斷就是 false，不會繼續拿 response.data
+        */
+        /*
+        用?來避免報錯
+        如果 error.response 存在，就會拿到 data 的值。
+        如果 error.response 不存在，整個表達式回傳 undefined，不會報錯。
+        */
         const errorData = error.response.data;
         
         // 如果有字段特定的錯誤
@@ -98,16 +131,16 @@ const RegisterPage = () => {
               ? errorData.password1 
               : [errorData.password1];
             
-            // 設置表單錯誤
+            // 設置表單錯誤訊息
             setError('password1', {
-              type: 'server',
-              message: fieldErrors.password1[0]
+              type: 'server',   // type是自訂的，用來區分錯誤類型
+              message: fieldErrors.password1[0] //fieldErrors.password1[0] 是取第一個錯誤訊息
             });
           }
           
           // 用戶名錯誤
           if (errorData.username) {
-            fieldErrors.username = Array.isArray(errorData.username) 
+            fieldErrors.username = Array.isArray(errorData.username) //Array.isArray是 JavaScript 內建的函數，用來檢查一個值是否是陣列
               ? errorData.username 
               : [errorData.username];
               
@@ -174,7 +207,7 @@ const RegisterPage = () => {
               className={`w-full px-4 py-3 bg-white/10 backdrop-blur-sm border border-white/20 rounded-xl text-white placeholder-white/60 focus:outline-none focus:ring-2 focus:ring-blue-400 focus:border-transparent transition-all duration-300 ${
                 errors.first_name ? 'border-red-400 ring-2 ring-red-400' : ''
               }`}
-              {...registerField('first_name', { required: '請輸入名字' })}
+              {...registerField('first_name', { required: '請輸入名字' })}   //檢查欄位是否為空。
               // 'first_name'只是字串，並不是變數或被限制只能用 RegisterFormInputs 裡的欄位，理論上你可以放任意字串，但通常會對應 interface 裡的 key，以確保型別安全。
               // registerField 繼承register，是useform內建的函式
               /*
@@ -187,18 +220,20 @@ const RegisterPage = () => {
                 // 可能還有其他屬性
               }
               */
-             /*
-             值是存在於 useForm Hook 管理的「表單狀態」中，也就是在上面的:
-             const { 
-              register: registerField,
-              handleSubmit, 
-              formState: { errors },
-              setError,
-              watch
-            } = useForm<RegisterFormInputs>();
-             送出時，透過 handleSubmit 的回呼拿到（例如 handleSubmit(onSubmit)）
-             隨時取得時，可以用 watch() 看（例如 watch('first_name')）
+              /*
+             　值是存在於 useForm Hook 管理的「表單狀態」中，也就是在上面的:
+             　const { 
+              　register: registerField,
+              　handleSubmit, 
+              　formState: { errors },
+              　setError,
+              　watch
+            　　} = useForm<RegisterFormInputs>();
+             　送出時，透過 handleSubmit 的回呼拿到（例如 handleSubmit(onSubmit)）
+             　隨時取得時，可以用 watch() 看（例如 watch('first_name')）
              */
+             // 如果驗證失敗，錯誤信息會被存儲在 formState 的 errors 物件中，例如 errors.username。
+             // 驗證成功：值儲存在 React Hook Form 的內部狀態，可通過 watch、 getValues 或 handleSubmit 的 data 物件存取。
             />
             {errors.first_name && (
               <p className="mt-1 text-sm text-red-300">{errors.first_name.message}</p>
@@ -219,7 +254,7 @@ const RegisterPage = () => {
               }`}
               {...registerField('last_name', { required: '請輸入姓氏' })}
             />
-            {errors.last_name && (
+            {errors.last_name && (   
               <p className="mt-1 text-sm text-red-300">{errors.last_name.message}</p>
             )}
           </div>
@@ -244,9 +279,10 @@ const RegisterPage = () => {
                 value: 3,
                 message: '用戶名至少需要3個字符'
               } //這邊只是驗證規則而已，不會被展開送入useForm的表單狀態
+              // required和minLength......都是React Hook Form的內建驗證規則
             })}
           />
-          {errors.username && (
+          {errors.username && (    //顯示上面驗證規則未通過的錯誤訊息，errors.username是從useForm裡面解構出來的
             <p className="mt-1 text-sm text-red-300">{errors.username.message}</p>
           )}
           {serverErrors.username && serverErrors.username.map((error, index) => (
@@ -359,7 +395,7 @@ const RegisterPage = () => {
               className="absolute right-3 top-1/2 transform -translate-y-1/2 text-white/60 hover:text-white transition-colors duration-200"
             >
               {showConfirmPassword ? (
-                <EyeSlashIcon className="h-5 w-5" />
+                <EyeSlashIcon className="h-5 w-5" />    //EyeSlashIcon是從react-icons/fa裡面import來的眼睛圖示
               ) : (
                 <EyeIcon className="h-5 w-5" />
               )}
@@ -374,14 +410,15 @@ const RegisterPage = () => {
         <div className="flex items-start">
           <input
             id="terms"
-            type="checkbox"
+            type="checkbox"    // 這個 type="checkbox" 就是把它變成可以勾選的小方格
             className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-white/30 rounded bg-white/10 mt-1"
-                         {...registerField('terms', { required: '請同意服務條款' })}
+            {...registerField('terms', { required: '請同意服務條款' })}
           />
           <label htmlFor="terms" className="ml-3 text-sm text-indigo-200 leading-relaxed">
             我同意{' '}
-            <Link to="/terms" className="text-blue-300 hover:text-blue-200 transition-colors duration-200">
-              服務條款
+            <Link to="/terms" className="text-blue-300 hover:text-blue-200 transition-colors duration-200">  
+            {/* 還沒有做terms和privacy的頁面 */}
+              服務條款   
             </Link>{' '}
             和{' '}
             <Link to="/privacy" className="text-blue-300 hover:text-blue-200 transition-colors duration-200">
