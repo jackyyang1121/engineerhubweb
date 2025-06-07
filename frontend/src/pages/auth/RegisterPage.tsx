@@ -408,6 +408,7 @@ const RegisterPage = () => {
           {errors.password1 && (
             <p className="mt-1 text-sm text-red-300">{errors.password1.message}</p>
           )}
+          {/* 後端尚未實施密碼驗證，所以這邊不會觸發，但可以留著之後觸發 */}
           {serverErrors.password1 && serverErrors.password1.map((error, index) => (   //這邊把後端驗證的錯誤訊息顯示出來
             <p key={index} className="mt-1 text-sm text-red-300">{error}</p>
           ))}
