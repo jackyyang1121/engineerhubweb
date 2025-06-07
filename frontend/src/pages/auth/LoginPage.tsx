@@ -15,6 +15,9 @@ const LoginPage = () => { // 定義 LoginPage 組件，這是一個函數式組�
   const location = useLocation(); // 獲取 location 對象，用於獲取當前頁面的路徑信息
   const [isLoading, setIsLoading] = useState(false); // 定義 isLoading 狀態，初始值為 false，用於控制表單提交時的加載狀態
   const [showPassword, setShowPassword] = useState(false); // 定義 showPassword 狀態，初始值為 false，用於控制密碼是否可見
+  
+  
+  
   const login = useAuthStore(state => state.login); // 從 useAuthStore 中提取 login 函數，用於執行登錄操作
   
   // 用戶之前想要訪問的頁面，如果沒有指定則默認為首頁（根路徑 '/'）
