@@ -21,9 +21,13 @@ interface RegisterErrorResponse {
       username?: string | string[];
       email?: string | string[];
       password1?: string | string[];
-      non_field_errors?: string | string[];
-      detail?: string;
+      error?: string;
       [key: string]: unknown;
+      /*
+      在 data 物件中，[key: string]: unknown 表示 data 可以包含除了明確定義的屬性
+     （username、email、password1、error）之外的其他任意鍵值對，且這些值的型別未知（unknown）。
+      */
+     //但因為後端沒寫其他返回值所以基本用不到
     };
   };
   message?: string;
@@ -152,7 +156,9 @@ const RegisterPage = () => {
         if (errorData.password1 || errorData.username || errorData.email) {
           const fieldErrors: Record<string, string[]> = {};
           
-          // 密碼錯誤
+          // 目前尚未實施後端password1的驗證，所以這邊目前不管怎麼驗證都是對的，
+          // 甚至根本沒有errorData.password1，所以這邊根本不會觸發
+          // 但密碼最好是有驗證機制因此這邊還是保留，之後可以在後端新增驗證
           if (errorData.password1) {
             fieldErrors.password1 = Array.isArray(errorData.password1) 
               ? errorData.password1 
@@ -199,17 +205,17 @@ const RegisterPage = () => {
           setServerErrors(fieldErrors);  
           // 這行對應上面const [serverErrors, setServerErrors] = useState<Record<string, string[]>>({});
           // 把錯誤訊息儲存在serverErrors裡面，底下渲染時會把它顯示出來
-        } else if (errorData.non_field_errors) {
-          // 通用錯誤
-          toast.error(Array.isArray(errorData.non_field_errors) 
-            ? errorData.non_field_errors[0] 
-            : errorData.non_field_errors);
-        } else if (errorData.detail) {
-          toast.error(errorData.detail);
+        } else if (errorData.error) {  // 🆕 新增：處理後端的 error 字段
+          toast.error(errorData.error);
         } else {
+          // 以上錯誤都沒匹配，但是data還是有錯，可能返回其他錯誤的響應，所以顯示錯誤訊息
           toast.error('註冊失敗，請檢查您的信息');
         }
-      } else {   //這邊是err is RegisterErrorResponse有問題像是錯誤的型別，或是isRegisterError呼叫後端但傳回的API沒有data的錯誤(例如：HTTP 500 響應...)
+      } else {   
+          // 錯誤情況：
+          // 1. 類型不符合 RegisterErrorResponse（如網絡錯誤、普通 Error 對象）
+          // 2. HTTP 響應存在但沒有 data（如某些 HTTP 500 響應）
+          // 3. 網絡層面的錯誤（超時、DNS 失敗等）
         toast.error('註冊失敗，請稍後再試');
       }
     } finally {

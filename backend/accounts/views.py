@@ -78,7 +78,7 @@ class UserRegistrationView(generics.CreateAPIView):
         # 記錄註冊日誌
         logger.info(f'新用戶註冊: {user.username} from {get_client_ip(self.request)}')
 
-
+#密碼password1沒有驗證，之後可以新增驗證規則
 class SimpleRegistrationView(generics.CreateAPIView):
     """
     簡化的用戶註冊視圖
