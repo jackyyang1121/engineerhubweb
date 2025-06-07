@@ -7,8 +7,8 @@ import { create } from 'zustand';
 import { devtools, persist } from 'zustand/middleware';
 import { apiClient } from '../api/client';
 import { logger } from '../utils/logger';
-import { errorManager, AppError, ErrorType } from '../utils/errorHandler';
-import type { Post, CreatePostData, UpdatePostData } from '../types';
+import { errorManager, AppError } from '../utils/errorHandler';
+import type { Post, CreatePostData, UpdatePostData } from '../api/postApi';
 
 // Store 狀態介面
 interface PostState {

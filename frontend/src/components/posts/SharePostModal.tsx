@@ -24,6 +24,7 @@ interface SharePostModalProps {
   isOpen: boolean;                     // 是否顯示模態
   onClose: () => void;                 // 關閉回調
   onShared: () => void;                // 轉發成功回調
+  onSuccess?: () => void;              // 成功回調
 }
 
 interface FormData {
@@ -37,7 +38,8 @@ export const SharePostModal: React.FC<SharePostModalProps> = ({
   post,
   isOpen,
   onClose,
-  onShared
+  onShared,
+  onSuccess
 }) => {
   const [shareType, setShareType] = useState<ShareType>('quick');
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -67,6 +69,9 @@ export const SharePostModal: React.FC<SharePostModalProps> = ({
       // 調用回調
       onShared();
       onClose();
+      if (onSuccess) {
+        onSuccess();
+      }
     } catch (error) {
       logger.error('post', '轉發失敗', error);
       const appError = error instanceof AppError 
@@ -103,6 +108,9 @@ export const SharePostModal: React.FC<SharePostModalProps> = ({
       // 調用回調
       onShared();
       onClose();
+      if (onSuccess) {
+        onSuccess();
+      }
     } catch (error) {
       logger.error('post', '引用轉發失敗', error);
       const appError = error instanceof AppError 

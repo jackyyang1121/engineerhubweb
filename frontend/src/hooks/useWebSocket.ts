@@ -6,7 +6,6 @@
  */
 
 import { useState, useEffect, useRef, useCallback } from 'react';
-import { getWebSocketURL } from '../api/client';
 
 // WebSocket 連接狀態
 export enum WebSocketState {
@@ -59,6 +58,13 @@ interface UseWebSocketReturn {
   // WebSocket 實例（謹慎使用）
   webSocket: WebSocket | null;
 }
+
+// 獲取 WebSocket URL
+const getWebSocketURL = (path: string): string => {
+  const wsProtocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+  const host = (import.meta as any).env?.VITE_WS_URL || window.location.host;
+  return `${wsProtocol}//${host}/ws${path}`;
+};
 
 /**
  * WebSocket Hook

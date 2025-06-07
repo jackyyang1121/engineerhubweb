@@ -244,7 +244,7 @@ export interface PortfolioProject {
   youtube_url?: string;
   technologies: string[];
   is_featured: boolean;
-  order: number;
+  views?: number;         // 查看次數
   created_at: string;
   updated_at: string;
 }

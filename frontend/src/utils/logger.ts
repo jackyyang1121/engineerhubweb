@@ -37,7 +37,8 @@ const logCategories = {
   user: '👤',        // 用戶操作
   chat: '💬',        // 聊天相關
   post: '📝',        // 貼文相關
-  notification: '🔔' // 通知相關
+  notification: '🔔', // 通知相關
+  portfolio: '🎨'    // 作品集相關
 } as const;
 
 type LogCategory = keyof typeof logCategories;
@@ -67,79 +68,78 @@ class Logger {
     return Logger.instance;
   }
 
-  // 格式化時間戳
-  private formatTimestamp(): string {
-    const now = new Date();
-    return `[${now.toLocaleTimeString('zh-TW')}.${now.getMilliseconds().toString().padStart(3, '0')}]`;
-  }
-
-  // 格式化日誌消息
-  private formatMessage(
-    level: LogLevel,
-    category: LogCategory,
-    message: string,
-    data?: any
-  ): string {
-    const parts: string[] = [];
-    
-    // 添加時間戳
-    if (this.config.enableTimestamp) {
-      parts.push(this.formatTimestamp());
+  // 獲取級別顏色
+  private getLevelColor(level: LogLevel): string {
+    switch (level) {
+      case LogLevel.DEBUG:
+        return '#9CA3AF';  // gray-400
+      case LogLevel.INFO:
+        return '#3B82F6';  // blue-500
+      case LogLevel.WARN:
+        return '#F59E0B';  // amber-500
+      case LogLevel.ERROR:
+        return '#EF4444';  // red-500
+      case LogLevel.CRITICAL:
+        return '#991B1B';  // red-800
+      default:
+        return '#6B7280';  // gray-500
     }
-    
-    // 添加前綴
-    parts.push(`[${this.config.prefix}]`);
-    
-    // 添加類別圖標
-    parts.push(logCategories[category]);
-    
-    // 添加消息
-    parts.push(message);
-    
-    return parts.join(' ');
   }
 
-  // 獲取日誌等級名稱
-  private getLevelName(level: LogLevel): string {
-    return LogLevel[level];
+  // 獲取控制台方法
+  private getConsoleMethod(level: LogLevel): keyof Console {
+    switch (level) {
+      case LogLevel.DEBUG:
+        return 'log';
+      case LogLevel.INFO:
+        return 'info';
+      case LogLevel.WARN:
+        return 'warn';
+      case LogLevel.ERROR:
+      case LogLevel.CRITICAL:
+        return 'error';
+      default:
+        return 'log';
+    }
   }
 
-  // 輸出日誌
+  // 統一的日誌方法
   private log(
-    level: LogLevel,
+    logLevel: LogLevel,
     category: LogCategory,
     message: string,
-    data?: any
+    payload?: any
   ): void {
-    // 檢查日誌等級
-    if (level < this.config.level) {
+    // 檢查日誌級別是否應該輸出
+    if (logLevel < this.config.level) {
       return;
     }
 
-    const formattedMessage = this.formatMessage(level, category, message, data);
+    // 構建日誌信息
+    const timestamp = new Date().toLocaleTimeString();
+    const categoryIcon = logCategories[category];
+    const levelColor = this.getLevelColor(logLevel);
+    const levelName = Object.keys(LogLevel).find(
+      key => LogLevel[key as keyof typeof LogLevel] === logLevel
+    ) || 'UNKNOWN';
 
-    // 輸出到控制台
-    if (this.config.enableConsole) {
-      switch (level) {
-        case LogLevel.DEBUG:
-          console.log(formattedMessage, data || '');
-          break;
-        case LogLevel.INFO:
-          console.info(formattedMessage, data || '');
-          break;
-        case LogLevel.WARN:
-          console.warn(formattedMessage, data || '');
-          break;
-        case LogLevel.ERROR:
-        case LogLevel.CRITICAL:
-          console.error(formattedMessage, data || '');
-          break;
-      }
-    }
+    // 格式化輸出
+    const formattedMessage = `[${timestamp}] ${categoryIcon} [${levelName}] ${message}`;
 
-    // 未來可以在這裡添加遠端日誌發送邏輯
-    if (this.config.enableRemote && level >= LogLevel.ERROR) {
-      // TODO: 發送到遠端日誌服務
+    // 根據級別輸出到不同的控制台方法
+    const consoleMethod = this.getConsoleMethod(logLevel);
+    
+    if (payload !== undefined) {
+      (console[consoleMethod] as any)(
+        `%c${formattedMessage}`,
+        `color: ${levelColor}; font-weight: bold;`,
+        payload
+      );
+    } else {
+      (console[consoleMethod] as any)(
+        `%c${formattedMessage}`,
+        `color: ${levelColor}; font-weight: bold;`
+      );
     }
   }
 

@@ -1,11 +1,12 @@
 /**
- * 統一的 API 客戶端
- * 整合錯誤處理、日誌記錄、請求攔截和響應處理
+ * API 客戶端模組
+ * 提供統一的 HTTP 請求客戶端，包含攔截器、錯誤處理和自動重試
  */
 
-import axios, { AxiosInstance, AxiosRequestConfig, AxiosResponse, AxiosError } from 'axios';
+import axios from 'axios';
+import type { AxiosInstance, AxiosRequestConfig, AxiosResponse, AxiosError } from 'axios';
 import { logger } from '../utils/logger';
-import { errorManager, handleApiError, AppError, ErrorType, ErrorSeverity } from '../utils/errorHandler';
+import { errorManager, AppError, ErrorType, ErrorSeverity } from '../utils/errorHandler';
 
 // API 配置介面
 interface ApiConfig {
@@ -14,6 +15,7 @@ interface ApiConfig {
   retryCount: number;           // 重試次數
   retryDelay: number;           // 重試延遲（毫秒）
   enableLogging: boolean;       // 是否啟用日誌
+  slowThreshold: number;        // 慢速請求閾值（毫秒）
 }
 
 // 默認配置
@@ -22,7 +24,8 @@ const defaultConfig: ApiConfig = {
   timeout: 30000,               // 30秒超時
   retryCount: 2,                // 重試2次
   retryDelay: 1000,             // 重試延遲1秒
-  enableLogging: true           // 啟用日誌
+  enableLogging: true,          // 啟用日誌
+  slowThreshold: 5000           // 慢速請求閾值5秒
 };
 
 // API 客戶端類
@@ -60,7 +63,60 @@ class ApiClient {
     // 響應攔截器
     this.instance.interceptors.response.use(
       (response: AxiosResponse) => this.handleResponse(response),
-      (error: AxiosError) => this.handleResponseError(error)
+      async (error: AxiosError) => {
+        const config = error.config;
+        
+        // 清除性能計時器
+        const requestId = (config as any)?.requestId;
+        const startTime = (config as any)?.startTime;
+        
+        if (config && startTime) {
+          const duration = Date.now() - startTime;
+          
+          // 性能警告（超過5秒）
+          if (duration > this.config.slowThreshold) {
+            logger.warn('performance', `慢速請求 ${requestId}`, {
+              url: config.url,
+              method: config.method,
+              duration: `${duration}ms`
+            });
+          }
+        }
+
+        // 網絡錯誤自動重試
+        if (
+          config &&
+          !error.response && 
+          error.code !== 'ECONNABORTED' &&
+          (config as any).retryCount < this.config.retryCount
+        ) {
+          (config as any).retryCount = ((config as any).retryCount || 0) + 1;
+          logger.warn('api', `重試請求 (${(config as any).retryCount}/${this.config.retryCount})`, {
+            url: config.url,
+            method: config.method
+          });
+          
+          // 延遲後重試
+          await new Promise(resolve => setTimeout(resolve, this.config.retryDelay));
+          return this.instance.request(config);
+        }
+
+        // 處理特定的錯誤狀態
+        if (error.response?.status === 401) {
+          // 認證失敗，可能需要刷新 token
+          const refreshed = await this.tryRefreshToken();
+          if (refreshed && config) {
+            // 重試原始請求
+            return this.instance.request(config);
+          }
+        }
+
+        // 轉換錯誤並記錄
+        const appError = this.handleApiError(error);
+        errorManager.handle(appError);
+        
+        return Promise.reject(appError);
+      }
     );
   }
 
@@ -112,94 +168,23 @@ class ApiClient {
 
   // 處理響應
   private handleResponse(response: AxiosResponse): AxiosResponse {
-    const { config } = response;
-    const metadata = config.metadata as any;
+    const config = response.config;
     
-    // 計算請求時間
-    const duration = Date.now() - metadata.startTime;
-
-    // 記錄響應日誌
-    if (this.config.enableLogging) {
-      logger.info('api', `請求成功 ${metadata.requestId}`, {
-        status: response.status,
-        duration: `${duration}ms`,
-        url: config.url,
-        dataSize: JSON.stringify(response.data).length
-      });
-    }
-
-    // 性能警告
-    if (duration > 5000) {
-      logger.warn('performance', `慢速請求警告`, {
-        url: config.url,
-        duration: `${duration}ms`
-      });
-    }
-
-    return response;
-  }
-
-  // 處理響應錯誤
-  private async handleResponseError(error: AxiosError): Promise<any> {
-    const config = error.config;
-    const metadata = (config as any)?.metadata;
-
-    // 記錄錯誤日誌
-    logger.error('api', `請求失敗 ${metadata?.requestId || 'UNKNOWN'}`, {
-      status: error.response?.status,
-      statusText: error.response?.statusText,
-      url: config?.url,
-      message: error.message,
-      data: error.response?.data
-    });
-
-    // 處理特定的錯誤狀態
-    if (error.response?.status === 401) {
-      // 認證失敗，可能需要刷新 token
-      const refreshed = await this.tryRefreshToken();
-      if (refreshed && config) {
-        // 重試原始請求
-        return this.instance.request(config);
-      }
-    }
-
-    // 重試邏輯
-    if (this.shouldRetry(error) && config) {
-      const retryCount = (config as any).retryCount || 0;
-      if (retryCount < this.config.retryCount) {
-        logger.info('api', `重試請求 (${retryCount + 1}/${this.config.retryCount})`, {
-          url: config.url
+    // 清除性能計時器（如果存在）
+    if ((config as any)?.startTime) {
+      const duration = Date.now() - (config as any).startTime;
+      
+      // 記錄慢速請求（超過5秒）
+      if (duration > this.config.slowThreshold) {
+        logger.warn('performance', '慢速請求', {
+          url: config.url,
+          method: config.method,
+          duration: `${duration}ms`
         });
-        
-        // 延遲後重試
-        await this.delay(this.config.retryDelay * (retryCount + 1));
-        
-        // 更新重試計數
-        (config as any).retryCount = retryCount + 1;
-        
-        return this.instance.request(config);
       }
     }
-
-    // 轉換為應用錯誤
-    const appError = handleApiError(error);
-    errorManager.handle(appError);
     
-    return Promise.reject(appError);
-  }
-
-  // 判斷是否應該重試
-  private shouldRetry(error: AxiosError): boolean {
-    // 網絡錯誤或 5xx 錯誤可以重試
-    if (!error.response) return true;
-    if (error.response.status >= 500) return true;
-    if (error.response.status === 429) return true; // Too Many Requests
-    return false;
-  }
-
-  // 延遲函數
-  private delay(ms: number): Promise<void> {
-    return new Promise(resolve => setTimeout(resolve, ms));
+    return response;
   }
 
   // 嘗試刷新 token
@@ -309,6 +294,18 @@ class ApiClient {
   // 獲取 axios 實例（用於特殊需求）
   getAxiosInstance(): AxiosInstance {
     return this.instance;
+  }
+
+  // 處理 API 錯誤
+  private handleApiError(error: AxiosError): AppError {
+    // 實現處理 API 錯誤的邏輯
+    // 這裡需要根據實際情況實現
+    return new AppError(
+      'API 錯誤',
+      ErrorType.API,
+      ErrorSeverity.HIGH,
+      { context: error }
+    );
   }
 }
 

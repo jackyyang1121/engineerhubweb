@@ -5,6 +5,7 @@ import { zhCN } from 'date-fns/locale';
 import { toast } from 'react-toastify';
 import { Prism as SyntaxHighlighter } from 'react-syntax-highlighter';
 import { atomDark } from 'react-syntax-highlighter/dist/esm/styles/prism';
+import { PencilIcon } from '@heroicons/react/24/outline';
 
 import {
   ChatBubbleLeftEllipsisIcon,
@@ -26,6 +27,9 @@ import {
 import type { Post } from '../../api/postApi';
 import * as postApi from '../../api/postApi';
 import { useAuthStore } from '../../store/authStore';
+import { EditPostModal } from './EditPostModal';
+import { SharePostModal } from './SharePostModal';
+import { logger } from '../../utils/logger';
 
 interface PostCardProps {
   post: Post;
@@ -45,6 +49,8 @@ const PostCard: React.FC<PostCardProps> = ({
   const [currentMediaIndex, setCurrentMediaIndex] = useState(0);
   const [showOptions, setShowOptions] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
+  const [isEditModalOpen, setIsEditModalOpen] = useState(false);
+  const [isShareModalOpen, setIsShareModalOpen] = useState(false);
   
   const currentUser = useAuthStore(state => state.user);
   
@@ -91,16 +97,17 @@ const PostCard: React.FC<PostCardProps> = ({
     }
   };
   
-  // 处理分享
+  // 处理编辑贴文
+  const handleEdit = () => {
+    logger.info('post', `编辑贴文 ${post.id}`);
+    setShowOptions(false);
+    setIsEditModalOpen(true);
+  };
+  
+  // 处理分享/转发
   const handleShare = () => {
-    try {
-      const url = `${window.location.origin}/post/${post.id}`;
-      navigator.clipboard.writeText(url);
-      toast.success('链接已复制到剪贴板');
-    } catch (error) {
-      toast.error('复制链接失败，请手动复制');
-      console.error('复制链接失败:', error);
-    }
+    logger.info('post', `分享贴文 ${post.id}`);
+    setIsShareModalOpen(true);
   };
   
   // 复制代码
@@ -238,14 +245,23 @@ const PostCard: React.FC<PostCardProps> = ({
           {showOptions && (
             <div className="absolute right-0 z-10 mt-2 w-48 bg-white/90 backdrop-blur-xl rounded-xl shadow-xl border border-white/20 py-2">
               {isAuthor && (
-                <button 
-                  className="block w-full px-4 py-2 text-left text-sm text-red-600 hover:bg-red-50 transition-colors duration-200 flex items-center"
-                  onClick={handleDelete}
-                  disabled={isDeleting}
-                >
-                  <TrashIcon className="h-4 w-4 mr-2" />
-                  {isDeleting ? '删除中...' : '删除贴文'}
-                </button>
+                <>
+                  <button 
+                    className="block w-full px-4 py-2 text-left text-sm text-slate-700 hover:bg-slate-100/50 transition-colors duration-200 flex items-center"
+                    onClick={handleEdit}
+                  >
+                    <PencilIcon className="h-4 w-4 mr-2" />
+                    编辑贴文
+                  </button>
+                  <button 
+                    className="block w-full px-4 py-2 text-left text-sm text-red-600 hover:bg-red-50 transition-colors duration-200 flex items-center"
+                    onClick={handleDelete}
+                    disabled={isDeleting}
+                  >
+                    <TrashIcon className="h-4 w-4 mr-2" />
+                    {isDeleting ? '删除中...' : '删除贴文'}
+                  </button>
+                </>
               )}
               <button 
                 className="block w-full px-4 py-2 text-left text-sm text-slate-700 hover:bg-slate-100/50 transition-colors duration-200"
@@ -390,7 +406,13 @@ const PostCard: React.FC<PostCardProps> = ({
               <span className="text-sm font-medium">{post.comments_count > 0 && post.comments_count}</span>
             </Link>
             
-            <button className="group flex items-center space-x-2 text-slate-500 hover:text-green-500 transition-all duration-300 hover:scale-110">
+            <button 
+              onClick={() => {
+                logger.info('post', `转发贴文 ${post.id}`);
+                setIsShareModalOpen(true);
+              }}
+              className="group flex items-center space-x-2 text-slate-500 hover:text-green-500 transition-all duration-300 hover:scale-110"
+            >
               <ArrowPathIcon className="h-5 w-5 group-hover:scale-110 group-hover:rotate-180 transition-all duration-300" />
               <span className="text-sm font-medium">{post.shares_count > 0 && post.shares_count}</span>
             </button>
@@ -421,6 +443,38 @@ const PostCard: React.FC<PostCardProps> = ({
           </div>
         </div>
       </div>
+      
+      {/* 编辑贴文模态 */}
+      {isAuthor && (
+        <EditPostModal
+          isOpen={isEditModalOpen}
+          onClose={() => setIsEditModalOpen(false)}
+          post={post}
+          onPostUpdated={() => {
+            setIsEditModalOpen(false);
+            onPostUpdated?.();
+          }}
+          onSuccess={() => {
+            setIsEditModalOpen(false);
+            onPostUpdated?.();
+          }}
+        />
+      )}
+      
+      {/* 转发贴文模态 */}
+      <SharePostModal
+        isOpen={isShareModalOpen}
+        onClose={() => setIsShareModalOpen(false)}
+        post={post}
+        onShared={() => {
+          setIsShareModalOpen(false);
+          onPostUpdated?.();
+        }}
+        onSuccess={() => {
+          setIsShareModalOpen(false);
+          onPostUpdated?.();
+        }}
+      />
     </div>
   );
 };

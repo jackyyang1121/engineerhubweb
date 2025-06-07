@@ -4,12 +4,14 @@ import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { toast } from 'react-toastify';
 
 import ProfileCard from '../../components/profile/ProfileCard';
-import ProjectCard from '../../components/profile/ProjectCard';
 import PostCard from '../../components/posts/PostCard';
-import type { Project } from '../../components/profile/ProjectCard';
 import { useAuthStore } from '../../store/authStore';
-import * as postApi from '../../api/postApi';
+import { usePortfolioStore } from '../../store/portfolioStore';
+import { PortfolioGrid } from '../../components/portfolio/PortfolioGrid';
+import { PortfolioModal } from '../../components/portfolio/PortfolioModal';
 import type { UserData } from '../../api/authApi';
+import * as postApi from '../../api/postApi';
+import { PlusIcon } from '@heroicons/react/24/outline';
 
 // 模擬的API調用函數，實際項目中應替換為真實API
 const fetchUserProfile = async (username: string): Promise<{
@@ -50,42 +52,6 @@ const fetchUserProfile = async (username: string): Promise<{
   };
 };
 
-// 模擬獲取用戶項目
-const fetchUserProjects = async (): Promise<Project[]> => {
-  // 模擬網絡延遲
-  await new Promise(resolve => setTimeout(resolve, 700));
-  
-  // 返回模擬數據 - 將來會使用 username 參數從API獲取實際數據
-  return [
-    {
-      id: '1',
-      title: '智能任務管理系統',
-      description: '基於React和Node.js的智能任務管理應用，支持AI任務分類和優先級排序',
-      image_url: 'https://via.placeholder.com/400x200?text=Task+Manager',
-      github_url: 'https://github.com/example/task-manager',
-      demo_url: 'https://task-manager-demo.example.com',
-      tech_stack: ['React', 'Node.js', 'MongoDB', 'Express']
-    },
-    {
-      id: '2',
-      title: '程式碼分析工具',
-      description: '分析代碼質量和性能的工具，提供改進建議和可視化報告',
-      image_url: 'https://via.placeholder.com/400x200?text=Code+Analyzer',
-      github_url: 'https://github.com/example/code-analyzer',
-      tech_stack: ['Python', 'Django', 'D3.js', 'PostgreSQL']
-    },
-    {
-      id: '3',
-      title: '即時聊天應用',
-      description: '支持文本、圖片和視頻的端到端加密聊天應用',
-      image_url: 'https://via.placeholder.com/400x200?text=Chat+App',
-      github_url: 'https://github.com/example/chat-app',
-      demo_url: 'https://chat-app-demo.example.com',
-      tech_stack: ['React', 'Firebase', 'WebRTC', 'Tailwind CSS']
-    }
-  ];
-};
-
 // 模擬關注用戶API
 const followUser = async (): Promise<void> => {
   // 模擬網絡延遲
@@ -103,8 +69,11 @@ const unfollowUser = async (): Promise<void> => {
 const ProfilePage = () => {
   const { username } = useParams<{ username: string }>();
   const navigate = useNavigate();
-  const [activeTab, setActiveTab] = useState<'posts' | 'projects'>('posts');
   const currentUser = useAuthStore(state => state.user);
+  const { fetchUserProjects, userProjects } = usePortfolioStore();
+  const [activeTab, setActiveTab] = useState<'posts' | 'projects'>('posts');
+  const [isPortfolioModalOpen, setIsPortfolioModalOpen] = useState(false);
+  const isCurrentUser = currentUser?.username === username;
   const queryClient = useQueryClient();
   
   // 如果沒有用戶名參數，跳轉到自己的個人資料頁
@@ -125,15 +94,20 @@ const ProfilePage = () => {
     enabled: !!username,
   });
   
-  // 獲取用戶項目
-  const { 
-    data: projects, 
-    isLoading: isLoadingProjects, 
-    isError: isProjectsError 
+  // 取得用戶作品集
+  const {
+    data: projects,
+    isLoading: isLoadingProjects,
+    refetch: refetchProjects
   } = useQuery({
     queryKey: ['userProjects', username],
-    queryFn: () => fetchUserProjects(),
-    enabled: !!username && activeTab === 'projects',
+    queryFn: async () => {
+      if (!username || !profileData?.user.id) return [];
+      await fetchUserProjects(profileData.user.id);
+      return userProjects.get(profileData.user.id) || [];
+    },
+    enabled: !!username && !!profileData && activeTab === 'projects',
+    staleTime: 5 * 60 * 1000
   });
   
   // 獲取用戶貼文
@@ -293,32 +267,39 @@ const ProfilePage = () => {
       {/* 項目標籤頁 */}
       {activeTab === 'projects' && (
         <div>
-          {isLoadingProjects && (
-            <div className="text-center py-8">
-              <p className="text-gray-500">加載項目中...</p>
+          {/* 新增按鈕 */}
+          {isCurrentUser && (
+            <div className="mb-6 flex justify-end">
+              <button
+                onClick={() => setIsPortfolioModalOpen(true)}
+                className="flex items-center space-x-2 px-4 py-2 bg-gradient-to-r from-blue-500 to-purple-500 text-white rounded-xl hover:shadow-lg transition-all duration-300"
+              >
+                <PlusIcon className="h-5 w-5" />
+                <span>新增項目</span>
+              </button>
             </div>
           )}
           
-          {isProjectsError && (
-            <div className="text-center py-8">
-              <p className="text-red-500">加載項目失敗</p>
-            </div>
-          )}
-          
-          {!isLoadingProjects && !isProjectsError && projects?.length === 0 && (
-            <div className="text-center py-12 bg-white rounded-lg shadow">
-              <p className="text-gray-600">暫無作品集</p>
-            </div>
-          )}
-          
-          {!isLoadingProjects && !isProjectsError && projects && projects.length > 0 && (
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-              {projects.map(project => (
-                <ProjectCard key={project.id} project={project} />
-              ))}
-            </div>
-          )}
+          {/* 作品集網格 */}
+          <PortfolioGrid
+            projects={projects || []}
+            isLoading={isLoadingProjects}
+            isOwner={isCurrentUser}
+            onRefresh={refetchProjects}
+          />
         </div>
+      )}
+
+      {/* 作品集模態 */}
+      {isCurrentUser && (
+        <PortfolioModal
+          isOpen={isPortfolioModalOpen}
+          onClose={() => setIsPortfolioModalOpen(false)}
+          onSuccess={() => {
+            setIsPortfolioModalOpen(false);
+            refetchProjects();
+          }}
+        />
       )}
     </div>
   );

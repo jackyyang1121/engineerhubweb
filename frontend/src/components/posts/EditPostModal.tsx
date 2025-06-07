@@ -27,6 +27,7 @@ interface EditPostModalProps {
   isOpen: boolean;                      // 是否顯示模態
   onClose: () => void;                  // 關閉回調
   onPostUpdated: (post: Post) => void;  // 更新成功回調
+  onSuccess?: () => void;                // 成功回調
 }
 
 interface FormData {
@@ -51,7 +52,8 @@ export const EditPostModal: React.FC<EditPostModalProps> = ({
   post,
   isOpen,
   onClose,
-  onPostUpdated
+  onPostUpdated,
+  onSuccess
 }) => {
   // 狀態管理
   const [mediaFiles, setMediaFiles] = useState<MediaFile[]>([]);
@@ -244,6 +246,9 @@ export const EditPostModal: React.FC<EditPostModalProps> = ({
       // 調用回調
       onPostUpdated(updatedPost);
       onClose();
+      if (onSuccess) {
+        onSuccess();
+      }
     } catch (error) {
       logger.error('post', '更新貼文失敗', error);
       const appError = error instanceof AppError 
