@@ -21,26 +21,29 @@ interface LoggerConfig {
   enableTimestamp: boolean;     // 是否顯示時間戳
 }
 
-// 日誌類別配置
+// 日誌分類圖標
 const logCategories = {
   auth: '🔐',        // 認證相關
-  api: '🌐',         // API 調用
-  websocket: '🔌',   // WebSocket 相關
-  ui: '🎨',          // UI 相關
+  api: '🌐',         // API 請求
+  websocket: '🔌',   // WebSocket 通訊
+  ui: '🎨',          // UI 操作
   store: '📦',       // 狀態管理
   error: '❌',       // 錯誤
-  success: '✅',     // 成功
+  success: '✅',     // 成功操作
   info: 'ℹ️',        // 一般信息
   warning: '⚠️',     // 警告
-  debug: '🐛',       // 調試
-  performance: '⚡',  // 性能相關
+  debug: '🐛',       // 調試信息
+  performance: '⚡', // 性能相關
   user: '👤',        // 用戶操作
   chat: '💬',        // 聊天相關
   post: '📝',        // 貼文相關
   notification: '🔔', // 通知相關
-  portfolio: '🎨'    // 作品集相關
+  portfolio: '🎨',    // 作品集相關
+  settings: '⚙️',     // 設置相關
+  search: '🔍'       // 搜尋相關
 } as const;
 
+// 日誌類別
 type LogCategory = keyof typeof logCategories;
 
 // 日誌器類
@@ -192,7 +195,7 @@ class Logger {
   }
 }
 
-// 導出單例實例
+// 創建單例實例並導出
 export const logger = Logger.getInstance();
 
 // 導出類型

@@ -11,8 +11,9 @@
 
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { PlusIcon, SparklesIcon, UserGroupIcon, FireIcon } from '@heroicons/react/24/outline';
-import { useInfiniteQuery } from '@tanstack/react-query';
+import { useInfiniteQuery, useQueryClient } from '@tanstack/react-query';
 import { useInView } from 'react-intersection-observer';
+import { toast } from 'react-toastify';
 
 import PostCard from '../../components/posts/PostCard';
 import PostEditor from '../../components/posts/PostEditor';
@@ -21,6 +22,7 @@ import EmptyState from '../../components/common/EmptyState';
 import { getFeed, getRecommendedUsers } from '../../api/postApi';
 import { searchAPI } from '../../api/search';
 import { useAuthStore } from '../../store/authStore';
+import { logger } from '../../utils/logger';
 
 // 推薦用戶介面
 interface RecommendedUser {
@@ -43,18 +45,16 @@ interface TrendingTopicItem {
 
 const HomePage: React.FC = () => {
   const { user, isAuthenticated, token } = useAuthStore();
+  const queryClient = useQueryClient();
+  const { ref, inView } = useInView();
   const [showPostEditor, setShowPostEditor] = useState(false);
   const [trendingTopics, setTrendingTopics] = useState<string[]>([]);
   const [recommendedUsers, setRecommendedUsers] = useState<RecommendedUser[]>([]);
+  const [usersLoading, setUsersLoading] = useState(false);
   
   // 防止重複調用的ref
   const isLoadingRecommendedUsers = useRef(false);
   const lastLoadTime = useRef<number>(0);
-
-  // 無限滾動載入檢測
-  const { ref: loadMoreRef, inView } = useInView({
-    threshold: 0,
-  });
 
   // 獲取推薦貼文信息流
   const {
@@ -96,7 +96,7 @@ const HomePage: React.FC = () => {
         setTrendingTopics([]);
       }
     } catch (error) {
-      console.error('載入熱門話題失敗:', error);
+      logger.error('search', '載入熱門話題失敗', error);
       setTrendingTopics([]);
     }
   }, []);
@@ -111,15 +111,15 @@ const HomePage: React.FC = () => {
     }
     
     isLoadingRecommendedUsers.current = true;
-    console.log('🔄 開始載入推薦用戶...');
+    logger.info('user', '開始載入推薦用戶...');
     
     try {
       const response = await getRecommendedUsers();
-      console.log('✅ 推薦用戶載入成功:', response.users.length, '個用戶');
+      logger.info('user', '推薦用戶載入成功', { count: response.users.length });
       setRecommendedUsers(response.users || []);
       lastLoadTime.current = now;
     } catch (error) {
-      console.error('❌ 載入推薦用戶失敗:', error);
+      logger.error('user', '載入推薦用戶失敗', error);
       setRecommendedUsers([]);
     } finally {
       isLoadingRecommendedUsers.current = false;
@@ -130,7 +130,7 @@ const HomePage: React.FC = () => {
   const handleFollowUser = async (userId: number) => {
     try {
       // 這裡需要實現關注API
-      console.log('關注用戶:', userId);
+      logger.info('user', '關注用戶', { userId });
       // await followAPI.followUser(userId);
       // 更新推薦用戶列表
       setRecommendedUsers(prev => 
@@ -141,7 +141,7 @@ const HomePage: React.FC = () => {
         )
       );
     } catch (error) {
-      console.error('關注用戶失敗:', error);
+      logger.error('user', '關注用戶失敗', error);
     }
   };
 
@@ -171,15 +171,23 @@ const HomePage: React.FC = () => {
 
   // 添加調試信息
   useEffect(() => {
-    console.log('🏠 HomePage 調試信息:', {
+    if (isAuthenticated) {
+      // 載入推薦的貼文
+      queryClient.prefetchQuery({
+        queryKey: ['/posts/recommendations'],
+        queryFn: () => getFeed()  // 使用 getFeed 替代 fetchAPI
+      });
+      
+      // 載入推薦用戶
+      loadRecommendedUsers();
+    }
+    
+    logger.debug('ui', 'HomePage 調試信息', {
       isAuthenticated,
-      hasUser: !!user,
       hasToken: !!token,
-      tokenPreview: token ? token.substring(0, 20) + '...' : 'None',
-      userId: user?.id,
-      username: user?.username
+      recommendedUsersCount: recommendedUsers.length
     });
-  }, [isAuthenticated, user, token]);
+  }, [isAuthenticated, token, queryClient]);
 
   // 合併所有頁面的貼文
   const posts = data?.pages.flatMap(page => page.posts) ?? [];
@@ -249,7 +257,7 @@ const HomePage: React.FC = () => {
                   ))}
                   
                   {/* 載入更多 */}
-                  <div ref={loadMoreRef} className="flex justify-center py-8">
+                  <div ref={ref} className="flex justify-center py-8">
                     {isFetchingNextPage && (
                       <div className="bg-white/70 backdrop-blur-xl rounded-2xl p-6 shadow-xl">
                         <LoadingSpinner size="md" />

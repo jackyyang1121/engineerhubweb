@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { useMutation } from '@tanstack/react-query';
 import { toast } from 'react-toastify';
+import { logger } from '../../utils/logger';
 
 // 隱私選項類型
 interface PrivacySetting {
@@ -87,7 +88,7 @@ const PrivacySettingsForm = () => {
   const updatePrivacyMutation = useMutation({
     mutationFn: async (settings: PrivacySettingsData) => {
       // 這裡應該調用實際的API
-      console.log('保存的隱私設置:', settings);
+      logger.info('settings', '保存的隱私設置', settings);
       return Promise.resolve();
     },
     onSuccess: () => {
@@ -95,21 +96,6 @@ const PrivacySettingsForm = () => {
     },
     onError: () => {
       toast.error('更新隱私設置失敗，請重試');
-    }
-  });
-  
-  // 模擬解除黑名單操作
-  const unblockUserMutation = useMutation({
-    mutationFn: async (userId: string) => {
-      // 這裡應該調用實際的API
-      console.log('解除黑名單用戶:', userId);
-      return Promise.resolve();
-    },
-    onSuccess: () => {
-      toast.success('已從黑名單中移除用戶');
-    },
-    onError: () => {
-      toast.error('操作失敗，請重試');
     }
   });
   
@@ -154,6 +140,21 @@ const PrivacySettingsForm = () => {
     
     updatePrivacyMutation.mutate(settings);
   };
+
+  // 模擬解除黑名單操作
+  const unblockUserMutation = useMutation({
+    mutationFn: async (userId: string) => {
+      // 這裡應該調用實際的API
+      logger.info('settings', '解除黑名單用戶', { userId });
+      return Promise.resolve();
+    },
+    onSuccess: () => {
+      toast.success('已從黑名單中移除用戶');
+    },
+    onError: () => {
+      toast.error('操作失敗，請重試');
+    }
+  });
 
   return (
     <div className="space-y-8">
