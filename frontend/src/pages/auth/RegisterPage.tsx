@@ -238,7 +238,7 @@ const RegisterPage = () => {
               minLength: {
                 value: 3,
                 message: '用戶名至少需要3個字符'
-              }
+              } //這邊只是驗證規則而已，不會被展開送入useForm的表單狀態
             })}
           />
           {errors.username && (
