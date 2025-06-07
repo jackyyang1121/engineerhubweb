@@ -52,9 +52,17 @@ const RegisterPage = () => {
     register: registerField, //把 register 函數改名成 registerField 函數，避免和上面那行useAuthStore的register衝突
     //register（來自 React Hook Form）
     //在物件解構時，在{}內用":"代表改名的功能而不是typehint
-    handleSubmit, //handleSubmit 是 React Hook Form 的一個內建函數，用於處理表單提交事件。
+    handleSubmit, //handleSubmit 是 React Hook Form 的一個內建函數，用於處理所有表單提交事件。
+    /*
+    自動收集表單中所有欄位的值（透過 register 註冊的欄位）。
+    執行前端驗證（根據 register 設定的規則，例如 required、minLength）。
+    如果驗證通過，將收集的表單數據傳遞給您提供的回調函數（例如 onSubmit）。
+    如果驗證失敗，更新 formState.errors 並阻止回調函數執行，顯示錯誤訊息。
+
+    也是因為handleSubmit才有辦法處理用戶點擊「提交」按鈕時啟用onSubmit
+    */
     formState: { errors },  //從useForm裡面解構出formState，再從formState裡面解構出errors(formState裡面有很多不只errors的屬性，所以要拿errors就好時需要再解構)
-    setError,
+    setError,    //可以設置錯誤訊息，並儲存在formState.errors裡面
     watch
     //以上都是useForm這個HOOK裡面內建的屬性
   } = useForm<RegisterFormInputs>();//這邊的 <> 就是 TypeScript 的 型別提示（type hint）功能
@@ -90,20 +98,39 @@ const RegisterPage = () => {
         所以如果我寫 err.response，TypeScript 會報錯：「我不知道這個東西有沒有 response 屬性啊！」
         err is RegisterErrorResponse就是型別保護，就是幫 TypeScript 說「我幫你檢查好了！」
         如果回傳 true，TypeScript 會把 err 視為 RegisterErrorResponse。(基本上都會回傳true除非RegisterErrorResponse的型別設置有誤)
-        這樣我可以在後續程式裡可以安全地使用 err.response 等屬性，不用再額外判斷或斷言。
+        這樣我可以在後續程式裡就可以使用 err.response.data 等屬性。
         */
         return typeof err === 'object' && err !== null && 'response' in err;
         /*
         typeof err === 'object' && err !== null && 'response' in err;
         這行是 TypeScript 的型別檢查，確保 err 是物件，不是 null，並且有 response 屬性。
         */
-       /*
-       可以這樣理解：
-       typeof err === 'object' → 這是問：「你是不是一個盒子？」
-       err !== null → 這是問：「你不是空的盒子？」
-       'response' in err → 這是問：「盒子裡有沒有一個叫 response 的東西？」
 
-       最後，如果這三個條件都成立，TypeScript 會說：「好，我確定 err 是 RegisterErrorResponse 型別的物件。」並回傳true
+        /*
+        可以這樣理解：
+        typeof err === 'object' → 這是問：「你是不是一個盒子？」
+        err !== null → 這是問：「你不是空的盒子？」
+        'response' in err → 這是問：「盒子裡有沒有一個叫 response 的東西？」
+
+        最後，如果這三個條件都成立，TypeScript 會說：「好，我確定 err 是 RegisterErrorResponse 型別的物件。」並回傳true
+        */
+
+        /*
+        typeof err === 'object'：
+        檢查 err 是否是一個物件（因為 RegisterErrorResponse 是一個物件型別）。
+        排除非物件型別（例如 string、number、undefined 等）。
+        err !== null：
+        確保 err 不是 null，因為 null 雖然滿足 typeof null === 'object'，但它沒有任何屬性，無法有 response。
+        'response' in err：
+        檢查 err 是否有 response 屬性，這是 RegisterErrorResponse 的核心特徵（根據您的介面定義，response 是可選屬性，但這裡假設有 response 才算符合）。
+        */
+
+        /*
+        err: unknown 表示輸入的 err 是未知型別，TypeScript 無法假設它有任何屬性（例如 err.response）。
+        err is RegisterErrorResponse 表示：如果 isRegisterError 回傳 true
+        TypeScript 會將 err 的型別訂為 RegisterErrorResponse，這樣後續代碼可以安全存取 err.response.data 等屬性。
+        err is RegisterErrorResponse 是 TypeScript 的型別層面，告訴編譯器「如果這個函數回傳 true，就把 err 當作 RegisterErrorResponse」。
+        return 的檢查是實際的運行時邏輯，確保 err 在執行時真的符合預期的結構。
        */
       };
       
@@ -130,6 +157,13 @@ const RegisterPage = () => {
             fieldErrors.password1 = Array.isArray(errorData.password1) 
               ? errorData.password1 
               : [errorData.password1];
+              /*
+                如果 Array.isArray(errorData.password1) 為 true（即 errorData.password1 是陣列）：
+                就把 errorData.password1 直接賦值給 fieldErrors.password1
+                如果 Array.isArray(errorData.password1) 為 false（即 errorData.password1 不是陣列）：
+                就把它包裝成一個陣列，並賦值給 fieldErrors.password1
+                這樣做是為了確保 fieldErrors.password1 總是一個陣列，方便後續處理。
+              */
             
             // 設置表單錯誤訊息
             setError('password1', {
@@ -162,7 +196,9 @@ const RegisterPage = () => {
             });
           }
           
-          setServerErrors(fieldErrors);
+          setServerErrors(fieldErrors);  
+          // 這行對應上面const [serverErrors, setServerErrors] = useState<Record<string, string[]>>({});
+          // 把錯誤訊息儲存在serverErrors裡面，底下渲染時會把它顯示出來
         } else if (errorData.non_field_errors) {
           // 通用錯誤
           toast.error(Array.isArray(errorData.non_field_errors) 
@@ -173,7 +209,7 @@ const RegisterPage = () => {
         } else {
           toast.error('註冊失敗，請檢查您的信息');
         }
-      } else {
+      } else {   //這邊是err is RegisterErrorResponse有問題像是錯誤的型別，或是isRegisterError呼叫後端但傳回的API沒有data的錯誤(例如：HTTP 500 響應...)
         toast.error('註冊失敗，請稍後再試');
       }
     } finally {
@@ -205,7 +241,8 @@ const RegisterPage = () => {
               autoComplete="given-name"  //
               placeholder="名字"
               className={`w-full px-4 py-3 bg-white/10 backdrop-blur-sm border border-white/20 rounded-xl text-white placeholder-white/60 focus:outline-none focus:ring-2 focus:ring-blue-400 focus:border-transparent transition-all duration-300 ${
-                errors.first_name ? 'border-red-400 ring-2 ring-red-400' : ''
+                errors.first_name ? 'border-red-400 ring-2 ring-red-400' : ''  //這裡的 errors 是從 formState: { errors } 解構出來的 errors，儲存的是前端驗證錯誤 + setError儲存的後端驗證錯誤(例如：username已經被註冊過、HTTP 400 響應...)
+                // 動態添加 CSS 樣式到輸入框，當 errors.first_name 存在時，應用紅色邊框（border-red-400）和紅色光環（ring-2 ring-red-400）。
               }`}
               {...registerField('first_name', { required: '請輸入名字' })}   //檢查欄位是否為空。
               // 'first_name'只是字串，並不是變數或被限制只能用 RegisterFormInputs 裡的欄位，理論上你可以放任意字串，但通常會對應 interface 裡的 key，以確保型別安全。
@@ -235,8 +272,8 @@ const RegisterPage = () => {
              // 如果驗證失敗，錯誤信息會被存儲在 formState 的 errors 物件中，例如 errors.username。
              // 驗證成功：值儲存在 React Hook Form 的內部狀態，可通過 watch、 getValues 或 handleSubmit 的 data 物件存取。
             />
-            {errors.first_name && (
-              <p className="mt-1 text-sm text-red-300">{errors.first_name.message}</p>
+            {errors.first_name && (    //顯示前端驗證錯誤，這邊顯示'請輸入名字'的錯誤訊息
+              <p className="mt-1 text-sm text-red-300">{errors.first_name.message}</p>   //文字錯誤訊息和樣式
             )}
           </div>
 
@@ -250,11 +287,11 @@ const RegisterPage = () => {
               autoComplete="family-name"
               placeholder="姓氏"
               className={`w-full px-4 py-3 bg-white/10 backdrop-blur-sm border border-white/20 rounded-xl text-white placeholder-white/60 focus:outline-none focus:ring-2 focus:ring-blue-400 focus:border-transparent transition-all duration-300 ${
-                errors.last_name ? 'border-red-400 ring-2 ring-red-400' : ''
+                errors.last_name ? 'border-red-400 ring-2 ring-red-400' : ''  //這邊讓錯誤的欄位有紅色邊框和紅色光環
               }`}
               {...registerField('last_name', { required: '請輸入姓氏' })}
             />
-            {errors.last_name && (   
+            {errors.last_name && (    //顯示前端驗證錯誤，這邊顯示文字'請輸入姓氏'的錯誤訊息和樣式
               <p className="mt-1 text-sm text-red-300">{errors.last_name.message}</p>
             )}
           </div>
@@ -323,7 +360,7 @@ const RegisterPage = () => {
           {errors.email && (
             <p className="mt-1 text-sm text-red-300">{errors.email.message}</p>
           )}
-          {serverErrors.email && serverErrors.email.map((error, index) => (
+          {serverErrors.email && serverErrors.email.map((error, index) => (   //這邊把後端驗證的錯誤訊息顯示出來
             <p key={index} className="mt-1 text-sm text-red-300">{error}</p>
           ))}
         </div>
@@ -365,7 +402,7 @@ const RegisterPage = () => {
           {errors.password1 && (
             <p className="mt-1 text-sm text-red-300">{errors.password1.message}</p>
           )}
-          {serverErrors.password1 && serverErrors.password1.map((error, index) => (
+          {serverErrors.password1 && serverErrors.password1.map((error, index) => (   //這邊把後端驗證的錯誤訊息顯示出來
             <p key={index} className="mt-1 text-sm text-red-300">{error}</p>
           ))}
         </div>
@@ -401,7 +438,7 @@ const RegisterPage = () => {
               )}
             </button>
           </div>
-          {errors.password2 && (
+          {errors.password2 && (    //顯示前端驗證失敗訊息，這邊顯示文字'密碼不匹配'的錯誤訊息和樣式
             <p className="mt-1 text-sm text-red-300">{errors.password2.message}</p>
           )}
         </div>
@@ -410,7 +447,7 @@ const RegisterPage = () => {
         <div className="flex items-start">
           <input
             id="terms"
-            type="checkbox"    // 這個 type="checkbox" 就是把它變成可以勾選的小方格
+            type="checkbox"    // 這個 type="checkbox" 就是把它變成可以勾選的小方格，只要沒勾選就會傳false
             className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-white/30 rounded bg-white/10 mt-1"
             {...registerField('terms', { required: '請同意服務條款' })}
           />
@@ -426,7 +463,7 @@ const RegisterPage = () => {
             </Link>
           </label>
         </div>
-        {errors.terms && (
+        {errors.terms && (   //顯示前端驗證失敗訊息，這邊顯示文字'請同意服務條款'的錯誤訊息和樣式
           <p className="text-sm text-red-300">{errors.terms.message}</p>
         )}
 

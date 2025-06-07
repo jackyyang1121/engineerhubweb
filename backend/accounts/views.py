@@ -93,7 +93,7 @@ class SimpleRegistrationView(generics.CreateAPIView):
         # 基本驗證
         username = data.get('username', '').strip()
         email = data.get('email', '').strip()
-        password1 = data.get('password1', '') or data.get('password', '')
+        password1 = data.get('password1', '') 
         password2 = data.get('password2', '')
         
         # 檢查必填欄位
