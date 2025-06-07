@@ -43,13 +43,16 @@ const RegisterPage = () => {
   const [serverErrors, setServerErrors] = useState<Record<string, string[]>>({});
   const register = useAuthStore(state => state.register);
   
-  const { 
-    register: registerField, 
+  const { //const {} 是解構賦值，把 useForm 的屬性解構出來，方便使用
+    register: registerField, //把 register 函數改名成 registerField 函數，這樣可以更方便地使用。
+    //register（來自 React Hook Form）
+    //在物件解構時，在{}內用":"代表改名的功能而不是typehint
     handleSubmit, 
-    formState: { errors },
+    formState: { errors },  //從useForm裡面解構出formState，再從formState裡面解構出errors(formState裡面有很多不只errors的屬性，所以要拿errors就好時需要再解構)
     setError,
     watch
-  } = useForm<RegisterFormInputs>();
+    //以上都是useForm這個HOOK裡面內建的屬性
+  } = useForm<RegisterFormInputs>();//這邊的 <> 就是 TypeScript 的 型別提示（type hint）功能
 
   const password1 = watch('password1');
   
@@ -159,14 +162,38 @@ const RegisterPage = () => {
               名字
             </label>
             <input
-              id="first_name"
+              id="first_name" //這個 id 用來讓 <label for="first_name"> 連結到這個輸入框，方便點擊 label 時聚焦 input。
               type="text"
-              autoComplete="given-name"
+              autoComplete="given-name"  //
               placeholder="名字"
               className={`w-full px-4 py-3 bg-white/10 backdrop-blur-sm border border-white/20 rounded-xl text-white placeholder-white/60 focus:outline-none focus:ring-2 focus:ring-blue-400 focus:border-transparent transition-all duration-300 ${
                 errors.first_name ? 'border-red-400 ring-2 ring-red-400' : ''
               }`}
               {...registerField('first_name', { required: '請輸入名字' })}
+              // 'first_name'只是字串，並不是變數或被限制只能用 RegisterFormInputs 裡的欄位，理論上你可以放任意字串，但通常會對應 interface 裡的 key，以確保型別安全。
+              // registerField 繼承register，是useform內建的函式
+              /*
+              這邊"..."要展開的是React Hook Form(registerField)綁定 input 的屬性和事件，例如：
+              {
+                name: 'first_name',
+                onChange: function,
+                onBlur: function,
+                ref: function,
+                // 可能還有其他屬性
+              }
+              */
+             /*
+             值是存在於 useForm Hook 管理的「表單狀態」中，也就是在上面的:
+             const { 
+              register: registerField,
+              handleSubmit, 
+              formState: { errors },
+              setError,
+              watch
+            } = useForm<RegisterFormInputs>();
+             送出時，透過 handleSubmit 的回呼拿到（例如 handleSubmit(onSubmit)）
+             隨時取得時，可以用 watch() 看（例如 watch('first_name')）
+             */
             />
             {errors.first_name && (
               <p className="mt-1 text-sm text-red-300">{errors.first_name.message}</p>
