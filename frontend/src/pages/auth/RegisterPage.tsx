@@ -40,21 +40,26 @@ const RegisterPage = () => {
   const [isLoading, setIsLoading] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
-  const [serverErrors, setServerErrors] = useState<Record<string, string[]>>({});
-  const register = useAuthStore(state => state.register);
+  const [serverErrors, setServerErrors] = useState<Record<string, string[]>>({}); // ({})初始值是「空物件」
+  /*
+  Record<string, string[]> 是 TypeScript 的一個泛型工具型別（Utility Type），意思是：
+  這個物件的「鍵」（key）是字串 (string)，
+  對應的「值」（value）是字串陣列 (string[])。
+  */
+  const register = useAuthStore(state => state.register);   //調用後端去拿token
   
   const { //const {} 是解構賦值，把 useForm 的屬性解構出來，方便使用
-    register: registerField, //把 register 函數改名成 registerField 函數，這樣可以更方便地使用。
+    register: registerField, //把 register 函數改名成 registerField 函數，避免和上面那行useAuthStore的register衝突
     //register（來自 React Hook Form）
     //在物件解構時，在{}內用":"代表改名的功能而不是typehint
-    handleSubmit, 
+    handleSubmit, //handleSubmit 是 React Hook Form 的一個內建函數，用於處理表單提交事件。
     formState: { errors },  //從useForm裡面解構出formState，再從formState裡面解構出errors(formState裡面有很多不只errors的屬性，所以要拿errors就好時需要再解構)
     setError,
     watch
     //以上都是useForm這個HOOK裡面內建的屬性
   } = useForm<RegisterFormInputs>();//這邊的 <> 就是 TypeScript 的 型別提示（type hint）功能
 
-  const password1 = watch('password1');
+  const password1 = watch('password1'); // 這行的作用是「監視表單中 password1 這個欄位的值變化」，它會即時反映用戶輸入的密碼。
   
   const onSubmit = async (data: RegisterFormInputs) => {
     setIsLoading(true);
@@ -246,6 +251,15 @@ const RegisterPage = () => {
           )}
           {serverErrors.username && serverErrors.username.map((error, index) => (
             <p key={index} className="mt-1 text-sm text-red-300">{error}</p>
+            /*
+            serverErrors 是一個物件，key 是欄位名（這裡是 "username"），value 是錯誤訊息陣列（string[]）
+            serverErrors.username：如果存在（不是 undefined 或 null），代表有 username 的錯誤訊息
+            .map((error, index) => (...))：把這些錯誤訊息用 .map 一條條列出來
+            每一條錯誤訊息被渲染成一個 <p> 標籤，
+            key={index} 是 React 要求的列表唯一 key，避免重複渲染問題
+            className="mt-1 text-sm text-red-300" 是用來美化文字顏色和間距
+            {error} 是每條錯誤訊息的文字內容
+            */
           ))}
         </div>
 
@@ -382,7 +396,7 @@ const RegisterPage = () => {
         {/* 註冊按鈕 */}
         <div>
           <button
-            type="submit"
+            type="submit"   //這個 type="submit" 很重要，因為它告訴瀏覽器：「當按下這個按鈕時，觸發 <form> 的 onSubmit 事件」。
             disabled={isLoading}
             className="w-full bg-gradient-to-r from-blue-500 via-purple-500 to-pink-500 text-white py-3 px-4 rounded-xl font-semibold shadow-lg hover:shadow-xl hover:from-blue-600 hover:via-purple-600 hover:to-pink-600 focus:outline-none focus:ring-2 focus:ring-blue-400 focus:ring-offset-2 focus:ring-offset-transparent transition-all duration-300 transform hover:scale-105 active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed disabled:transform-none"
           >
