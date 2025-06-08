@@ -20,9 +20,9 @@ import logging
 
 from .models import User, Follow, PortfolioProject, UserSettings, BlockedUser
 from .serializers import (
-    UserSerializer, UserDetailSerializer, UserCreateSerializer,
+    UserSerializer, UserDetailSerializer, CustomRegisterSerializer,
     UserUpdateSerializer, FollowSerializer, PortfolioProjectSerializer,
-    UserSettingsSerializer, CustomTokenObtainPairSerializer,
+    UserSettingsSerializer, CustomLoginTokenObtainPairSerializer,
     PasswordChangeSerializer, UserSearchSerializer
 )
 from core.pagination import CustomPageNumberPagination
@@ -32,21 +32,21 @@ from core.utils import get_client_ip
 logger = logging.getLogger('engineerhub.accounts')
 
 
-class CustomTokenObtainPairView(TokenObtainPairView):
+class CustomLoginTokenObtainPairView(TokenObtainPairView):
     """
     自定義JWT登入視圖
     增加登入日誌記錄和在線狀態更新
     """
-    serializer_class = CustomTokenObtainPairSerializer
+    serializer_class = CustomLoginTokenObtainPairSerializer
 
     def post(self, request, *args, **kwargs):
         response = super().post(request, *args, **kwargs)
         
         if response.status_code == 200:
             # 獲取用戶信息
-            email = request.data.get('email')
+            username = request.data.get('username')
             try:
-                user = User.objects.get(email=email)
+                user = User.objects.get(username=username)
                 user.update_online_status(True)
                 
                 # 記錄登入日誌
@@ -65,170 +65,289 @@ class UserRegistrationView(generics.CreateAPIView):
     """
     用戶註冊視圖
     """
-    queryset = User.objects.all()
-    serializer_class = UserCreateSerializer
-    permission_classes = [AllowAny]
+    """
+    generics.CreateAPIView 本身幾乎沒有獨立的邏輯或功能，它的主要作用是將 GenericAPIView 和 CreateModelMixin 的功能組合起來，形成一個專用於處理創建資源（HTTP POST 請求）的通用視圖。
+    generics.CreateAPIView 的主要功能是處理創建新資源的請求，即響應 HTTP POST 請求，將客戶端提交的數據保存到數據庫中並返回創建成功的響應。具體功能包括：
+
+    自動處理 POST 請求：接收客戶端發送的數據，通過序列化器（Serializer）驗證數據並保存到數據庫。
+    數據驗證：利用序列化器進行數據有效性檢查，確保數據符合模型定義或業務邏輯。
+    創建資源：將驗證通過的數據保存到數據庫，創建新的資源實例。
+    響應處理：返回 HTTP 201 Created 狀態碼，並附帶創建的資源數據（序列化後的格式）。
+    異常處理：如果數據無效，返回 HTTP 400 Bad Request，並附帶錯誤信息。
+    generics.CreateAPIView 繼承自 GenericAPIView 和 CreateModelMixin，提供了標準化的創建邏輯，無需手動編寫大量代碼。
+    """
+    """
+    1. GenericAPIView:
+        1.1 概述
+        GenericAPIView 是 Django REST Framework 提供的核心基類之一，位於通用視圖（Generic Views）的基礎層。它繼承自 DRF 的 APIView，
+        為通用視圖提供了標準化的屬性和方法，用於處理 RESTful API 的常見功能，例如序列化、查詢集管理、權限檢查等。GenericAPIView 本身不直接實現特定的 HTTP 方法（如 GET、POST），而是為更高級的視圖（如 CreateAPIView）提供基礎設施。
+
+        1.2 功能
+        GenericAPIView 的主要功能是提供一個靈活的框架，讓開發者可以輕鬆構建 RESTful API。它的核心功能包括：
+
+        查詢集管理：     通過 queryset 屬性或 get_queryset() 方法，指定視圖操作的數據集。
+        序列化器管理：   通過 serializer_class 屬性或 get_serializer_class() 方法，指定用於數據序列化和反序列化的序列化器。
+        分頁支持：       內置支持分頁，通過 pagination_class 屬性配置。
+        權限和認證：     通過 permission_classes 和 authentication_classes 控制訪問權限和用戶認證。
+        靈活的查詢過濾： 提供 filter_backends 和 get_queryset() 方法，支持查詢過濾、排序等。
+        上下文支持：     自動將請求對象（request）、視圖對象（self）等傳遞給序列化器，方便自定義邏輯。
+
+        1.3 關鍵屬性和方法
+        以下是 GenericAPIView 的核心屬性和方法，這些是 generics.CreateAPIView 等視圖依賴的基礎：
+
+        屬性:
+        queryset：定義視圖操作的數據集（QuerySet）。可以是靜態的 QuerySet 或通過 get_queryset() 動態生成。
+            示例：queryset = User.objects.all()
+        serializer_class：指定序列化器類，用於處理數據的序列化和反序列化。
+            示例：serializer_class = UserSerializer
+        permission_classes：定義訪問視圖的權限類。
+            示例：permission_classes = [IsAuthenticated]
+        authentication_classes：定義認證方式。
+            示例：authentication_classes = [TokenAuthentication]
+        pagination_class：定義分頁方式（如果需要）。
+            示例：pagination_class = PageNumberPagination
+        filter_backends：定義查詢過濾後端（如搜索、排序）。
+            示例：filter_backends = [DjangoFilterBackend]
+        lookup_field：指定用於查找單個對象的字段（默認為 pk）。
+            示例：lookup_field = 'username'
+        lookup_url_kwarg：指定 URL 中用於查找的關鍵字參數（默認與 lookup_field 相同）。
+
+        
+    2. CreateModelMixin
+        2.1 概述
+        CreateModelMixin 是 DRF 提供的一個 Mixin 類，專門為視圖添加創建資源的功能。它實現了 HTTP POST 請求的處理邏輯，負責接收客戶端數據、驗證並保存到數據庫。
+        CreateModelMixin 通常與 GenericAPIView 結合使用，形成如 generics.CreateAPIView 的完整視圖。
+
+        2.2 功能
+        CreateModelMixin 的核心功能是處理創建資源的邏輯，具體包括：
+
+        處理 POST 請求：接收客戶端發送的數據，通過序列化器進行驗證。
+        數據驗證和保存：調用序列化器的 is_valid() 和 save() 方法，確保數據有效並保存到數據庫。
+        返回響應：返回 HTTP 201 Created 狀態碼和創建的資源數據，或返回 HTTP 400 Bad Request 和錯誤信息。
+        自定義創建邏輯：通過 perform_create() 方法，允許開發者自定義保存邏輯。
+
+        2.3 關鍵方法
+        CreateModelMixin 提供了以下核心方法：
+
+        create(self, request, *args, **kwargs)：
+            處理 POST 請求，執行創建邏輯。
+            步驟：
+            獲取序列化器實例，傳入請求數據。
+            調用 serializer.is_valid() 驗證數據。
+            如果驗證通過，調用 perform_create() 保存數據。
+            返回 HTTP 201 和序列化後的數據；否則返回 HTTP 400 和錯誤信息。
+
+        perform_create(self, serializer)：
+            執行實際的保存操作，默認調用 serializer.save()。
+            開發者可以重寫此方法，添加自定義邏輯（如設置額外字段）。
+
+        get_success_headers(self, data)：
+            返回創建成功時的 HTTP 頭信息，例如 Location 頭指向新資源的 URL。
+            通常不需要重寫。
+    """
+    """
+    generics.CreateAPIView 的核心功能由以下屬性和方法支持：
+
+    關鍵屬性:
+        queryset：指定視圖操作的數據集（QuerySet）。雖然 CreateAPIView 主要用於創建新對象，但 queryset 可能用於序列化器上下文或權限檢查。
+            示例：queryset = User.objects.all()
+        serializer_class：指定用於數據驗證和序列化的序列化器類。
+            示例：serializer_class = UserSerializer
+        permission_classes（可選）：指定訪問該視圖的權限類，控制哪些用戶可以調用此 API。
+            示例：permission_classes = [IsAuthenticated]
+        authentication_classes（可選）：指定認證方式，用於驗證請求的用戶身份。
+            示例：authentication_classes = [TokenAuthentication]
+    """
+
+    """
+    generics.CreateAPIView vs generics.ListCreateAPIView：
+        CreateAPIView 只處理 POST 請求（創建資源）。
+        ListCreateAPIView 同時處理 POST（創建）和 GET（列出資源）。
+    """
+
+    queryset = User.objects.all()     #查詢包含所有 User 模型的實例，供視圖操作（如列表或檢索）使用
+    serializer_class = CustomRegisterSerializer    # 指定序列化器類別為 CustomRegisterSerializer，用於處理用戶註冊的數據序列化和驗證
+    permission_classes = [AllowAny]   # 功能是允許任何人訪問這個視圖，也就是大家都可以註冊
+    #這三個屬性因為繼承自GenericAPIView，所以是內建的
+    """
+    .objects.all() 的功能來源:
+        .objects.all() 的功能來自 Django 的 ORM，具體由以下組件提供：
+        objects：由 Django 的 models.Manager 類提供，負責數據庫查詢操作。每個模型通過 models.Model 繼承，自動獲得一個 objects 管理器。
+        all()：是 models.Manager 的方法，調用底層的 SQL 查詢，返回模型表中的所有記錄（對應 SQL 的 SELECT * FROM table）。
+        技術細節：all() 返回一個 QuerySet 對象，由 Django 的查詢集 API（django.db.models.query.QuerySet）實現，依賴數據庫後端（如 SQLite、PostgreSQL）。
+    """
 
     def perform_create(self, serializer):
         user = serializer.save()
+        """
+        在 perform_create 方法中，serializer 不是自定義變數，也不是內建屬性，而是 由 DRF 的 CreateModelMixin 自動傳遞的參數。具體來說：
+
+        serializer 的來源：
+        當你使用 generics.CreateAPIView（或其他基於 CreateModelMixin 的視圖）時，DRF 會根據視圖的 serializer_class 屬性（在你的例子中是 CustomRegisterSerializer）創建一個序列化器實例。
+        這個序列化器實例負責處理前端發送的 POST 請求數據（例如 username、email、password1 等），並進行驗證。
+        在 perform_create 方法被調用時，DRF 已經完成了數據的接收和驗證，並將驗證後的序列化器實例作為參數傳遞給 perform_create。
+        """
         
         # 創建用戶設置
-        UserSettings.objects.create(user=user)
+        UserSettings.objects.create(user=user)  
+        #第一個user是UserSettings的user，第二個user是驗證過資料要新增進去的user
         
         # 記錄註冊日誌
         logger.info(f'新用戶註冊: {user.username} from {get_client_ip(self.request)}')
 
+#簡化版(可選)(直接在這邊驗證不送到serializer)
 #密碼password1沒有驗證，之後可以新增驗證規則
-class SimpleRegistrationView(generics.CreateAPIView):
-    """
-    簡化的用戶註冊視圖
-    專門用於開發環境，避免複雜的驗證
-    """
-    permission_classes = [AllowAny]
+#
+# class SimpleRegistrationView(generics.CreateAPIView):
+#     """
+#     簡化的用戶註冊視圖
+#     專門用於開發環境，避免複雜的驗證
+#     """
+#     permission_classes = [AllowAny]
     
-    def post(self, request, *args, **kwargs):
-        """處理註冊請求"""
-        data = request.data
+#     def post(self, request, *args, **kwargs):
+#         """處理註冊請求"""
+#         data = request.data
         
-        # 基本驗證
-        username = data.get('username', '').strip()
-        email = data.get('email', '').strip()
-        password1 = data.get('password1', '') 
-        password2 = data.get('password2', '')
+#         # 基本驗證
+#         username = data.get('username', '').strip()
+#         email = data.get('email', '').strip()
+#         password1 = data.get('password1', '') 
+#         password2 = data.get('password2', '')
         
-        # 檢查必填欄位
-        if not username or not password1:
-            return Response(
-                {'error': '用戶名和密碼是必填的'},
-                status=status.HTTP_400_BAD_REQUEST
-            )
+#         # 檢查必填欄位
+#         if not username or not password1:
+#             return Response(
+#                 {'error': '用戶名和密碼是必填的'},
+#                 status=status.HTTP_400_BAD_REQUEST
+#             )
         
-        # 如果提供了 password2，檢查兩次密碼是否匹配
-        if password2 and password1 != password2:
-            return Response(
-                {'error': '兩次密碼輸入不一致'},
-                status=status.HTTP_400_BAD_REQUEST
-            )
+#         # 如果提供了 password2，檢查兩次密碼是否匹配
+#         if password2 and password1 != password2:
+#             return Response(
+#                 {'error': '兩次密碼輸入不一致'},
+#                 status=status.HTTP_400_BAD_REQUEST
+#             )
         
-        # 檢查用戶名是否已存在
-        if User.objects.filter(username=username).exists():
-            return Response(
-                {'username': ['用戶名已存在']},
-                status=status.HTTP_400_BAD_REQUEST
-            )
+#         # 檢查用戶名是否已存在
+#         if User.objects.filter(username=username).exists():
+#             return Response(
+#                 {'username': ['用戶名已存在']},
+#                 status=status.HTTP_400_BAD_REQUEST
+#             )
         
-        # 檢查郵箱是否已存在
-        if email and User.objects.filter(email=email).exists():
-            return Response(
-                {'email': ['郵箱已被註冊']},
-                status=status.HTTP_400_BAD_REQUEST
-            )
+#         # 檢查郵箱是否已存在
+#         if email and User.objects.filter(email=email).exists():
+#             return Response(
+#                 {'email': ['郵箱已被註冊']},
+#                 status=status.HTTP_400_BAD_REQUEST
+#             )
         
-        try:
-            # 創建用戶
-            user = User.objects.create_user(
-                username=username,
-                email=email or '',
-                password=password1,
-                first_name=data.get('first_name', ''),
-                last_name=data.get('last_name', '')
-            )
+#         try:
+#             # 創建用戶
+#             user = User.objects.create_user(
+#                 username=username,
+#                 email=email or '',
+#                 password=password1,
+#                 first_name=data.get('first_name', ''),
+#                 last_name=data.get('last_name', '')
+#             )
             
-            # 創建用戶設置
-            UserSettings.objects.get_or_create(user=user)
+#             # 創建用戶設置
+#             UserSettings.objects.get_or_create(user=user)
             
-            # 生成 JWT token
-            from rest_framework_simplejwt.tokens import RefreshToken
-            refresh = RefreshToken.for_user(user)
+#             # 生成 JWT token
+#             from rest_framework_simplejwt.tokens import RefreshToken
+#             refresh = RefreshToken.for_user(user)
             
-            logger.info(f'新用戶註冊成功: {user.username}')
+#             logger.info(f'新用戶註冊成功: {user.username}')
             
-            return Response({
-                'user': {
-                    'id': str(user.id),
-                    'username': user.username,
-                    'email': user.email,
-                    'first_name': user.first_name,
-                    'last_name': user.last_name,
-                },
-                'access_token': str(refresh.access_token),
-                'refresh_token': str(refresh),
-            }, status=status.HTTP_201_CREATED)
+#             return Response({
+#                 'user': {
+#                     'id': str(user.id),
+#                     'username': user.username,
+#                     'email': user.email,
+#                     'first_name': user.first_name,
+#                     'last_name': user.last_name,
+#                 },
+#                 'access_token': str(refresh.access_token),
+#                 'refresh_token': str(refresh),
+#             }, status=status.HTTP_201_CREATED)
             
-        except Exception as e:
-            logger.error(f'註冊失敗: {e}')
-            return Response(
-                {'error': '註冊失敗，請稍後重試'},
-                status=status.HTTP_500_INTERNAL_SERVER_ERROR
-            )
+#         except Exception as e:
+#             logger.error(f'註冊失敗: {e}')
+#             return Response(
+#                 {'error': '註冊失敗，請稍後重試'},
+#                 status=status.HTTP_500_INTERNAL_SERVER_ERROR
+#             )
 
-
-class SimpleLoginView(generics.GenericAPIView):
-    """
-    簡化的用戶登入視圖
-    支持郵箱或用戶名登入
-    """
-    permission_classes = [AllowAny]
+#簡化版(可選)(直接在這邊驗證不送到serializer)
+# class SimpleLoginView(generics.GenericAPIView):
+#     """
+#     簡化的用戶登入視圖
+#     支持郵箱或用戶名登入
+#     """
+#     permission_classes = [AllowAny]
     
-    def post(self, request, *args, **kwargs):
-        """處理登入請求"""
-        data = request.data
+#     def post(self, request, *args, **kwargs):
+#         """處理登入請求"""
+#         data = request.data
         
-        # 支持 username 或 email 字段
-        username_or_email = data.get('username') or data.get('email', '').strip()
-        password = data.get('password', '')
+#         # 支持 username 或 email 字段
+#         username_or_email = data.get('username') or data.get('email', '').strip()
+#         password = data.get('password', '')
         
-        if not username_or_email or not password:
-            return Response(
-                {'error': '用戶名/郵箱和密碼是必填的'},
-                status=status.HTTP_400_BAD_REQUEST
-            )
+#         if not username_or_email or not password:
+#             return Response(
+#                 {'error': '用戶名/郵箱和密碼是必填的'},
+#                 status=status.HTTP_400_BAD_REQUEST
+#             )
         
-        # 嘗試用戶名驗證
-        from django.contrib.auth import authenticate
-        user = authenticate(username=username_or_email, password=password)
+#         # 嘗試用戶名驗證
+#         from django.contrib.auth import authenticate
+#         user = authenticate(username=username_or_email, password=password)
         
-        # 如果用戶名驗證失敗，嘗試郵箱驗證
-        if user is None and '@' in username_or_email:
-            # 通過郵箱查找用戶
-            try:
-                user_by_email = User.objects.get(email=username_or_email)
-                user = authenticate(username=user_by_email.username, password=password)
-            except User.DoesNotExist:
-                pass
+#         # 如果用戶名驗證失敗，嘗試郵箱驗證
+#         if user is None and '@' in username_or_email:
+#             # 通過郵箱查找用戶
+#             try:
+#                 user_by_email = User.objects.get(email=username_or_email)
+#                 user = authenticate(username=user_by_email.username, password=password)
+#             except User.DoesNotExist:
+#                 pass
         
-        if user is None:
-            return Response(
-                {'error': '用戶名/郵箱或密碼錯誤'},
-                status=status.HTTP_401_UNAUTHORIZED
-            )
+#         if user is None:
+#             return Response(
+#                 {'error': '用戶名/郵箱或密碼錯誤'},
+#                 status=status.HTTP_401_UNAUTHORIZED
+#             )
         
-        if not user.is_active:
-            return Response(
-                {'error': '用戶帳戶已被禁用'},
-                status=status.HTTP_401_UNAUTHORIZED
-            )
+#         if not user.is_active:
+#             return Response(
+#                 {'error': '用戶帳戶已被禁用'},
+#                 status=status.HTTP_401_UNAUTHORIZED
+#             )
         
-        # 更新在線狀態
-        user.update_online_status(True)
+#         # 更新在線狀態
+#         user.update_online_status(True)
         
-        # 生成 JWT token
-        from rest_framework_simplejwt.tokens import RefreshToken
-        refresh = RefreshToken.for_user(user)
+#         # 生成 JWT token
+#         from rest_framework_simplejwt.tokens import RefreshToken
+#         refresh = RefreshToken.for_user(user)
         
-        logger.info(f'用戶登入: {user.username}')
+#         logger.info(f'用戶登入: {user.username}')
         
-        return Response({
-            'user': {
-                'id': str(user.id),
-                'username': user.username,
-                'email': user.email,
-                'first_name': user.first_name,
-                'last_name': user.last_name,
-            },
-            'access_token': str(refresh.access_token),
-            'refresh_token': str(refresh),
-        }, status=status.HTTP_200_OK)
+#         return Response({
+#             'user': {
+#                 'id': str(user.id),
+#                 'username': user.username,
+#                 'email': user.email,
+#                 'first_name': user.first_name,
+#                 'last_name': user.last_name,
+#             },
+#             'access_token': str(refresh.access_token),
+#             'refresh_token': str(refresh),
+#         }, status=status.HTTP_200_OK)
 
 
 class SimpleLogoutView(generics.GenericAPIView):

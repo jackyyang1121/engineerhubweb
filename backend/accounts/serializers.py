@@ -12,8 +12,124 @@ import re
 
 from .models import User, Follow, PortfolioProject, UserSettings, BlockedUser
 
+class CustomRegisterSerializer(serializers.ModelSerializer):
+    """
+    自定義註冊序列化器
+    用於dj-rest-auth註冊功能
+    """
+    """
+    繼承ModelSerializer獲得的功能:
+    ModelSerializer 自動將 Django 模型的字段映射為序列化器字段，簡化數據序列化（模型 → JSON）和反序列化（JSON → 模型）的過程。主要功能包括：
 
-class CustomTokenObtainPairSerializer(TokenObtainPairSerializer):
+    自動生成字段：根據模型的字段（如 CharField、EmailField）自動創建對應的序列化器字段。
+    數據驗證：驗證輸入數據是否符合模型定義（如必填、唯一性）。
+    創建/更新實例：提供 create() 和 update() 方法，將驗證後的數據保存到數據庫。
+    序列化輸出：將模型實例轉為 JSON 格式（或從 JSON 轉回 Python 對象）。
+    支持關聯字段：自動處理模型的外鍵（ForeignKey）、多對多（ManyToManyField）等關聯。
+    內建屬性
+    ModelSerializer 的功能通過以下內建屬性配置（通常在 Meta 類中定義）：
+
+    model（必須）：指定關聯的 Django 模型。
+        示例：model = User
+    fields（可選）：指定要序列化的字段列表，或使用 '__all__' 包含所有字段。
+        示例：fields = ['id', 'username', 'email']
+    exclude（可選）：指定要排除的字段，與 fields 互斥。
+        示例：exclude = ['password']
+    read_only_fields（可選）：指定只讀字段（僅用於輸出，不可寫入）。
+        示例：read_only_fields = ['id']
+    extra_kwargs（可選）：為字段添加額外配置，如設置字段為只寫或添加驗證規則。
+        示例：extra_kwargs = {'password': {'write_only': True}}
+    depth（可選）：控制關聯字段的展開深度（默認不展開，僅返回 ID）。
+        示例：depth = 1（展開一層關聯對象）。
+    """
+    
+    password1 = serializers.CharField(
+        write_only=True,
+# write_only=True：表示這個字段僅用於寫入（即接收用戶輸入的數據），不會出現在序列化器的輸出（例如 API 響應）中。
+# 這是為了安全性，因為密碼是敏感信息，不應該在 API 響應中返回。
+        style={'input_type': 'password'}
+# style={'input_type': 'password'}：
+# 這是一個前端渲染提示，告訴前端框架（例如 Django REST Framework 的自動生成表單或 Swagger UI）這個字段應該渲染為密碼輸入框（<input type="password">），這樣用戶輸入的字符會被隱藏（顯示為 ****）。
+# 這只是 UI 層面的提示，對後端邏輯沒有直接影響。
+    )
+    password2 = serializers.CharField(
+        write_only=True,
+        style={'input_type': 'password'}
+    )
+    
+    class Meta:
+        model = User
+        fields = [
+            'username', 'email', 'first_name', 'last_name',
+            'password1', 'password2'
+        ]
+    
+    def validate_username(self, value):
+        """驗證用戶名"""
+        if not re.match(r'^[a-zA-Z0-9_]+$', value):
+            raise serializers.ValidationError('用戶名只能包含字母、數字和下劃線')
+        
+        if len(value) < 3:
+            raise serializers.ValidationError('用戶名至少需要3個字符')
+        
+        if len(value) > 30:
+            raise serializers.ValidationError('用戶名不能超過30個字符')
+        
+        # 檢查保留用戶名
+        reserved_usernames = [
+            'admin', 'api', 'www', 'mail', 'support', 'help',
+            'about', 'contact', 'terms', 'privacy', 'settings',
+            'profile', 'user', 'users', 'root', 'system'
+        ]
+        if value.lower() in reserved_usernames:
+            raise serializers.ValidationError('此用戶名不可用')
+        
+        return value
+    
+    def validate_email(self, value):
+        """驗證郵箱"""
+        if User.objects.filter(email=value).exists():
+            raise serializers.ValidationError('此郵箱已被註冊')
+        return value
+    
+    def validate(self, attrs):
+        """驗證密碼確認"""
+        if attrs['password1'] != attrs['password2']:
+            raise serializers.ValidationError({
+                'password2': '兩次密碼輸入不一致'
+            })
+        return attrs
+    
+    def get_cleaned_data(self):
+        """為 dj-rest-auth 提供清理後的數據"""
+        return {
+            'username': self.validated_data.get('username', ''),
+            'email': self.validated_data.get('email', ''),
+            'first_name': self.validated_data.get('first_name', ''),
+            'last_name': self.validated_data.get('last_name', ''),
+            'password1': self.validated_data.get('password1', ''),
+        }
+    
+    def save(self, request):
+        """創建用戶 - 兼容 dj-rest-auth"""
+        cleaned_data = self.get_cleaned_data()
+        
+        # 創建用戶
+        user = User.objects.create_user(
+            username=cleaned_data['username'],
+            email=cleaned_data['email'],
+            first_name=cleaned_data['first_name'],
+            last_name=cleaned_data['last_name'],
+            password=cleaned_data['password1']
+        )
+        
+        # 創建用戶設置
+        from .models import UserSettings
+        UserSettings.objects.get_or_create(user=user)
+        
+        return user 
+    
+class CustomLoginTokenObtainPairSerializer(TokenObtainPairSerializer):
     """
     自定義JWT Token序列化器
     添加用戶信息到響應中
@@ -111,76 +227,6 @@ class UserDetailSerializer(UserSerializer):
             except UserSettings.DoesNotExist:
                 return None
         return None
-
-
-class UserCreateSerializer(serializers.ModelSerializer):
-    """
-    用戶註冊序列化器
-    處理用戶註冊邏輯和驗證
-    """
-    
-    password = serializers.CharField(
-        write_only=True,
-        style={'input_type': 'password'}
-    )
-    password_confirm = serializers.CharField(
-        write_only=True,
-        style={'input_type': 'password'}
-    )
-    
-    class Meta:
-        model = User
-        fields = [
-            'username', 'email', 'first_name', 'last_name',
-            'password', 'password_confirm'
-        ]
-    
-    def validate_username(self, value):
-        """驗證用戶名"""
-        if not re.match(r'^[a-zA-Z0-9_]+$', value):
-            raise serializers.ValidationError('用戶名只能包含字母、數字和下劃線')
-        
-        if len(value) < 3:
-            raise serializers.ValidationError('用戶名至少需要3個字符')
-        
-        if len(value) > 30:
-            raise serializers.ValidationError('用戶名不能超過30個字符')
-        
-        # 檢查保留用戶名
-        reserved_usernames = [
-            'admin', 'api', 'www', 'mail', 'support', 'help',
-            'about', 'contact', 'terms', 'privacy', 'settings',
-            'profile', 'user', 'users', 'root', 'system'
-        ]
-        if value.lower() in reserved_usernames:
-            raise serializers.ValidationError('此用戶名不可用')
-        
-        return value
-    
-    def validate_email(self, value):
-        """驗證郵箱"""
-        if User.objects.filter(email=value).exists():
-            raise serializers.ValidationError('此郵箱已被註冊')
-        return value
-    
-    def validate(self, attrs):
-        """驗證密碼確認"""
-        if attrs['password'] != attrs['password_confirm']:
-            raise serializers.ValidationError({
-                'password_confirm': '兩次密碼輸入不一致'
-            })
-        return attrs
-    
-    def create(self, validated_data):
-        """創建用戶"""
-        validated_data.pop('password_confirm')
-        password = validated_data.pop('password')
-        
-        user = User.objects.create_user(
-            password=password,
-            **validated_data
-        )
-        return user
 
 
 class UserUpdateSerializer(serializers.ModelSerializer):
@@ -419,89 +465,3 @@ class SocialAuthSerializer(serializers.Serializer):
         return value
 
 
-class CustomRegisterSerializer(serializers.ModelSerializer):
-    """
-    自定義註冊序列化器
-    用於dj-rest-auth註冊功能
-    """
-    
-    password1 = serializers.CharField(
-        write_only=True,
-        style={'input_type': 'password'}
-    )
-    password2 = serializers.CharField(
-        write_only=True,
-        style={'input_type': 'password'}
-    )
-    
-    class Meta:
-        model = User
-        fields = [
-            'username', 'email', 'first_name', 'last_name',
-            'password1', 'password2'
-        ]
-    
-    def validate_username(self, value):
-        """驗證用戶名"""
-        if not re.match(r'^[a-zA-Z0-9_]+$', value):
-            raise serializers.ValidationError('用戶名只能包含字母、數字和下劃線')
-        
-        if len(value) < 3:
-            raise serializers.ValidationError('用戶名至少需要3個字符')
-        
-        if len(value) > 30:
-            raise serializers.ValidationError('用戶名不能超過30個字符')
-        
-        # 檢查保留用戶名
-        reserved_usernames = [
-            'admin', 'api', 'www', 'mail', 'support', 'help',
-            'about', 'contact', 'terms', 'privacy', 'settings',
-            'profile', 'user', 'users', 'root', 'system'
-        ]
-        if value.lower() in reserved_usernames:
-            raise serializers.ValidationError('此用戶名不可用')
-        
-        return value
-    
-    def validate_email(self, value):
-        """驗證郵箱"""
-        if User.objects.filter(email=value).exists():
-            raise serializers.ValidationError('此郵箱已被註冊')
-        return value
-    
-    def validate(self, attrs):
-        """驗證密碼確認"""
-        if attrs['password1'] != attrs['password2']:
-            raise serializers.ValidationError({
-                'password2': '兩次密碼輸入不一致'
-            })
-        return attrs
-    
-    def get_cleaned_data(self):
-        """為 dj-rest-auth 提供清理後的數據"""
-        return {
-            'username': self.validated_data.get('username', ''),
-            'email': self.validated_data.get('email', ''),
-            'first_name': self.validated_data.get('first_name', ''),
-            'last_name': self.validated_data.get('last_name', ''),
-            'password1': self.validated_data.get('password1', ''),
-        }
-    
-    def save(self, request):
-        """創建用戶 - 兼容 dj-rest-auth"""
-        cleaned_data = self.get_cleaned_data()
-        
-        # 創建用戶
-        user = User.objects.create_user(
-            username=cleaned_data['username'],
-            email=cleaned_data['email'],
-            first_name=cleaned_data['first_name'],
-            last_name=cleaned_data['last_name'],
-            password=cleaned_data['password1']
-        )
-        
-        # 創建用戶設置
-        from .models import UserSettings
-        UserSettings.objects.get_or_create(user=user)
-        
-        return user 

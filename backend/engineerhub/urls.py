@@ -40,7 +40,7 @@ def health_check(request):
     #HttpResponse 是 Django 內建的函式，用來生成 HTTP 回應。
 
 # 簡化的認證視圖（現在不需要 CSRF 豁免）
-from accounts.views import SimpleRegistrationView, SimpleLoginView, SimpleLogoutView
+from accounts.views import UserRegistrationView,CustomLoginTokenObtainPairView, SimpleLogoutView
 
 urlpatterns = [
     # 根路径 - 重定向到 API 文檔
@@ -65,9 +65,9 @@ urlpatterns = [
     path('api/core/', include('core.urls')),
     path('api/notifications/', include('notifications.urls')),
     
-    # 簡化的認證端點（純 JWT，無需 CSRF）
-    path('api/simple-auth/login/', SimpleLoginView.as_view(), name='simple_login'),
-    path('api/simple-auth/register/', SimpleRegistrationView.as_view(), name='simple_register'),
+    # 認證端點(可選簡化版或是正規版，差別在後者會送到serializer做驗證，前者直接在view做驗證)
+    path('api/auth/login/', CustomLoginTokenObtainPairView.as_view(), name='login'),
+    path('api/auth/register/', UserRegistrationView.as_view(), name='register'),
     path('api/simple-auth/logout/', SimpleLogoutView.as_view(), name='simple_logout'),
     
     # 其他認證API (dj-rest-auth) - 現在也無需 CSRF

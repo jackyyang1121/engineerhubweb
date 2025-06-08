@@ -88,6 +88,14 @@ const RegisterPage = () => {
         first_name: data.first_name,
         last_name: data.last_name
       });
+      /*
+      為什麼可以 data.username？
+      在實際執行時：
+      我在表單上使用了 useForm()（通常是 react-hook-form）。
+      當使用者填完表單並按下「提交」按鈕時，useForm 會把表單的資料組成一個 JavaScript 物件，並呼叫 onSubmit 把這個物件作為參數傳進去。
+      這個物件同時被 TypeScript 確認型別是 RegisterFormInputs（這只是型別註記，編譯時使用，但執行時它其實就是一個普通的物件）。
+      因此，執行到 data.username 時，JavaScript 只是存取物件屬性，就像一般的物件一樣。
+      */
       toast.success('註冊成功！請查看郵箱確認帳號');
       navigate('/login');
     } catch (error: unknown) {

@@ -6,7 +6,7 @@ import { EyeIcon, EyeSlashIcon } from '@heroicons/react/24/outline'; // 從 @her
 import { useAuthStore } from '../../store/authStore'; // 從自定義的 authStore 文件中導入 useAuthStore，用於管理認證狀態
 
 interface LoginFormInputs { // 定義 LoginFormInputs 接口，用於指定表單數據的類型
-  email: string; // 電子郵件字段，必須是字符串類型
+  username: string; // 用戶名字段，必須是字符串類型
   password: string; // 密碼字段，必須是字符串類型
 }
 
@@ -60,11 +60,11 @@ const LoginPage = () => { // 定義 LoginPage 組件，這是一個函數式組�
   const onSubmit = async (data: LoginFormInputs) => { // 定義 onSubmit 函數，處理表單提交邏輯，data 包含表單數據
     setIsLoading(true); // 設置 isLoading 為 true，表示開始加載
     try { // 嘗試執行登錄操作
-      await login(data.email, data.password); // 調用 login 函數，傳入電子郵件和密碼，執行登錄
+      await login(data.username, data.password); // 調用 login 函數，傳入用戶名和密碼，執行登錄
       toast.success('登錄成功！'); // 登錄成功時顯示成功提示
       navigate(from, { replace: true }); // 跳轉到用戶之前想要訪問的頁面，並替換當前歷史記錄
     } catch (error) { // 如果登錄失敗，捕獲錯誤
-      toast.error('登錄失敗，請檢查電子郵件和密碼'); // 顯示登錄失敗的錯誤提示
+      toast.error('登錄失敗，請檢查用戶名和密碼'); // 顯示登錄失敗的錯誤提示
       console.error('登錄錯誤:', error); // 在控制台輸出詳細錯誤信息
     } finally { // 無論成功或失敗，最終都會執行的代碼
       setIsLoading(false); // 設置 isLoading 為 false，表示加載結束
@@ -92,28 +92,32 @@ const LoginPage = () => { // 定義 LoginPage 組件，這是一個函數式組�
       </div>
 
       <form className="space-y-6" onSubmit={handleSubmit(onSubmit)}> {/* 登錄表單，字段間有垂直間距，提交時觸發 onSubmit */}
-        <div> {/* 電子郵件輸入區域 */}
-          <label htmlFor="email" className="block text-sm font-medium text-white mb-2"> {/* 電子郵件標籤，白色中等字體 */}
+        <div> {/* 用戶名輸入區域 */}
+          <label htmlFor="username" className="block text-sm font-medium text-white mb-2"> {/* 用戶名標籤，白色中等字體 */}
            {/* 這邊的htmlFor是與input的id屬性相對應，用於建立表單元素之間的關聯，這樣當點擊標籤時，會自動聚焦到對應的輸入框 */}
-            電子郵件
+            用戶名
           </label>
-          <div className="relative"> {/* 電子郵件輸入框的相對定位容器 */}
+          <div className="relative"> {/* 用戶名輸入框的相對定位容器 */}
             <input
-              id="email" // 輸入框的 ID
-              type="email" // 輸入類型為電子郵件
-              autoComplete="email" // 啟用瀏覽器自動填充電子郵件
-              placeholder="請輸入您的電子郵件" // 輸入框的占位符文字
-              className={`w-full px-4 py-3 bg-white/10 backdrop-blur-sm border border-white/20 rounded-xl text-white placeholder-white/60 focus:outline-none focus:ring-2 focus:ring-blue-400 focus:border-transparent transition-all duration-300 ${errors.email ? 'border-red-400 ring-2 ring-red-400' : ''}`} // 輸入框樣式，包含背景、邊框、圓角、文字顏色等，若有錯誤則顯示紅色邊框
-              {...register('email', { // 將該字段註冊到表單中，並設置驗證規則
-                required: '請輸入電子郵件', // 必填字段，若未填寫則顯示此錯誤訊息
-                pattern: { // 使用正則表達式驗證電子郵件格式
-                  value: /^[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}$/i, // 電子郵件格式的正則表達式
-                  message: '請輸入有效的電子郵件地址' // 格式無效時的錯誤訊息
+              id="username" // 輸入框的 ID
+              type="text" // 輸入類型為文字
+              autoComplete="username" // 啟用瀏覽器自動填充用戶名
+              placeholder="請輸入您的用戶名" // 輸入框的占位符文字
+              className={`w-full px-4 py-3 bg-white/10 backdrop-blur-sm border border-white/20 rounded-xl text-white placeholder-white/60 focus:outline-none focus:ring-2 focus:ring-blue-400 focus:border-transparent transition-all duration-300 ${errors.username ? 'border-red-400 ring-2 ring-red-400' : ''}`} // 輸入框樣式，包含背景、邊框、圓角、文字顏色等，若有錯誤則顯示紅色邊框
+              {...register('username', { // 將該字段註冊到表單中，並設置驗證規則
+                required: '請輸入用戶名', // 必填字段，若未填寫則顯示此錯誤訊息
+                minLength: { // 最小長度驗證
+                  value: 3, // 最小長度為3個字符
+                  message: '用戶名至少需要3個字符' // 長度不足時的錯誤訊息
+                },
+                pattern: { // 使用正則表達式驗證用戶名格式
+                  value: /^[a-zA-Z0-9_]+$/, // 用戶名格式的正則表達式（字母、數字、下劃線）
+                  message: '用戶名只能包含字母、數字和下劃線' // 格式無效時的錯誤訊息
                 }
               })}
             />
-            {errors.email && ( // 如果電子郵件字段有錯誤，顯示錯誤訊息
-              <p className="mt-2 text-sm text-red-300 animate-slide-in-down">{errors.email.message}</p> // 錯誤訊息，顯示為紅色小字並帶有動畫
+            {errors.username && ( // 如果用戶名字段有錯誤，顯示錯誤訊息
+              <p className="mt-2 text-sm text-red-300 animate-slide-in-down">{errors.username.message}</p> // 錯誤訊息，顯示為紅色小字並帶有動畫
             )}
           </div>
         </div>

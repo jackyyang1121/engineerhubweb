@@ -9,7 +9,7 @@ from django.db import models
 from django.utils import timezone
 from django.core.validators import RegexValidator, URLValidator
 from PIL import Image
-import os
+
 
 
 class User(AbstractUser):
@@ -370,10 +370,21 @@ class UserSettings(models.Model):
     """
     
     user = models.OneToOneField(
-        User,
+# OneToOneField 是 Django ORM（物件關聯映射）提供的一種模型字段，用於定義兩個模型之間的一對一關係。這意味著：
+# 一個模型實例對應另一個模型的唯一實例。
+# 例如，在你的例子中，每個 UserSettings 實例只對應一個 User 實例，且每個 User 實例也只對應一個 UserSettings 實例。
+# 這與 ForeignKey（一對多關係）或 ManyToManyField（多對多關係）不同，OneToOneField 確保關係是唯一的。
+        User,  
+# 關聯的模型：User
         on_delete=models.CASCADE,
+# on_delete=models.CASCADE:
+# 作用：定義當關聯的 User 實例被刪除時，UserSettings 實例的行為。
+# models.CASCADE：如果關聯的 User 被刪除，對應的 UserSettings 實例也會自動被刪除。
         related_name='settings',
+# related_name='settings'
+# 作用：定義從 User 模型反向訪問 UserSettings 的名稱。
         help_text="設置所有者"
+# 作用：為字段提供一個人類可讀的描述，通常在 Django 管理後台（Admin）或自動生成的表單中顯示。
     )
     
     # 通知設置

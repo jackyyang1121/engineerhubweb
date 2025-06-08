@@ -18,7 +18,7 @@ interface AuthState { // 定義 AuthState 接口，描述認證 store 的狀態�
   error: string | null; // 錯誤訊息
 
   // 登錄
-  login: (email: string, password: string) => Promise<void>;   //表示這個函式回傳一個 Promise，裡面不含任何有意義的資料（void）
+  login: (username: string, password: string) => Promise<void>;   //表示這個函式回傳一個 Promise，裡面不含任何有意義的資料（void）
   //✅ => 是箭頭函式符號（在這裡只是描述函式的型態）
   //✅ Promise<void> 表示它是一個非同步函式，並且不會有實際回傳值（只要完成就算成功）
 
@@ -88,11 +88,11 @@ export const useAuthStore = create<AuthState>()( // 使用 create 函數創建�
         isLoading: false, // 初始加載狀態為 false
         error: null, // 初始錯誤訊息為 null
 
-        login: async (email, password) => { // 定義 login 方法，處理用戶登錄
+        login: async (username, password) => { // 定義 login 方法，處理用戶登錄
           set({ isLoading: true, error: null }); // 設置加載狀態為 true，清除錯誤訊息
           try {
-            const response = await authApi.login({ email, password }); // 調用 authApi 的 login 函數進行登錄
-            // authApi.login({ email, password })調用authApi 的 login 函數並連到後端backend/accounts/views.py試圖內的login函式去儲存token
+            const response = await authApi.login({ username, password }); // 調用 authApi 的 login 函數進行登錄
+            // authApi.login({ username, password })調用authApi 的 login 函數並連到後端backend/accounts/views.py試圖內的login函式去儲存token
 
             // 同步 token 到 localStorage
             localStorage.setItem('engineerhub_token', response.access_token); // 將後端儲存的訪問令牌存入 localStorage

@@ -70,7 +70,7 @@ export interface RegisterData {
 
 // 登入數據類型
 export interface LoginData {
-  email: string;
+  username: string;
   password: string;
 }
 

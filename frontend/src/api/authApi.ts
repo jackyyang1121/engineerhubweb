@@ -6,7 +6,7 @@ import type {
   LoginData,
   TokenResponse,
   UserData
-} from '../types';
+} from '../types';  //在types裡面的index.ts定義了許多類型並標註typehint，這邊導入
 
 // 重新導出類型定義供其他模塊使用
 export type {
@@ -19,20 +19,20 @@ export type {
 
 // 註冊新用戶
 export const register = async (userData: RegisterData): Promise<TokenResponse> => {
-  const response = await api.post('/simple-auth/register/', userData);
+  /*
+  Promise<TokenResponse>:
+  指定返回類型：Promise<TokenResponse> 告訴 TypeScript 編譯器，login 函數的返回值是一個 Promise，當這個 Promise 解析（resolved）時，會得到一個 TokenResponse 類型的物件。這確保了調用 login 的代碼能正確處理返回數據。
+  類型安全：如果函數實現中返回的數據不符合 TokenResponse 的結構（例如缺少 accessToken），TypeScript 會在編譯時報錯。    
+  */
+  const response = await api.post('/auth/register/', userData);
   return response.data;
 };
 
-// 使用電子郵件和密碼登入
+// 使用用戶名和密碼登入
 export const login = async (credentials: LoginData): Promise<TokenResponse> => {
-  // 將 email 轉換為 username，因為 SimpleLoginView 期望 username 字段
-  const loginData = {
-    username: credentials.email,  // 後端用戶名字段可以接受郵箱
-    password: credentials.password
-  };
-  const response = await api.post('/simple-auth/login/', loginData);
-  //對應到後端backend/engineerhub/urls.py的路由path('api/simple-auth/login/', SimpleLoginView.as_view(), name='simple_login')
-  //對應到後端backend/engineerhub/views.py的SimpleLoginView視圖
+  const response = await api.post('/auth/login/', credentials);
+  //對應到後端backend/engineerhub/urls.py的路由path('api/auth/login/', CustomLoginTokenObtainPairView.as_view(), name='simple_login')
+  //對應到後端backend/accounts/views.py的CustomLoginTokenObtainPairView視圖
   return response.data;    //回傳response.data就是後端拿到的access_token和refresh_token
 };
 
