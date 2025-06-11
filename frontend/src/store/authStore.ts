@@ -42,6 +42,7 @@ interface AuthState { // 定義 AuthState 接口，描述認證 store 的狀態�
   setLoading: (isLoading: boolean) => void;
 }
 
+//因為要管理狀態，故將所有方法封裝在 useAuthStore內，並將useAuthStore作為一個hook，讓其他組件可以呼叫useAuthStore()來取得和更新狀態
 export const useAuthStore = create<AuthState>()( // 使用 create 函數創建自定義變數 AuthState 類型的 store
   /*
   create 是 Zustand（一個輕量化的 React 狀態管理庫）提供的函數，用來建立一個 store。

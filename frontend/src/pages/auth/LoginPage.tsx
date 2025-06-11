@@ -23,6 +23,22 @@ const LoginPage = () => { // 定義 LoginPage 組件，這是一個函數式組�
   // 用戶之前想要訪問的頁面，如果沒有指定則默認為首頁（根路徑 '/'）
   const from = (location.state as { from?: { pathname: string } })?.from?.pathname || '/';
   /*
+  為什麼是 location.state？
+  在 App.tsx 中，你使用了 <Navigate to="/login" state={{ from: location }} replace />：
+  這裡的 state 是 <Navigate> 元件的一個 prop，用來將資料（例如 { from: location }）傳遞到目標路由（/login）。
+  React Router 會將這個 state 物件附加到目標頁面的 location 物件上，具體來說是存儲在 location.state 中。
+  在 LoginPage 中，你使用 useLocation Hook 獲取當前的 location 物件：
+  location 物件包含當前路由的資訊（例如 pathname、search 等），以及通過 <Navigate> 或其他路由跳轉傳遞的 state。
+  因此，location.state 就是你在 <Navigate> 中傳遞的 { from: location } 物件。
+  簡單來說：location.state 是 React Router 的標準方式，用來存儲和訪問通過路由跳轉傳遞的狀態資料。
+
+  這段程式碼正確地從 location.state 中提取 from.pathname：
+  location.state 是 { from: location }。
+  location.state.from 是原始的 location 物件。
+  location.state.from.pathname 是原始頁面的路徑。
+  使用 as 和 ?. 是為了安全地處理 location.state 可能為 null 或 undefined 的情況。
+  */
+  /*
   from?：表示 from 屬性是可選的（undefined 或 { pathname: string }）。
   而這邊的from是我在App.tsx中的<Navigate>裡自定義的變數，儲存的是location
   pathname：是 from 物件中的一個字串屬性，表示路徑（這邊是根路徑 '/'）。
@@ -146,12 +162,13 @@ const LoginPage = () => { // 定義 LoginPage 組件，這是一個函數式組�
                 <EyeIcon className="h-5 w-5" /> // 若密碼隱藏，顯示眼睛圖標
               )}
             </button>
-            {errors.password && ( // 如果密碼字段有錯誤，顯示錯誤訊息
+            {errors.password && ( // 如果密碼字段有錯誤，顯示錯誤訊息，這邊顯示"請輸入密碼"，因為在useForm裡面設置了required: '請輸入密碼'
               <p className="mt-2 text-sm text-red-300 animate-slide-in-down">{errors.password.message}</p> // 錯誤訊息，顯示為紅色小字並帶有動畫
             )}
           </div>
         </div>
 
+        {/*尚未實現實際功能*/}
         <div className="flex items-center justify-between"> {/* 記住我和忘記密碼區域，水平排列 */}
           <div className="flex items-center"> {/* 記住我選項區域 */}
             <input

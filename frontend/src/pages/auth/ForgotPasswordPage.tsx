@@ -14,7 +14,7 @@ const ForgotPasswordPage = () => {
   const [isLoading, setIsLoading] = useState(false);
   const [isSubmitted, setIsSubmitted] = useState(false);
   
-  const { //解構賦值
+  const { //解構賦值，把useForm裡面的屬性和函式拿出來用
     register, 
     handleSubmit, 
     formState: { errors } 
@@ -38,6 +38,44 @@ const ForgotPasswordPage = () => {
       setIsLoading(false);
     }
   };
+
+/*
+以下是當用戶提交表單時，handleSubmit 和 onSubmit 的交互流程：
+
+  用戶提交表單：
+    用戶在 <input> 中輸入電子郵箱並點擊 <button type="submit">。
+    這會觸發 <form> 的 onSubmit 事件，執行 handleSubmit(onSubmit)。
+  執行 handleSubmit：
+    handleSubmit 是一個包裝函數，它接收你的 onSubmit 函數作為參數。
+    handleSubmit 首先檢查表單的所有驗證規則（例如 email 的 required 和 pattern）。
+  如果驗證失敗（例如 email 為空或格式錯誤）：
+    handleSubmit 更新 formState.errors，顯示錯誤訊息（例如你的 errors.email.message）。
+    不會調用 onSubmit，流程終止。
+  如果驗證通過：
+    handleSubmit 收集所有已註冊欄位的值，組成一個物件（例如 { email: "user@example.com" }）。
+    將這個物件作為參數傳遞給 onSubmit 函數。
+  執行 onSubmit：
+    你的 onSubmit 函數被調用，接收表單數據作為參數：
+    data 是 ForgotPasswordFormInputs 類型的物件，包含 email 屬性（例如 data.email = "user@example.com"）。
+    onSubmit 使用 data.email 調用 forgotPassword API，根據結果更新狀態（isSubmitted、isLoading）並顯示提示。
+  結果反饋：
+    如果 API 請求成功，isSubmitted 設為 true，頁面渲染成功訊息。
+    如果失敗，顯示錯誤提示（toast.error）。
+    無論成功與否，isLoading 設為 false，按鈕恢復正常。
+
+為什麼需要 handleSubmit 包裝 onSubmit？
+  驗證管理：
+    handleSubmit 負責檢查表單驗證規則，確保只有有效數據才會傳遞給 onSubmit。
+    這避免了你在 onSubmit 中手動檢查驗證邏輯，簡化程式碼。
+  阻止預設行為：
+    <form> 的原生 onSubmit 事件會導致頁面刷新（瀏覽器預設行為）。
+    handleSubmit 自動阻止這種行為（通過 event.preventDefault()），讓你專注於業務邏輯。
+  數據收集：
+    handleSubmit 自動從表單狀態中收集所有欄位值，組成物件傳遞給 onSubmit。
+    你不需要手動從 DOM 或其他地方獲取輸入值。
+  一致性：
+    handleSubmit 提供統一的 API，適用於所有 React Hook Form 管理的表單，無論表單有多複雜。  
+  */
 
   if (isSubmitted) {
     return (
@@ -95,7 +133,8 @@ const ForgotPasswordPage = () => {
               id="email"
               type="email"
               autoComplete="email"
-              placeholder="請輸入您的郵箱"
+              placeholder="請輸入您的郵箱"  
+              // type="email" 是 HTML5 內建的輸入類型，提供電子郵箱格式的瀏覽器級驗證、鍵盤優化、語義化和自動填充支援。
               className={`w-full px-4 py-3 bg-white/10 backdrop-blur-sm border border-white/20 rounded-xl text-white placeholder-white/60 focus:outline-none focus:ring-2 focus:ring-blue-400 focus:border-transparent transition-all duration-300 ${
                 errors.email ? 'border-red-400 ring-2 ring-red-400' : ''
               }`}
@@ -116,7 +155,7 @@ const ForgotPasswordPage = () => {
         <div>
           <button
             type="submit"
-            disabled={isLoading}
+            disabled={isLoading}   //當設置為 true 時，該按鈕會變成禁用狀態，無法點擊
             className="w-full bg-gradient-to-r from-orange-500 via-amber-500 to-yellow-500 text-white py-3 px-4 rounded-xl font-semibold shadow-lg hover:shadow-xl hover:from-orange-600 hover:via-amber-600 hover:to-yellow-600 focus:outline-none focus:ring-2 focus:ring-orange-400 focus:ring-offset-2 focus:ring-offset-transparent transition-all duration-300 transform hover:scale-105 active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed disabled:transform-none"
           >
             {isLoading ? (

@@ -69,7 +69,7 @@ const RegisterPage = () => {
     setError,    //可以設置錯誤訊息，並儲存在formState.errors裡面
     watch
     //以上都是useForm這個HOOK裡面內建的屬性
-  } = useForm<RegisterFormInputs>();//這邊的 <> 就是 TypeScript 的 型別提示（type hint）功能
+  } = useForm<RegisterFormInputs>();//這邊的 <> 就是 TypeScript 的 型別提示（type hint）功能，但會驗證型別，如與上面interface定義的不符時如缺失或型別錯誤會報錯
 
   const password1 = watch('password1'); // 這行的作用是「監視表單中 password1 這個欄位的值變化」，它會即時反映用戶輸入的密碼。
   

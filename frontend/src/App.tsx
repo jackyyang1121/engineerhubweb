@@ -6,8 +6,8 @@ import { useEffect } from 'react';
 // - Navigate：用於重定向到指定路徑。
 // - useLocation：用於獲取當前路由位置（網址），常用於重定向時保存來源路徑。
 import { Routes, Route, Navigate, useLocation } from 'react-router-dom';
-// 導入自定義的身份驗證狀態管理鉤子 useAuthStore，用於存取和管理用戶認證狀態（例如是否已登入）。
 
+// 導入自定義的身份驗證狀態管理鉤子 useAuthStore，用於存取和管理用戶認證狀態（例如是否已登入）。
 // useAuthStore 是一個 Zustand（狀態管理庫） 的 Hook，用來管理跟認證（Auth）相關的全域狀態。
 // 可以把它當作一個「資料倉庫」來管理登入、登出、使用者資料、token 之類的東西。
 import { useAuthStore } from './store/authStore';
