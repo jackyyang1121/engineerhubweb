@@ -1,7 +1,7 @@
 // 引入 Axios 套件，用於發送 HTTP 請求
 import axios from 'axios';
 
-// 創建 Axios 實例 - 純 JWT 認證，無需 CSRF
+// 創建 Axios 實例 - 純 JWT 認證
 // 這裡使用 axios.create 方法創建一個自定義的 Axios 實例，方便設置全局配置
 const api = axios.create({
   // 設置 API 的基礎 URL，從環境變數 VITE_API_BASE_URL 獲取，若未設置則默認為 'http://localhost:8000/api'
