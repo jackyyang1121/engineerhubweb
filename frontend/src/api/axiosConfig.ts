@@ -4,6 +4,11 @@ import axios from 'axios';
 // 創建 Axios 實例 - 純 JWT 認證
 // 這裡使用 axios.create 方法創建一個自定義的 Axios 實例，方便設置全局配置
 const api = axios.create({
+  /*
+  當你創建 api = axios.create({...}) 時，api 是一個 Axios 實例，繼承了 Axios 的所有方法和屬性。
+  api.interceptors 是一個物件，包含 request 和 response 兩個子物件。
+  request 和 response 各自有 .use 方法，用來註冊攔截器。
+  */
   // 設置 API 的基礎 URL，從環境變數 VITE_API_BASE_URL 獲取，若未設置則默認為 'http://localhost:8000/api'
   baseURL: import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000/api',
   // 配置預設的 HTTP 請求頭
@@ -17,9 +22,12 @@ const api = axios.create({
 
 // 請求攔截器 - 在發送請求前處理配置
 // 使用 interceptors.request.use 註冊請求攔截器，處理每個請求發送前的邏輯
-api.interceptors.request.use(
+api.interceptors.request.use(      //.use 方法是 Axios 提供的 API，讓你註冊回調函數，告訴 Axios：「當收到響應時，執行這些邏輯」。
   // 成功處理請求配置的回調函數，參數 config 是當前請求的配置對象
-  (config) => {
+  (config) => {   //config是自己取的名字，作為回調函數的名稱
+    /*
+    config 讓我在請求發送之前修改請求的設置。例如，我的程式碼檢查 localStorage 中的 token，並將其添加到 config.headers['Authorization'] 中。
+    */
     // 從 localStorage 中獲取名為 'engineerhub_token' 的 JWT token，用於認證
     const token = localStorage.getItem('engineerhub_token');
     // 記錄請求的相關信息到控制台，方便調試
@@ -48,7 +56,7 @@ api.interceptors.request.use(
 
 // 響應攔截器 - 處理伺服器返回的響應和錯誤
 // 使用 interceptors.response.use 註冊響應攔截器，處理每個響應或錯誤
-api.interceptors.response.use(
+api.interceptors.response.use(     
   // 成功接收響應的回調函數，參數 response 是伺服器返回的響應對象
   (response) => {
     // 記錄成功響應的相關信息到控制台，方便調試
