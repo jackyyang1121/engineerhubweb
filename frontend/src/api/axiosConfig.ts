@@ -1,103 +1,139 @@
+// 引入 Axios 套件，用於發送 HTTP 請求
 import axios from 'axios';
 
-// 创建axios实例 - 純 JWT 認證，無需 CSRF
+// 創建 Axios 實例 - 純 JWT 認證，無需 CSRF
+// 這裡使用 axios.create 方法創建一個自定義的 Axios 實例，方便設置全局配置
 const api = axios.create({
+  // 設置 API 的基礎 URL，從環境變數 VITE_API_BASE_URL 獲取，若未設置則默認為 'http://localhost:8000/api'
   baseURL: import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000/api',
+  // 配置預設的 HTTP 請求頭
   headers: {
+    // 設置 Content-Type 為 'application/json'，表示請求數據以 JSON 格式傳送
     'Content-Type': 'application/json'
   },
-  withCredentials: false // JWT 認證不需要 cookies
+  // 設置 withCredentials 為 false，因為使用 JWT 認證，不需要傳送 cookies（與 CSRF 相關）
+  withCredentials: false
 });
 
-// 请求拦截器，只添加JWT token
+// 請求攔截器 - 在發送請求前處理配置
+// 使用 interceptors.request.use 註冊請求攔截器，處理每個請求發送前的邏輯
 api.interceptors.request.use(
+  // 成功處理請求配置的回調函數，參數 config 是當前請求的配置對象
   (config) => {
+    // 從 localStorage 中獲取名為 'engineerhub_token' 的 JWT token，用於認證
     const token = localStorage.getItem('engineerhub_token');
+    // 記錄請求的相關信息到控制台，方便調試
     console.log('🔐 請求攔截器:', {
-      url: config.url,
-      method: config.method,
-      hasToken: !!token,
-      token: token ? token.substring(0, 20) + '...' : 'None'
+      url: config.url, // 請求的目標 URL
+      method: config.method, // 請求的方法（例如 GET、POST）
+      hasToken: !!token, // 檢查是否有 token，!!token 將值轉為布林值
+      token: token ? token.substring(0, 20) + '...' : 'None' // 如果有 token，顯示前 20 字符加 '...'，否則顯示 'None'
     });
     
+    // 如果 token 存在，將其添加到請求頭的 'Authorization' 字段，格式為 'Bearer <token>'
     if (token) {
       config.headers['Authorization'] = `Bearer ${token}`;
     }
+    // 返回修改後的請求配置，繼續執行請求
     return config;
   },
+  // 處理請求配置錯誤的回調函數，參數 error 是錯誤對象
   (error) => {
+    // 記錄請求配置錯誤到控制台，方便排查問題
     console.error('❌ 請求配置錯誤:', error);
+    // 將錯誤拒絕並傳遞給後續處理（Promise 鏈）
     return Promise.reject(error);
   }
 );
 
-// 响应拦截器，处理token过期和重试
+// 響應攔截器 - 處理伺服器返回的響應和錯誤
+// 使用 interceptors.response.use 註冊響應攔截器，處理每個響應或錯誤
 api.interceptors.response.use(
+  // 成功接收響應的回調函數，參數 response 是伺服器返回的響應對象
   (response) => {
+    // 記錄成功響應的相關信息到控制台，方便調試
     console.log('✅ 響應成功:', {
-      url: response.config.url,
-      status: response.status,
-      method: response.config.method
+      url: response.config.url, // 響應對應的請求 URL
+      status: response.status, // 響應的 HTTP 狀態碼（例如 200）
+      method: response.config.method // 響應對應的請求方法
     });
+    // 返回響應對象，供後續代碼使用
     return response;
   },
+  // 處理響應錯誤的回調函數，參數 error 是錯誤對象，async 表示異步處理
   async (error) => {
+    // 獲取導致錯誤的原始請求配置，方便後續重試
     const originalRequest = error.config;
     
+    // 記錄響應錯誤的相關信息到控制台，方便排查問題
     console.log('❌ 響應錯誤:', {
-      url: originalRequest?.url,
-      status: error.response?.status,
-      method: originalRequest?.method,
-      hasRetried: originalRequest?._retry
+      url: originalRequest?.url, // 原始請求的 URL，使用 ?. 避免 undefined 錯誤
+      status: error.response?.status, // 錯誤響應的 HTTP 狀態碼（例如 401）
+      method: originalRequest?.method, // 原始請求的方法
+      hasRetried: originalRequest?._retry // 檢查是否已經重試過，_retry 是自定義屬性
     });
     
-    // 处理401错误和token刷新
+    // 處理 401 未授權錯誤（通常表示 token 過期），且該請求尚未重試
     if (error.response?.status === 401 && !originalRequest._retry) {
+      // 將原始請求標記為已重試，防止無限循環
       originalRequest._retry = true;
       
+      // 從 localStorage 中獲取名為 'engineerhub_refresh_token' 的 refresh token
       const refreshToken = localStorage.getItem('engineerhub_refresh_token');
+      // 如果 refresh token 存在，嘗試刷新 access token
       if (refreshToken) {
+        // 記錄正在嘗試刷新 token 的信息
         console.log('🔄 嘗試刷新 token...');
+        // 使用 try-catch 處理刷新過程中的潛在錯誤
         try {
-          // 使用refresh token刷新access token
+          // 使用 axios.post 發送刷新請求到後端的 '/auth/token/refresh/' 端點
           const response = await axios.post(`${api.defaults.baseURL}/auth/token/refresh/`, {
-            refresh: refreshToken
+            refresh: refreshToken // 傳遞 refresh token 作為請求數據
           });
           
+          // 從響應數據中提取新的 access token
           const newAccessToken = response.data.access;
+          // 將新的 access token 存入 localStorage，更新舊的 token
           localStorage.setItem('engineerhub_token', newAccessToken);
           
+          // 記錄 token 刷新成功的消息
           console.log('✅ Token 刷新成功');
           
-          // 重新发送原始请求
+          // 更新原始請求的 headers，加入新的 access token
           originalRequest.headers['Authorization'] = `Bearer ${newAccessToken}`;
+          // 使用更新後的配置重新發送原始請求
           return api(originalRequest);
           
         } catch (refreshError) {
+          // 如果刷新 token 失敗，記錄錯誤信息
           console.error('❌ Token 刷新失敗:', refreshError);
-          // 清除无效的token
+          // 清除無效的 access token 和 refresh token
           localStorage.removeItem('engineerhub_token');
           localStorage.removeItem('engineerhub_refresh_token');
           
-          // 重定向到登录页
+          // 檢查當前頁面是否為登入頁，若不是則重定向到登入頁
           if (window.location.pathname !== '/login') {
             window.location.href = '/login';
           }
         }
       } else {
+        // 如果沒有 refresh token，記錄相關信息
         console.log('❌ 沒有 refresh token，重定向到登入頁');
-        // 没有refresh token，重定向到登录页
+        // 清除無效的 token
         localStorage.removeItem('engineerhub_token');
         localStorage.removeItem('engineerhub_refresh_token');
         
+        // 檢查當前頁面是否為登入頁，若不是則重定向到登入頁
         if (window.location.pathname !== '/login') {
           window.location.href = '/login';
         }
       }
     }
     
+    // 如果不是 401 錯誤或已重試過，則拒絕 Promise，將錯誤傳遞給後續處理
     return Promise.reject(error);
   }
 );
 
-export default api; 
+// 導出配置好的 Axios 實例，供其他模組使用
+export default api;
