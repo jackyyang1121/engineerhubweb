@@ -123,7 +123,8 @@ const ForgotPasswordPage = () => {
         <p className="text-indigo-200">請輸入您的郵箱，我們將發送重置密碼連結</p>
       </div>
 
-      <form className="space-y-6" onSubmit={handleSubmit(onSubmit)}>
+      <form className="space-y-6" onSubmit={handleSubmit(onSubmit)}>   
+        {/* onSubmit是被handleSubmit包裝的回調函數，當表單提交時，會調用onSubmit函數 */}
         <div>
           <label htmlFor="email" className="block text-sm font-medium text-white mb-2">
             電子郵箱
