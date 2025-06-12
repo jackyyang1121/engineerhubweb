@@ -92,21 +92,34 @@ export const useAuthStore = create<AuthState>()( // 使用 create 函數創建�
         login: async (username, password) => { // 定義 login 方法，處理用戶登錄
           set({ isLoading: true, error: null }); // 設置加載狀態為 true，清除錯誤訊息
           try {
+            console.log('🔐 開始登入流程...');
             const response = await authApi.login({ username, password }); // 調用 authApi 的 login 函數進行登錄
-            // authApi.login({ username, password })調用authApi 的 login 函數並連到後端backend/accounts/views.py試圖內的login函式去儲存token
+            
+            console.log('✅ 登入API成功，響應數據:', {
+              hasAccessToken: !!response.access,
+              hasRefreshToken: !!response.refresh,
+              hasUser: !!response.user,
+              username: response.user?.username
+            });
 
             // 同步 token 到 localStorage
-            localStorage.setItem('engineerhub_token', response.access_token); // 將後端儲存的訪問令牌存入 localStorage
-            localStorage.setItem('engineerhub_refresh_token', response.refresh_token); // 將後端儲存的刷新令牌存入 localStorage
+            localStorage.setItem('engineerhub_token', response.access); // 將後端儲存的訪問令牌存入 localStorage
+            localStorage.setItem('engineerhub_refresh_token', response.refresh); // 將後端儲存的刷新令牌存入 localStorage
+
+            console.log('✅ Token已存入localStorage');
 
             set({ // 更新 store 狀態
-              token: response.access_token,
-              refreshToken: response.refresh_token,
+              token: response.access,
+              refreshToken: response.refresh,
               user: response.user,
               isAuthenticated: true,
-              isLoading: false
+              isLoading: false,
+              error: null
             });
+            
+            console.log('✅ Store狀態已更新，用戶已認證');
           } catch (error) { // 捕獲登錄過程中的錯誤
+            console.error('❌ 登入失敗:', error);
             set({ 
               isLoading: false, 
               error: error instanceof Error ? error.message : '登錄失敗' // 設置錯誤訊息
@@ -126,12 +139,12 @@ export const useAuthStore = create<AuthState>()( // 使用 create 函數創建�
             const response = await authApi.register(userData); // 調用 authApi 的 register 函數進行註冊
 
             // 同步 token 到 localStorage
-            localStorage.setItem('engineerhub_token', response.access_token); // 將訪問令牌存入 localStorage
-            localStorage.setItem('engineerhub_refresh_token', response.refresh_token); // 將刷新令牌存入 localStorage
+            localStorage.setItem('engineerhub_token', response.access); // 將訪問令牌存入 localStorage
+            localStorage.setItem('engineerhub_refresh_token', response.refresh); // 將刷新令牌存入 localStorage
 
             set({ // 更新 store 狀態
-              token: response.access_token,
-              refreshToken: response.refresh_token,
+              token: response.access,
+              refreshToken: response.refresh,
               user: response.user,
               isAuthenticated: true,
               isLoading: false
@@ -204,11 +217,20 @@ export const useAuthStore = create<AuthState>()( // 使用 create 函數創建�
                 console.log('✅ 用戶信息獲取成功:', user.username);
                 set({ user, isAuthenticated: true }); // 更新用戶信息和認證狀態
                 return true;
-              } catch (error) {
+              } catch (error: any) {
                 console.error('❌ 獲取用戶信息失敗:', error);
-                // 如果獲取用戶信息失敗，嘗試刷新 token
-                console.log('🔄 嘗試刷新 token...');
-                return refreshAuth(); // 調用 refreshAuth 方法刷新令牌
+                console.error('❌ 錯誤詳情:', error.response?.data || error.message);
+                
+                // 如果是401錯誤，token可能無效，嘗試刷新
+                if (error.response?.status === 401) {
+                  console.log('🔄 401錯誤，嘗試刷新 token...');
+                  return refreshAuth();
+                } else {
+                  // 其他錯誤，保持已認證狀態，使用現有用戶信息
+                  console.log('⚠️ 獲取用戶信息失敗，但保持認證狀態');
+                  set({ isAuthenticated: true });
+                  return true;
+                }
               }
             } else {
               // 令牌過期，嘗試刷新
@@ -320,8 +342,8 @@ export const useAuthStore = create<AuthState>()( // 使用 create 函數創建�
           try {
             const response = await authApi.loginWithGoogle(accessToken); // 調用 authApi 的 loginWithGoogle 函數
             set({ // 更新 store 狀態
-              token: response.access_token,
-              refreshToken: response.refresh_token,
+              token: response.access,
+              refreshToken: response.refresh,
               user: response.user,
               isAuthenticated: true,
               isLoading: false
@@ -340,8 +362,8 @@ export const useAuthStore = create<AuthState>()( // 使用 create 函數創建�
           try {
             const response = await authApi.loginWithGitHub(code); // 調用 authApi 的 loginWithGitHub 函數
             set({ // 更新 store 狀態
-              token: response.access_token,
-              refreshToken: response.refresh_token,
+              token: response.access,
+              refreshToken: response.refresh,
               user: response.user,
               isAuthenticated: true,
               isLoading: false

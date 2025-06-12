@@ -76,8 +76,8 @@ export interface LoginData {
 
 // Token 響應類型
 export interface TokenResponse {
-  access_token: string;
-  refresh_token: string;
+  access: string;
+  refresh: string;
   user: UserData;
 }
 

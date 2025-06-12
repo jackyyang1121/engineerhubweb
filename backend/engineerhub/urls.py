@@ -31,7 +31,7 @@ from drf_spectacular.views import SpectacularAPIView, SpectacularSwaggerView, Sp
 
 def root_view(request):
     """根據路徑視圖，提供項目信息或重定向到API文檔"""
-    return redirect('/api/docs/')   #redirect() 是 Python 內建的函式，用來重定向到指定的 URL。
+    return redirect('/admin/')   #redirect() 是 Python 內建的函式，用來重定向到指定的 URL。
 
 # 健康檢查視圖
 def health_check(request):
@@ -39,8 +39,6 @@ def health_check(request):
     return HttpResponse('OK', content_type='text/plain')  #content_type='text/plain' 是告訴瀏覽器，這個回應的內容是純文字，不是 HTML 或 JSON 等其他格式。
     #HttpResponse 是 Django 內建的函式，用來生成 HTTP 回應。
 
-# 簡化的認證視圖（現在不需要 CSRF 豁免）
-from accounts.views import UserRegistrationView,CustomLoginTokenObtainPairView, SimpleLogoutView
 
 urlpatterns = [
     # 根路径 - 重定向到 API 文檔
@@ -64,11 +62,6 @@ urlpatterns = [
     path('api/chat/', include('chat.urls')),
     path('api/core/', include('core.urls')),
     path('api/notifications/', include('notifications.urls')),
-    
-    # 認證端點(可選簡化版或是正規版，差別在後者會送到serializer做驗證，前者直接在view做驗證)
-    path('api/auth/login/', CustomLoginTokenObtainPairView.as_view(), name='login'),
-    path('api/auth/register/', UserRegistrationView.as_view(), name='register'),
-    path('api/simple-auth/logout/', SimpleLogoutView.as_view(), name='simple_logout'),
     
     # 其他認證API (dj-rest-auth) 
     path('api/auth/', include('dj_rest_auth.urls')),

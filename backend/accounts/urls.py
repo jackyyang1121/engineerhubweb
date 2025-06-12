@@ -20,6 +20,7 @@ urlpatterns = [
     
     # 用戶認證相關
     path('auth/register/', views.UserRegistrationView.as_view(), name='user-register'),
-    path('auth/token/', views.CustomLoginTokenObtainPairView.as_view(), name='token-obtain'),
+    path('auth/login/', views.CustomLoginTokenObtainPairView.as_view(), name='user-login'),
     path('auth/settings/', views.UserSettingsView.as_view(), name='user-settings'),
+    path('simple-auth/logout/', views.SimpleLogoutView.as_view(), name='simple-logout'),
 ] 
