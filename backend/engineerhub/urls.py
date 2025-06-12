@@ -70,8 +70,17 @@ urlpatterns = [
     path('api/auth/register/', UserRegistrationView.as_view(), name='register'),
     path('api/simple-auth/logout/', SimpleLogoutView.as_view(), name='simple_logout'),
     
-    # 其他認證API (dj-rest-auth) - 現在也無需 CSRF
+    # 其他認證API (dj-rest-auth) 
     path('api/auth/', include('dj_rest_auth.urls')),
+    # dj_rest_auth.urls包含其他路由包括:
+    # /dj-rest-auth/login/   # POST
+    # /dj-rest-auth/logout/  # POST
+    # /dj-rest-auth/user/  # GET, PUT, PATCH
+    # /dj-rest-auth/password/change/  # POST
+    # /dj-rest-auth/password/reset/  # POST
+    # /dj-rest-auth/password/reset/confirm/  # POST
+    # /dj-rest-auth/token/refresh/  # POST (JWT)
+    # /dj-rest-auth/token/verify/  # POST (JWT)
     
     # 社交登入 (AllAuth) - Admin 使用
     path('accounts/', include('allauth.urls')),

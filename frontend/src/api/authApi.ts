@@ -18,6 +18,7 @@ export type {
 } from '../types';
 
 // 註冊新用戶
+// 可調整路由為/auth/simple-register/簡單註冊
 export const register = async (userData: RegisterData): Promise<TokenResponse> => {
   /*
   Promise<TokenResponse>:
@@ -40,6 +41,7 @@ export const register = async (userData: RegisterData): Promise<TokenResponse> =
 };
 
 // 使用用戶名和密碼登入
+// 可調整路由為/auth/simple-login/簡單登入
 export const login = async (credentials: LoginData): Promise<TokenResponse> => {
   const response = await api.post('/auth/login/', credentials);
   //對應到後端backend/engineerhub/urls.py的路由path('api/auth/login/', CustomLoginTokenObtainPairView.as_view(), name='simple_login')
