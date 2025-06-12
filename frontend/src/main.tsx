@@ -62,6 +62,7 @@ const queryClient = new QueryClient({
 // 使用 React 18 提供的 createRoot API，將 React App 掛載到 HTML 中 id="root" 的元素上。
   //在 HTML 中找不到 id="root" 的元素，這個方法就會回傳 null，而編輯器會提醒我可能是null而跑出一個提醒。 
   //因此如果保證有id="root"的話就可以加!，功能是:告訴編輯器我保證這個值絕對不會是 null 或 undefined，所以請不要報錯。
+  //root對應到index.html的<div id="root"></div>
 ReactDOM.createRoot(document.getElementById('root')!).render(
   // 呼叫 render() 來開始渲染整個 React 應用程式。
 
