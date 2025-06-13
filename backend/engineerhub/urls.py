@@ -41,7 +41,7 @@ def health_check(request):
 
 
 urlpatterns = [
-    # 根路径 - 重定向到 API 文檔
+    # 根路径 - 重定向到 admin
     path('', root_view, name='root'),
     
     # 健康檢查

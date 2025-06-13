@@ -12,7 +12,8 @@ interface RegisterFormInputs {
   password2: string;  
   first_name: string;  
   last_name: string;  
-  terms: boolean;}
+  terms: boolean;
+}
 
 // API 錯誤響應類型
 interface RegisterErrorResponse {
@@ -95,6 +96,8 @@ const RegisterPage = () => {
       當使用者填完表單並按下「提交」按鈕時，useForm 會把表單的資料組成一個 JavaScript 物件，並呼叫 onSubmit 把這個物件作為參數傳進去。
       這個物件同時被 TypeScript 確認型別是 RegisterFormInputs（這只是型別註記，編譯時使用，但執行時它其實就是一個普通的物件）。
       因此，執行到 data.username 時，JavaScript 只是存取物件屬性，就像一般的物件一樣。
+
+      且(data: RegisterFormInputs)這樣等於是告訴onSubmit函數，data的型別是RegisterFormInputs，所以之後就可以直使用data.username, data.password
       */
       toast.success('註冊成功！請查看郵箱確認帳號');
       navigate('/login');
@@ -180,7 +183,7 @@ const RegisterPage = () => {
               */
             
             // 設置表單錯誤訊息
-            setError('password1', {
+            setError('password1', {   //把後端傳回來的錯誤訊息儲存在errors.password1裡面(formState.errors)
               type: 'server',   // type是自訂的，用來區分錯誤類型
               message: fieldErrors.password1[0] //fieldErrors.password1[0] 是取第一個錯誤訊息
             });
@@ -192,7 +195,7 @@ const RegisterPage = () => {
               ? errorData.username 
               : [errorData.username];
               
-            setError('username', {
+            setError('username', {    //把後端傳回來的錯誤訊息儲存在errors.username裡面(formState.errors)
               type: 'server',
               message: fieldErrors.username[0]
             });
@@ -204,7 +207,7 @@ const RegisterPage = () => {
               ? errorData.email 
               : [errorData.email];
               
-            setError('email', {
+            setError('email', {        //把後端傳回來的錯誤訊息儲存在errors.email裡面(formState.errors)
               type: 'server',
               message: fieldErrors.email[0]
             });
@@ -478,7 +481,7 @@ const RegisterPage = () => {
             </Link>
           </label>
         </div>
-        {errors.terms && (   //顯示前端驗證失敗訊息，這邊顯示文字'請同意服務條款'的錯誤訊息和樣式
+        {errors.terms && (  
           <p className="text-sm text-red-300">{errors.terms.message}</p>
         )}
 

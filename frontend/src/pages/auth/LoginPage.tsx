@@ -74,6 +74,7 @@ const LoginPage = () => { // 定義 LoginPage 組件，這是一個函數式組�
   */
   
   const onSubmit = async (data: LoginFormInputs) => { // 定義 onSubmit 函數，處理表單提交邏輯，data 包含表單數據
+    // (data: LoginFormInputs)這樣等於是告訴onSubmit函數，data的型別是LoginFormInputs，所以之後就可以直使用data.username, data.password
     setIsLoading(true); // 設置 isLoading 為 true，表示開始加載
     try { // 嘗試執行登錄操作
       await login(data.username, data.password); // 調用 login 函數，傳入用戶名和密碼，執行登錄
