@@ -75,8 +75,8 @@ class PostFollowingAPIView(generics.ListAPIView):
 class PostTrendingAPIView(generics.ListAPIView):
     """
     獲取熱門貼文
-    - 基於點讚數、評論數、瀏覽數等計算熱門度
-    - 只顯示最近一周內的貼文
+    - 基於點讚數、評論數等計算熱門度
+    - 使用簡化的排序邏輯，避免複雜計算
     - 按熱門度排序
     """
     serializer_class = PostSerializer
@@ -84,17 +84,42 @@ class PostTrendingAPIView(generics.ListAPIView):
     pagination_class = CustomPageNumberPagination
 
     def get_queryset(self):
-        # 計算最近一週的日期
-        one_week_ago = timezone.now() - timedelta(days=7)
-        
-        # 計算熱門分數並排序
-        return Post.objects.filter(
-            is_published=True,
-            created_at__gte=one_week_ago
-        ).annotate(
-            # 熱門分數計算：點讚數 * 2 + 評論數 * 3 + 瀏覽數 * 0.1
-            trending_score=F('likes_count') * 2 + F('comments_count') * 3 + F('views_count') * 0.1
-        ).select_related('author').prefetch_related('likes', 'comments').order_by('-trending_score', '-created_at')
+        try:
+            # 簡化版本：直接按照互動數據排序，避免複雜的計算
+            # 首先嘗試獲取最近一週的貼文
+            one_week_ago = timezone.now() - timedelta(days=7)
+            
+            queryset = Post.objects.filter(
+                is_published=True,
+                created_at__gte=one_week_ago
+            ).select_related('author').prefetch_related('likes', 'comments')
+            
+            # 如果最近一週沒有貼文，擴展到一個月
+            if not queryset.exists():
+                one_month_ago = timezone.now() - timedelta(days=30)
+                queryset = Post.objects.filter(
+                    is_published=True,
+                    created_at__gte=one_month_ago
+                ).select_related('author').prefetch_related('likes', 'comments')
+            
+            # 如果還是沒有，就返回所有已發布的貼文
+            if not queryset.exists():
+                queryset = Post.objects.filter(
+                    is_published=True
+                ).select_related('author').prefetch_related('likes', 'comments')
+            
+            # 簡單排序：先按點讚數，再按評論數，最後按創建時間
+            return queryset.order_by('-likes_count', '-comments_count', '-created_at')
+            
+        except Exception as e:
+            # 如果發生任何錯誤，返回基本的已發布貼文列表
+            import traceback
+            print(f"Error in PostTrendingAPIView: {e}")
+            print(f"Traceback: {traceback.format_exc()}")
+            # 最簡單的回退邏輯
+            return Post.objects.filter(
+                is_published=True
+            ).select_related('author').order_by('-created_at')[:50]  # 限制數量以提高性能
 
 class PostRecommendationsAPIView(generics.ListAPIView):
     """

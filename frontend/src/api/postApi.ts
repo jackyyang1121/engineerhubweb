@@ -111,12 +111,25 @@ export const getFollowingPosts = async (page = 1, pageSize = 10): Promise<Pagina
  * @returns Promise<PaginatedResponse<Post>> - 熱門貼文數據
  */
 export const getTrendingPosts = async (page = 1, pageSize = 10): Promise<PaginatedResponse<Post>> => {
-  return handleApiCall(
-    () => api.get('/posts/trending/', {
-      params: { page, page_size: pageSize }
-    }),
-    '獲取熱門貼文'
-  );
+  try {
+    return await handleApiCall(
+      () => api.get('/posts/trending/', {
+        params: { page, page_size: pageSize }
+      }),
+      '獲取熱門貼文'
+    );
+  } catch (error) {
+    console.warn('⚠️ 熱門貼文 API 失敗，檢查是否需要回退:', error);
+    
+    // 檢查錯誤類型，如果是伺服器錯誤，拋出原始錯誤讓上層處理回退
+    const errorMessage = (error as any)?.message || '';
+    if (errorMessage.includes('500') || errorMessage.includes('伺服器')) {
+      throw error; // 讓上層的 trending case 處理回退
+    }
+    
+    // 其他類型的錯誤也重新拋出
+    throw error;
+  }
 };
 
 /**

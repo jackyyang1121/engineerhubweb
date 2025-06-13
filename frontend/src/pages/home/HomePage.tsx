@@ -8,11 +8,6 @@
  * 4. 推薦用戶功能 - 幫助用戶發現感興趣的其他工程師
  * 5. 無限滾動載入 - 提供流暢的瀏覽體驗
  * 6. 虛擬化列表優化 - 提升大量數據時的性能表現
- * 
- * 設計原則：
- * - Narrowly focused: 專注於首頁展示和用戶互動邏輯
- * - Flexible: 支援多種內容展示模式和篩選條件
- * - Loosely coupled: 使用模組化的 API 服務，最小化組件間依賴
  */
 
 import React, { useState, useEffect, useCallback, useRef, useMemo } from 'react';
@@ -65,23 +60,15 @@ if (typeof document !== 'undefined') {
 }
 
 /**
- * 推薦用戶數據結構
- * 匹配後端 API 返回的用戶資料格式
+ * 推薦用戶接口定義
  */
 interface RecommendedUser {
-  /** 用戶唯一識別符 */
   id: string;
-  /** 用戶名（用於 @ 提及和 URL） */
   username: string;
-  /** 顯示名稱（可能與用戶名不同） */
   display_name: string;
-  /** 個人簡介 */
   bio: string;
-  /** 頭像圖片 URL */
   avatar_url: string;
-  /** 關注者數量 */
   followers_count: number;
-  /** 當前用戶是否已關注此用戶 */
   is_following?: boolean;
 }
 
@@ -89,53 +76,38 @@ interface RecommendedUser {
  * 熱門話題數據結構
  */
 interface TrendingTopic {
-  /** 話題名稱 */
   name: string;
-  /** 話題熱度（討論次數） */
   count: number;
-  /** 話題成長趨勢 */
   trend?: 'up' | 'down' | 'stable';
 }
 
 /**
  * 主頁組件
- * 整合了所有首頁相關功能的核心組件
  */
 const HomePage: React.FC = () => {
   // ==================== 狀態管理 ====================
-  /** 認證狀態和用戶資料 */
   const { user, isAuthenticated, token } = useAuthStore();
-  /** React Query 客戶端，用於緩存管理 */
   const queryClient = useQueryClient();
   
-  /** 控制貼文編輯器的顯示狀態 */
+  // 貼文相關狀態
   const [showPostEditor, setShowPostEditor] = useState<boolean>(false);
-  /** 熱門話題列表 */
-  const [trendingTopics, setTrendingTopics] = useState<TrendingTopic[]>([]);
-  /** 推薦用戶列表 */
-  const [recommendedUsers, setRecommendedUsers] = useState<RecommendedUser[]>([]);
-  /** 當前選擇的內容標籤 */
   const [activeTab, setActiveTab] = useState<'latest' | 'following' | 'trending'>('latest');
   
+  // 側邊欄相關狀態
+  const [recommendedUsers, setRecommendedUsers] = useState<RecommendedUser[]>([]);
+  const [isLoadingUsers, setIsLoadingUsers] = useState<boolean>(false);
+  const [trendingTopics, setTrendingTopics] = useState<TrendingTopic[]>([]);
+  
   // 防止重複調用的控制標誌
-  const isLoadingRecommendedUsers = useRef<boolean>(false);
-  const isLoadingTrendingTopics = useRef<boolean>(false);
+  const isLoadingTopics = useRef<boolean>(false);
 
   // ==================== 無限滾動設置 ====================
-  /** 
-   * 無限滾動載入檢測器
-   * 當用戶滾動到頁面底部時觸發載入更多內容
-   */
   const { ref: loadMoreRef, inView } = useInView({
-    threshold: 0, // 觸發閾值，0 表示目標元素一進入視窗就觸發
-    rootMargin: '100px', // 提前 100px 開始載入，提升用戶體驗
+    threshold: 0.1,
+    triggerOnce: false,
   });
 
   // ==================== 貼文數據管理 ====================
-  /**
-   * 使用 React Query 的無限查詢獲取推薦貼文
-   * 提供自動緩存、背景更新和錯誤處理功能
-   */
   const {
     data: postsData,
     fetchNextPage,
@@ -145,20 +117,25 @@ const HomePage: React.FC = () => {
     error: postsError,
     refetch: refetchPosts
   } = useInfiniteQuery({
-    queryKey: ['feed', activeTab], // 查詢鍵，包含當前標籤以便切換時重新獲取
+    queryKey: ['feed', activeTab],
     queryFn: async ({ pageParam = 1 }) => {
       console.log(`🔄 載入第 ${pageParam} 頁貼文 (${activeTab} 模式)`);
       
       try {
         let response;
         
-        // 根據標籤類型調用不同的 API 函數
         switch (activeTab) {
           case 'following':
             response = await getFollowingPosts(pageParam as number, 10);
             break;
           case 'trending':
-            response = await getTrendingPosts(pageParam as number, 10);
+            try {
+              response = await getTrendingPosts(pageParam as number, 10);
+            } catch (trendingError) {
+              console.warn('⚠️ 熱門貼文 API 失敗，回退到最新貼文:', trendingError);
+              // 如果熱門 API 失敗，回退到最新貼文
+              response = await getFeed(pageParam as number, 10);
+            }
             break;
           default:
             response = await getFeed(pageParam as number, 10);
@@ -176,39 +153,58 @@ const HomePage: React.FC = () => {
         };
       } catch (error) {
         console.error(`❌ 載入第 ${pageParam} 頁貼文失敗:`, error);
+        
+        // 如果是第一頁且不是 latest 模式，嘗試回退到 latest 模式
+        if (pageParam === 1 && activeTab !== 'latest') {
+          console.log('🔄 嘗試回退到最新貼文模式');
+          try {
+            const fallbackResponse = await getFeed(pageParam as number, 10);
+            console.log(`✅ 回退成功，載入 ${fallbackResponse.results?.length || 0} 篇貼文`);
+            return {
+              posts: fallbackResponse.results || [],
+              has_next: fallbackResponse.next !== null,
+              page: pageParam as number,
+              count: fallbackResponse.count,
+              next_page: fallbackResponse.next ? pageParam + 1 : undefined,
+            };
+          } catch (fallbackError) {
+            console.error('❌ 回退也失敗了:', fallbackError);
+          }
+        }
+        
         throw error;
       }
     },
     getNextPageParam: (lastPage) => {
-      // 決定下一頁的頁碼，如果沒有更多內容則返回 undefined
       return lastPage.has_next ? lastPage.next_page : undefined;
     },
-    initialPageParam: 1, // 初始頁碼
-    staleTime: 5 * 60 * 1000, // 數據保鮮時間：5分鐘
-    gcTime: 10 * 60 * 1000,   // 垃圾回收時間：10分鐘
-    retry: 2, // 失敗重試次數
-    retryDelay: (attemptIndex) => Math.min(1000 * 2 ** attemptIndex, 5000), // 指數退避重試
+    initialPageParam: 1,
+    staleTime: 5 * 60 * 1000,
+    gcTime: 10 * 60 * 1000,
+    retry: (failureCount, error) => {
+      // 對於伺服器錯誤，減少重試次數
+      const errorMessage = error?.message || '';
+      if (errorMessage.includes('500') || errorMessage.includes('伺服器')) {
+        return failureCount < 1; // 只重試一次
+      }
+      return failureCount < 2; // 其他錯誤重試兩次
+    },
+    retryDelay: (attemptIndex) => Math.min(1000 * 2 ** attemptIndex, 3000),
   });
 
   // ==================== 輔助功能載入 ====================
-  /**
-   * 載入熱門話題
-   * 獲取當前 24 小時內的熱門討論話題
-   */
   const loadTrendingTopics = useCallback(async (): Promise<void> => {
-    // 防止重複調用
-    if (isLoadingTrendingTopics.current) {
+    if (isLoadingTopics.current) {
       console.log('🔄 熱門話題正在載入中，跳過重複請求');
       return;
     }
     
-    isLoadingTrendingTopics.current = true;
+    isLoadingTopics.current = true;
     console.log('🔥 開始載入熱門話題...');
     
     try {
       const response = await getTrendingTopics('24h', 10);
       
-      // 轉換數據格式並計算趨勢
       const topics: TrendingTopic[] = response.trending_topics.map((topic: ApiTrendingTopic) => ({
         name: topic.name,
         count: topic.count || 0,
@@ -220,59 +216,144 @@ const HomePage: React.FC = () => {
       console.log(`✅ 熱門話題載入成功: ${topics.length} 個話題`);
     } catch (error) {
       console.error('❌ 載入熱門話題失敗:', error);
-      // 載入失敗時設置空數組，避免界面錯誤
       setTrendingTopics([]);
     } finally {
-      isLoadingTrendingTopics.current = false;
+      isLoadingTopics.current = false;
     }
   }, []);
 
-  /**
-   * 載入推薦用戶
-   * 基於用戶興趣和行為推薦相關的工程師
-   */
   const loadRecommendedUsers = useCallback(async (): Promise<void> => {
-    // 防止重複調用
-    if (isLoadingRecommendedUsers.current) {
-      console.log('🔄 推薦用戶正在載入中，跳過重複請求');
+    if (!isAuthenticated) {
+      console.log('👤 用戶未登入，載入模擬推薦用戶');
+      setRecommendedUsers(generateMockUsers());
       return;
     }
-    
-    isLoadingRecommendedUsers.current = true;
-    console.log('👥 開始載入推薦用戶...');
-    
+
     try {
+      console.log('👥 開始載入推薦用戶...');
+      setIsLoadingUsers(true);
+
       const response = await getRecommendedUsers();
-      const users = response.results || [];
+      const realUsers = response.results || [];
+      console.log(`✅ 成功載入 ${realUsers.length} 個真實推薦用戶`);
+
+      let combinedUsers = [...realUsers];
+      if (combinedUsers.length < 8) {
+        const mockUsers = generateMockUsers();
+        const additionalUsers = mockUsers.slice(0, 12 - combinedUsers.length);
+        combinedUsers = [...combinedUsers, ...additionalUsers];
+        console.log(`📝 添加了 ${additionalUsers.length} 個模擬用戶，總共 ${combinedUsers.length} 個推薦用戶`);
+      }
+
+      const shuffledUsers = combinedUsers.sort(() => Math.random() - 0.5);
       
-      setRecommendedUsers(users);
-      console.log(`✅ 推薦用戶載入成功: ${users.length} 位用戶`);
+      setRecommendedUsers(shuffledUsers);
+      console.log(`✅ 推薦用戶載入完成，總數: ${shuffledUsers.length}`);
+
     } catch (error) {
       console.error('❌ 載入推薦用戶失敗:', error);
-      // 載入失敗時設置空數組
-      setRecommendedUsers([]);
+      
+      console.log('🔄 回退到模擬推薦用戶');
+      setRecommendedUsers(generateMockUsers());
+      
     } finally {
-      isLoadingRecommendedUsers.current = false;
+      setIsLoadingUsers(false);
     }
+  }, [isAuthenticated]);
+
+  /**
+   * 生成模擬推薦用戶（臨時使用，直到有更多真實用戶）
+   */
+  const generateMockUsers = useCallback((): RecommendedUser[] => {
+    const mockUsers: RecommendedUser[] = [
+      {
+        id: 'mock-1',
+        username: 'alex_frontend',
+        display_name: 'Alex Chen',
+        bio: '前端工程師，專精 React 和 TypeScript 開發',
+        avatar_url: 'https://api.dicebear.com/7.x/adventurer/svg?seed=alex',
+        followers_count: 1234,
+        is_following: false
+      },
+      {
+        id: 'mock-2',
+        username: 'sarah_backend',
+        display_name: 'Sarah Liu',
+        bio: '後端架構師，Python 和 Django 專家',
+        avatar_url: 'https://api.dicebear.com/7.x/adventurer/svg?seed=sarah',
+        followers_count: 856,
+        is_following: false
+      },
+      {
+        id: 'mock-3',
+        username: 'mike_devops',
+        display_name: 'Mike Wang',
+        bio: 'DevOps 工程師，專注於 AWS 和容器化技術',
+        avatar_url: 'https://api.dicebear.com/7.x/adventurer/svg?seed=mike',
+        followers_count: 1567,
+        is_following: false
+      },
+      {
+        id: 'mock-4',
+        username: 'linda_ai',
+        display_name: 'Linda Zhang',
+        bio: 'AI/ML 工程師，深度學習研究者',
+        avatar_url: 'https://api.dicebear.com/7.x/adventurer/svg?seed=linda',
+        followers_count: 2341,
+        is_following: false
+      },
+      {
+        id: 'mock-5',
+        username: 'david_mobile',
+        display_name: 'David Lee',
+        bio: 'iOS/Android 開發者，React Native 愛好者',
+        avatar_url: 'https://api.dicebear.com/7.x/adventurer/svg?seed=david',
+        followers_count: 987,
+        is_following: false
+      },
+      {
+        id: 'mock-6',
+        username: 'emma_design',
+        display_name: 'Emma Taylor',
+        bio: 'UI/UX 設計師，專注於用戶體驗設計',
+        avatar_url: 'https://api.dicebear.com/7.x/adventurer/svg?seed=emma',
+        followers_count: 1456,
+        is_following: false
+      },
+      {
+        id: 'mock-7',
+        username: 'kevin_security',
+        display_name: 'Kevin Chen',
+        bio: '資安專家，網路安全顧問',
+        avatar_url: 'https://api.dicebear.com/7.x/adventurer/svg?seed=kevin',
+        followers_count: 1789,
+        is_following: false
+      },
+      {
+        id: 'mock-8',
+        username: 'jane_data',
+        display_name: 'Jane Wu',
+        bio: '資料科學家，大數據分析專家',
+        avatar_url: 'https://api.dicebear.com/7.x/adventurer/svg?seed=jane',
+        followers_count: 1123,
+        is_following: false
+      }
+    ];
+    
+    return mockUsers;
   }, []);
 
   // ==================== 用戶互動處理 ====================
-  /**
-   * 處理關注用戶操作
-   * @param userId 要關注的用戶 ID
-   */
   const handleFollowUser = useCallback(async (userId: string): Promise<void> => {
     try {
       console.log(`👥 嘗試關注用戶: ${userId}`);
       
-      // 檢查是否為當前用戶
       const targetUser = recommendedUsers.find(user => user.id === userId);
       if (!targetUser) {
         console.error('❌ 找不到目標用戶');
         return;
       }
       
-      // 樂觀更新 UI - 先更新界面，再等待服務器確認
       setRecommendedUsers(prev => 
         prev.map(user => 
           user.id === userId 
@@ -285,19 +366,16 @@ const HomePage: React.FC = () => {
         )
       );
       
-      // 調用關注 API
       await followUser(userId);
       
       console.log(`✅ 成功關注用戶: ${userId}`);
       
-      // 顯示成功提示
       if (typeof window !== 'undefined' && window.alert) {
         window.alert(`已關注 ${targetUser.display_name || targetUser.username}`);
       }
     } catch (error) {
       console.error(`❌ 關注用戶失敗: ${userId}`, error);
       
-      // 發生錯誤時回滾 UI 狀態
       setRecommendedUsers(prev => 
         prev.map(user => 
           user.id === userId 
@@ -310,57 +388,35 @@ const HomePage: React.FC = () => {
         )
       );
       
-      // 顯示錯誤提示
       if (typeof window !== 'undefined' && window.alert) {
         window.alert('關注失敗，請重試');
       }
     }
   }, [recommendedUsers]);
 
-  /**
-   * 處理貼文創建成功
-   * 新貼文發布後刷新貼文列表
-   */
   const handlePostCreated = useCallback((): void => {
     console.log('📝 新貼文創建成功，刷新列表');
     
-    // 關閉編輯器
     setShowPostEditor(false);
     
-    // 強制重新獲取貼文數據，確保新貼文立即顯示
     queryClient.invalidateQueries({ queryKey: ['feed'] });
     
-    // 滾動到頁面頂部，讓用戶看到新發布的貼文
     window.scrollTo({ top: 0, behavior: 'smooth' });
   }, [queryClient]);
 
-  /**
-   * 處理貼文刪除成功
-   * 貼文刪除後刷新列表
-   */
   const handlePostDeleted = useCallback((): void => {
     console.log('🗑️ 貼文刪除成功，刷新列表');
     
-    // 強制重新獲取貼文數據
     queryClient.invalidateQueries({ queryKey: ['feed'] });
   }, [queryClient]);
 
-  /**
-   * 處理標籤切換
-   * @param tab 新選擇的標籤
-   */
   const handleTabChange = useCallback((tab: typeof activeTab): void => {
     console.log(`🏷️ 切換到標籤: ${tab}`);
     setActiveTab(tab);
-    // 切換標籤時自動滾動到頂部
     window.scrollTo({ top: 0, behavior: 'smooth' });
   }, []);
 
   // ==================== 副作用處理 ====================
-  /**
-   * 監聽滾動，實現無限載入
-   * 當用戶滾動到底部時自動載入更多貼文
-   */
   useEffect(() => {
     if (inView && hasNextPage && !isFetchingNextPage) {
       console.log('🔄 觸發無限滾動，載入更多貼文');
@@ -368,10 +424,6 @@ const HomePage: React.FC = () => {
     }
   }, [inView, hasNextPage, isFetchingNextPage, fetchNextPage]);
 
-  /**
-   * 組件初始化時載入輔助數據
-   * 載入熱門話題和推薦用戶
-   */
   useEffect(() => {
     loadTrendingTopics();
     if (isAuthenticated) {
@@ -379,10 +431,6 @@ const HomePage: React.FC = () => {
     }
   }, [loadTrendingTopics, loadRecommendedUsers, isAuthenticated]);
 
-  /**
-   * 調試信息輸出
-   * 在開發環境中幫助追蹤認證狀態
-   */
   useEffect(() => {
     console.log('🏠 HomePage 組件狀態:', {
       isAuthenticated,
@@ -396,20 +444,12 @@ const HomePage: React.FC = () => {
   }, [isAuthenticated, user, token, activeTab]);
 
   // ==================== 數據處理 ====================
-  /**
-   * 合併所有頁面的貼文數據
-   * 使用 useMemo 優化性能，避免不必要的重新計算
-   */
   const allPosts = useMemo(() => {
     const posts = postsData?.pages.flatMap(page => page.posts) ?? [];
     console.log(`📊 當前總共載入 ${posts.length} 篇貼文`);
     return posts;
   }, [postsData]);
 
-  /**
-   * 標籤配置
-   * 定義可用的內容篩選標籤
-   */
   const tabs = useMemo(() => [
     { 
       key: 'latest' as const, 
@@ -441,11 +481,10 @@ const HomePage: React.FC = () => {
           {/* ==================== 主要內容區域 ==================== */}
           <main className="flex-1 max-w-2xl">
             
-            {/* 歡迎區域 - 顯示用戶資訊和快速操作 */}
+            {/* 歡迎區域 */}
             {isAuthenticated && user && (
               <div className="bg-white/70 backdrop-blur-xl rounded-2xl shadow-xl border border-white/20 p-8 mb-8 hover:shadow-2xl transition-all duration-300">
                 <div className="flex items-center space-x-4">
-                  {/* 用戶頭像 */}
                   <div className="relative">
                     <LazyImage
                       src={user.avatar || '/default-avatar.png'}
@@ -459,11 +498,9 @@ const HomePage: React.FC = () => {
                         </div>
                       }
                     />
-                    {/* 在線狀態指示器 */}
                     <div className="absolute -bottom-1 -right-1 w-6 h-6 bg-green-400 rounded-full border-4 border-white animate-pulse"></div>
                   </div>
                   
-                  {/* 用戶資訊 */}
                   <div className="flex-1">
                     <h1 className="text-2xl font-bold bg-gradient-to-r from-slate-900 via-blue-800 to-purple-800 bg-clip-text text-transparent mb-2">
                       歡迎回來，{user.first_name || user.username}！
@@ -474,7 +511,6 @@ const HomePage: React.FC = () => {
                     </p>
                   </div>
                   
-                  {/* 快速發文按鈕 */}
                   <button
                     onClick={() => setShowPostEditor(true)}
                     className="bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 text-white px-6 py-3 rounded-xl font-medium transition-all duration-200 transform hover:scale-105 shadow-lg hover:shadow-xl flex items-center space-x-2"
@@ -492,6 +528,8 @@ const HomePage: React.FC = () => {
                 <nav className="flex space-x-8 px-6" aria-label="內容篩選標籤">
                   {tabs.map((tab) => {
                     const IconComponent = tab.icon;
+                    const hasError = postsError && activeTab === tab.key;
+                    
                     return (
                       <button
                         key={tab.key}
@@ -500,7 +538,9 @@ const HomePage: React.FC = () => {
                         title={tab.description}
                         className={`group relative py-4 px-1 border-b-2 font-medium text-sm transition-all duration-200 ${
                           activeTab === tab.key
-                            ? 'border-blue-500 text-blue-600'
+                            ? hasError 
+                              ? 'border-red-500 text-red-600'
+                              : 'border-blue-500 text-blue-600'
                             : tab.disabled
                             ? 'border-transparent text-gray-400 cursor-not-allowed'
                             : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
@@ -509,12 +549,20 @@ const HomePage: React.FC = () => {
                         <div className="flex items-center space-x-2">
                           <IconComponent className="h-4 w-4" />
                           <span>{tab.label}</span>
+                          {hasError && tab.key === 'trending' && (
+                            <span className="text-xs text-red-500">⚠️</span>
+                          )}
                         </div>
                         
-                        {/* 禁用標籤的提示 */}
                         {tab.disabled && (
                           <div className="absolute top-full left-1/2 transform -translate-x-1/2 mt-2 px-3 py-1 bg-gray-800 text-white text-xs rounded opacity-0 group-hover:opacity-100 transition-opacity z-10">
                             需要登入才能查看
+                          </div>
+                        )}
+                        
+                        {hasError && tab.key === 'trending' && (
+                          <div className="absolute top-full left-1/2 transform -translate-x-1/2 mt-2 px-3 py-1 bg-red-600 text-white text-xs rounded opacity-0 group-hover:opacity-100 transition-opacity z-10 whitespace-nowrap">
+                            服務暫時不可用
                           </div>
                         )}
                       </button>
@@ -526,7 +574,6 @@ const HomePage: React.FC = () => {
 
             {/* 貼文列表渲染 */}
             {isLoadingPosts ? (
-              // 載入中狀態
               <div className="space-y-6">
                 {[...Array(3)].map((_, index) => (
                   <div 
@@ -545,65 +592,96 @@ const HomePage: React.FC = () => {
                 ))}
               </div>
             ) : postsError ? (
-              // 錯誤狀態
-              <div className="bg-red-50 border border-red-200 rounded-2xl p-8 text-center">
-                <div className="text-red-500 text-4xl mb-4">❌</div>
-                <h3 className="text-lg font-medium text-red-800 mb-2">載入失敗</h3>
-                <p className="text-red-600 mb-4">無法載入貼文，請檢查網路連接</p>
-                <button
-                  onClick={() => refetchPosts()}
-                  className="px-6 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors"
-                >
-                  重新載入
-                </button>
+              <div className="bg-gradient-to-br from-red-50 to-orange-50 border border-red-200/50 rounded-2xl p-8 text-center shadow-lg">
+                <div className="text-red-500 text-4xl mb-4">⚠️</div>
+                <h3 className="text-lg font-bold text-red-800 mb-2">載入失敗</h3>
+                <p className="text-red-600 mb-6 max-w-md mx-auto">
+                  {activeTab === 'trending' ? 
+                    '熱門貼文服務暫時不可用，請嘗試其他標籤或稍後再試' : 
+                    activeTab === 'following' ? 
+                    '無法載入關注用戶的貼文，請檢查網路連接' :
+                    '無法載入貼文，請檢查網路連接'
+                  }
+                </p>
+                <div className="flex flex-col sm:flex-row gap-3 justify-center">
+                  <button
+                    onClick={() => refetchPosts()}
+                    className="px-6 py-3 bg-red-600 text-white rounded-xl font-medium hover:bg-red-700 transition-all duration-200 transform hover:scale-105 shadow-lg"
+                  >
+                    重新載入
+                  </button>
+                  {activeTab !== 'latest' && (
+                    <button
+                      onClick={() => handleTabChange('latest')}
+                      className="px-6 py-3 bg-blue-600 text-white rounded-xl font-medium hover:bg-blue-700 transition-all duration-200 transform hover:scale-105 shadow-lg"
+                    >
+                      查看最新貼文
+                    </button>
+                  )}
+                </div>
               </div>
             ) : allPosts.length === 0 ? (
-                             // 空狀態
-               <EmptyState
-                 title="暫無貼文"
-                 description="目前沒有貼文可顯示，成為第一個分享的人吧！"
-                 action={
-                   isAuthenticated ? {
-                     label: "發布第一篇貼文",
-                     onClick: () => setShowPostEditor(true)
-                   } : {
-                     label: "登入後開始分享",
-                     onClick: () => console.log('導向登入頁面')
-                   }
-                 }
-               />
+              <EmptyState
+                title={
+                  activeTab === 'following' ? '尚未關注任何人' :
+                  activeTab === 'trending' ? '暫無熱門貼文' :
+                  '暫無貼文'
+                }
+                description={
+                  activeTab === 'following' ? 
+                    '關注一些感興趣的工程師，查看他們的最新動態！' :
+                  activeTab === 'trending' ? 
+                    '目前沒有熱門貼文，或許可以創建一篇爆款內容？' :
+                    '目前沒有貼文可顯示，成為第一個分享的人吧！'
+                }
+                action={
+                  activeTab === 'following' && isAuthenticated ? {
+                    label: "探索推薦用戶",
+                    onClick: () => {
+                      // 滾動到推薦用戶區域
+                      const sidebar = document.querySelector('[data-sidebar="recommendations"]');
+                      if (sidebar) {
+                        sidebar.scrollIntoView({ behavior: 'smooth' });
+                      }
+                    }
+                  } : isAuthenticated ? {
+                    label: "發布第一篇貼文",
+                    onClick: () => setShowPostEditor(true)
+                  } : {
+                    label: "登入後開始分享",
+                    onClick: () => console.log('導向登入頁面')
+                  }
+                }
+              />
             ) : (
-              // 使用虛擬化列表渲染貼文
               <VirtualizedList
                 items={allPosts}
                 getItemId={(post: Post) => post.id}
                 config={{
-                  itemHeight: 320, // 預估貼文卡片高度
-                  containerHeight: 800, // 容器高度
-                  overscan: 3, // 預渲染項目數，提升滾動體驗
-                  enableDynamicHeight: true, // 啟用動態高度適應不同內容
-                  gap: 20 // 項目間距
+                  itemHeight: 320,
+                  containerHeight: 800,
+                  overscan: 3,
+                  enableDynamicHeight: true,
+                  gap: 20
                 }}
                 renderItem={({ item: post, isVisible, index }) => (
                   <div 
                     key={post.id}
                     className="transition-all duration-200"
                     style={{
-                      // 為每個貼文添加輕微的交錯動畫
                       animationDelay: `${index * 50}ms`
                     }}
                   >
-                                         {isVisible ? (
-                       <div className="bg-white/70 backdrop-blur-xl rounded-2xl shadow-xl border border-white/20 hover:shadow-2xl transition-all duration-300">
-                         <PostCard
-                           post={post}
-                           onPostDeleted={handlePostDeleted}
-                         />
-                       </div>
-                     ) : (
-                       // 不可見時顯示骨架屏
-                       <div className="bg-gray-100/50 rounded-2xl animate-pulse h-80 border border-gray-200/50" />
-                     )}
+                    {isVisible ? (
+                      <div className="bg-white/70 backdrop-blur-xl rounded-2xl shadow-xl border border-white/20 hover:shadow-2xl transition-all duration-300">
+                        <PostCard
+                          post={post}
+                          onPostDeleted={handlePostDeleted}
+                        />
+                      </div>
+                    ) : (
+                      <div className="bg-gray-100/50 rounded-2xl animate-pulse h-80 border border-gray-200/50" />
+                    )}
                   </div>
                 )}
                 onLoadMore={() => {
@@ -623,7 +701,6 @@ const HomePage: React.FC = () => {
               />
             )}
 
-            {/* 無限滾動觸發器 */}
             <div ref={loadMoreRef} className="h-10" />
             
           </main>
@@ -632,258 +709,210 @@ const HomePage: React.FC = () => {
           <aside className="hidden lg:block lg:w-80 space-y-6">
             
             {/* 推薦用戶卡片 */}
-            <div className="bg-white/80 backdrop-blur-xl rounded-3xl shadow-xl border border-white/30 p-6 hover:shadow-2xl transition-all duration-300">
-              <div className="flex items-center justify-between mb-6">
-                <h3 className="font-bold text-lg text-gray-900 flex items-center">
-                  <div className="p-2 bg-gradient-to-br from-blue-500 to-purple-600 rounded-xl mr-3">
-                    <UserGroupIcon className="h-5 w-5 text-white" />
-                  </div>
-                  推薦關注
-                </h3>
-                {recommendedUsers.length > 0 && (
-                  <button
-                    onClick={loadRecommendedUsers}
-                    className="text-sm text-blue-600 hover:text-blue-700 transition-colors font-medium hover:scale-105 transform duration-200"
-                  >
-                    刷新
-                  </button>
-                )}
-              </div>
+            <div 
+              data-sidebar="recommendations"
+              className="bg-white/90 backdrop-blur-2xl rounded-3xl shadow-2xl border border-white/40 p-6 hover:shadow-3xl transition-all duration-500 overflow-hidden relative"
+            >
+              <div className="absolute top-0 left-0 w-full h-2 bg-gradient-to-r from-orange-500 via-red-500 to-pink-500"></div>
               
-              {recommendedUsers.length === 0 ? (
-                <div className="text-center text-gray-500 py-12">
-                  <div className="w-20 h-20 mx-auto mb-4 bg-gradient-to-br from-gray-100 to-gray-200 rounded-full flex items-center justify-center">
-                    <UserGroupIcon className="h-10 w-10 text-gray-400" />
-                  </div>
-                  <p className="text-base font-medium mb-2">暫無推薦用戶</p>
-                  {!isAuthenticated && (
-                    <p className="text-sm text-gray-400">登入後查看個人化推薦</p>
+              <div className="relative z-10">
+                <div className="flex items-center justify-between mb-6">
+                  <h3 className="font-bold text-xl text-gray-900 flex items-center">
+                    <div className="p-3 bg-gradient-to-br from-orange-500 via-red-600 to-pink-500 rounded-2xl mr-3 shadow-lg">
+                      <UserGroupIcon className="h-6 w-6 text-white" />
+                    </div>
+                    <div>
+                      <div className="text-xl font-bold">推薦關注</div>
+                      <div className="text-sm text-gray-500 font-normal">發現優秀的工程師</div>
+                    </div>
+                  </h3>
+                  {recommendedUsers.length > 0 && (
+                    <button
+                      onClick={loadRecommendedUsers}
+                      className="px-4 py-2 text-sm text-orange-600 hover:text-orange-700 bg-orange-50/50 hover:bg-orange-100/50 rounded-xl transition-all duration-300 font-medium hover:scale-105 transform backdrop-blur-sm border border-orange-200/30"
+                    >
+                      刷新
+                    </button>
                   )}
                 </div>
-              ) : (
-                <div className="space-y-5">
-                  {recommendedUsers.slice(0, 5).map((user, index) => (
-                    <div 
-                      key={user.id} 
-                      className="flex items-center space-x-4 group p-3 rounded-2xl hover:bg-gradient-to-r hover:from-blue-50/50 hover:to-purple-50/50 transition-all duration-300 cursor-pointer"
-                      style={{ 
-                        animationDelay: `${index * 100}ms`,
-                        animation: 'fadeInUp 0.6s ease-out forwards'
-                      }}
-                    >
-                      <div className="relative">
-                        <LazyImage
-                          src={user.avatar_url || '/default-avatar.png'}
-                          alt={user.username}
-                          className="w-12 h-12 rounded-xl object-cover ring-2 ring-white shadow-lg group-hover:ring-blue-200 transition-all duration-300"
-                          placeholder={
-                            <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-blue-400 to-purple-500 flex items-center justify-center shadow-lg">
-                              <span className="text-white text-base font-bold">
-                                {user.username?.charAt(0).toUpperCase() || '?'}
-                              </span>
-                            </div>
-                          }
-                        />
-                        {/* 在線狀態指示器 */}
-                        <div className="absolute -top-1 -right-1 w-4 h-4 bg-green-400 rounded-full border-2 border-white shadow-sm"></div>
-                      </div>
-                      
-                      <div className="flex-1 min-w-0">
-                        <div className="flex items-center space-x-2">
-                          <p className="text-base font-semibold text-gray-900 truncate group-hover:text-blue-600 transition-colors duration-200">
-                            {user.display_name || user.username}
-                          </p>
-                          {/* 驗證徽章 */}
-                          <div className="w-4 h-4 bg-blue-500 rounded-full flex items-center justify-center">
-                            <svg className="w-2.5 h-2.5 text-white" fill="currentColor" viewBox="0 0 20 20">
-                              <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
-                            </svg>
-                          </div>
+                
+                {isLoadingUsers ? (
+                  <div className="text-center text-gray-500 py-16">
+                    <div className="w-24 h-24 mx-auto mb-6 bg-gradient-to-br from-blue-100 to-purple-100 rounded-3xl flex items-center justify-center shadow-inner">
+                      <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-500"></div>
+                    </div>
+                    <p className="text-lg font-semibold mb-3 text-gray-700">載入推薦用戶中...</p>
+                  </div>
+                ) : recommendedUsers.length === 0 ? (
+                  <div className="text-center text-gray-500 py-16">
+                    <div className="w-24 h-24 mx-auto mb-6 bg-gradient-to-br from-orange-100 to-red-100 rounded-3xl flex items-center justify-center shadow-inner">
+                      <UserGroupIcon className="h-12 w-12 text-orange-400" />
+                    </div>
+                    <p className="text-lg font-semibold mb-3 text-gray-700">暫無推薦用戶</p>
+                    {!isAuthenticated && (
+                      <p className="text-sm text-gray-500">登入後查看個人化推薦</p>
+                    )}
+                    <div className="mt-6">
+                      <button
+                        onClick={loadRecommendedUsers}
+                        className="px-6 py-3 bg-gradient-to-r from-blue-500 to-purple-600 text-white rounded-2xl hover:from-blue-600 hover:to-purple-700 transition-all duration-300 font-medium shadow-lg hover:shadow-xl transform hover:scale-105"
+                      >
+                        重新載入
+                      </button>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="space-y-4">
+                    {recommendedUsers.slice(0, 8).map((user, index) => (
+                      <div 
+                        key={user.id} 
+                        className="flex items-center space-x-4 group p-4 rounded-2xl hover:bg-gradient-to-r hover:from-blue-50/60 hover:to-purple-50/60 transition-all duration-400 cursor-pointer border border-transparent hover:border-blue-100/50 hover:shadow-lg backdrop-blur-sm"
+                        style={{ 
+                          animationDelay: `${index * 150}ms`,
+                          animation: 'fadeInUp 0.8s ease-out forwards'
+                        }}
+                      >
+                        <div className="relative">
+                          <LazyImage
+                            src={user.avatar_url || '/default-avatar.png'}
+                            alt={user.username}
+                            className="w-14 h-14 rounded-2xl object-cover ring-3 ring-white shadow-xl group-hover:ring-blue-200 transition-all duration-400 group-hover:scale-105"
+                            placeholder={
+                              <div className="w-14 h-14 rounded-2xl bg-gradient-to-br from-blue-400 via-purple-500 to-pink-500 flex items-center justify-center shadow-xl">
+                                <span className="text-white text-lg font-bold">
+                                  {user.username?.charAt(0).toUpperCase() || '?'}
+                                </span>
+                              </div>
+                            }
+                          />
+                          <div className="absolute -top-1 -right-1 w-5 h-5 bg-green-400 rounded-full border-3 border-white shadow-lg animate-pulse"></div>
                         </div>
-                        <div className="flex items-center space-x-3 mt-1">
-                          <p className="text-sm text-gray-500">
-                            {user.followers_count.toLocaleString()} 關注者
-                          </p>
+                        
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center space-x-2 mb-1">
+                            <p className="text-base font-bold text-gray-900 truncate group-hover:text-blue-600 transition-colors duration-300">
+                              {user.display_name || user.username}
+                            </p>
+                          </div>
+                          
+                          <div className="flex items-center space-x-3 mb-2">
+                            <p className="text-sm text-gray-600 font-medium">
+                              <span className="text-blue-600 font-bold">{user.followers_count.toLocaleString()}</span> 關注者
+                            </p>
+                          </div>
+                          
                           {user.bio && (
-                            <>
-                              <span className="text-gray-300">•</span>
-                              <p className="text-sm text-gray-500 truncate max-w-24">
-                                {user.bio}
-                              </p>
-                            </>
+                            <p className="text-sm text-gray-500 truncate group-hover:text-gray-600 transition-colors duration-300">
+                              {user.bio}
+                            </p>
                           )}
                         </div>
+                        
+                        <div className="flex flex-col space-y-2">
+                          <button
+                            onClick={() => handleFollowUser(user.id)}
+                            disabled={user.is_following}
+                            className={`px-5 py-2.5 text-sm font-bold rounded-xl transition-all duration-400 transform hover:scale-105 shadow-lg ${
+                              user.is_following
+                                ? 'bg-gradient-to-r from-gray-100 to-gray-200 text-gray-500 cursor-not-allowed opacity-70 shadow-inner'
+                                : 'bg-gradient-to-r from-blue-500 via-purple-600 to-pink-500 text-white hover:from-blue-600 hover:via-purple-700 hover:to-pink-600 hover:shadow-2xl active:scale-95 shadow-blue-200/50'
+                            }`}
+                          >
+                            {user.is_following ? '已關注' : '關注'}
+                          </button>
+                        </div>
                       </div>
-                      
-                      <button
-                        onClick={() => handleFollowUser(user.id)}
-                        disabled={user.is_following}
-                        className={`px-4 py-2 text-sm font-semibold rounded-xl transition-all duration-300 transform hover:scale-105 shadow-lg ${
-                          user.is_following
-                            ? 'bg-gray-100 text-gray-500 cursor-not-allowed opacity-70'
-                            : 'bg-gradient-to-r from-blue-500 to-purple-600 text-white hover:from-blue-600 hover:to-purple-700 hover:shadow-xl active:scale-95'
-                        }`}
-                      >
-                        {user.is_following ? (
-                          <div className="flex items-center space-x-1">
-                            <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
-                              <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
-                            </svg>
-                            <span>已關注</span>
-                          </div>
-                        ) : (
-                          <div className="flex items-center space-x-1">
-                            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
-                            </svg>
-                            <span>關注</span>
-                          </div>
-                        )}
-                      </button>
-                    </div>
-                  ))}
-                  
-                  {/* 查看更多按鈕 */}
-                  {recommendedUsers.length > 5 && (
-                    <div className="text-center pt-4 border-t border-gray-100">
-                      <button className="text-blue-600 hover:text-blue-700 font-medium text-sm hover:underline transition-all duration-200">
-                        查看更多推薦 ({recommendedUsers.length - 5})
-                      </button>
-                    </div>
-                  )}
-                </div>
-              )}
+                    ))}
+                  </div>
+                )}
+              </div>
             </div>
 
             {/* 熱門話題卡片 */}
-            <div className="bg-white/80 backdrop-blur-xl rounded-3xl shadow-xl border border-white/30 p-6 hover:shadow-2xl transition-all duration-300">
-              <div className="flex items-center justify-between mb-6">
-                <h3 className="font-bold text-lg text-gray-900 flex items-center">
-                  <div className="p-2 bg-gradient-to-br from-orange-500 to-red-600 rounded-xl mr-3">
-                    <FireIcon className="h-5 w-5 text-white" />
-                  </div>
-                  熱門話題
-                </h3>
-                {trendingTopics.length > 0 && (
-                  <button
-                    onClick={loadTrendingTopics}
-                    className="text-sm text-orange-600 hover:text-orange-700 transition-colors font-medium hover:scale-105 transform duration-200"
-                  >
-                    刷新
-                  </button>
-                )}
-              </div>
+            <div className="bg-white/90 backdrop-blur-2xl rounded-3xl shadow-2xl border border-white/40 p-6 hover:shadow-3xl transition-all duration-500 overflow-hidden relative">
+              <div className="absolute top-0 left-0 w-full h-2 bg-gradient-to-r from-orange-500 via-red-500 to-pink-500"></div>
               
-              {trendingTopics.length === 0 ? (
-                <div className="text-center text-gray-500 py-12">
-                  <div className="w-20 h-20 mx-auto mb-4 bg-gradient-to-br from-orange-100 to-red-100 rounded-full flex items-center justify-center">
-                    <FireIcon className="h-10 w-10 text-orange-400" />
-                  </div>
-                  <p className="text-base font-medium mb-2">暫無熱門話題</p>
-                  <p className="text-sm text-gray-400">成為第一個發起討論的人</p>
-                </div>
-              ) : (
-                <div className="space-y-4">
-                  {trendingTopics.slice(0, 8).map((topic, index) => (
-                    <div 
-                      key={topic.name} 
-                      className="flex items-center justify-between p-4 rounded-2xl hover:bg-gradient-to-r hover:from-orange-50/50 hover:to-red-50/50 cursor-pointer transition-all duration-300 group border border-transparent hover:border-orange-200/50"
-                      style={{ 
-                        animationDelay: `${index * 50}ms`,
-                        animation: 'fadeInUp 0.6s ease-out forwards'
-                      }}
+              <div className="relative z-10">
+                <div className="flex items-center justify-between mb-6">
+                  <h3 className="font-bold text-xl text-gray-900 flex items-center">
+                    <div className="p-3 bg-gradient-to-br from-orange-500 via-red-600 to-pink-500 rounded-2xl mr-3 shadow-lg">
+                      <FireIcon className="h-6 w-6 text-white" />
+                    </div>
+                    <div>
+                      <div className="text-xl font-bold">熱門話題</div>
+                      <div className="text-sm text-gray-500 font-normal">追蹤最新趨勢</div>
+                    </div>
+                  </h3>
+                  {trendingTopics.length > 0 && (
+                    <button
+                      onClick={loadTrendingTopics}
+                      className="px-4 py-2 text-sm text-orange-600 hover:text-orange-700 bg-orange-50/50 hover:bg-orange-100/50 rounded-xl transition-all duration-300 font-medium hover:scale-105 transform backdrop-blur-sm border border-orange-200/30"
                     >
-                      <div className="flex items-center space-x-4">
-                        {/* 排名徽章 */}
-                        <div className={`w-8 h-8 rounded-xl flex items-center justify-center text-sm font-bold text-white shadow-lg ${
-                          index === 0 ? 'bg-gradient-to-br from-yellow-400 to-yellow-600' :
-                          index === 1 ? 'bg-gradient-to-br from-gray-400 to-gray-600' :
-                          index === 2 ? 'bg-gradient-to-br from-orange-400 to-orange-600' :
-                          'bg-gradient-to-br from-blue-400 to-blue-600'
-                        }`}>
-                          {index + 1}
-                        </div>
-                        
-                        <div className="flex-1">
-                          <div className="flex items-center space-x-2 mb-1">
-                            <p className="text-base font-semibold text-gray-900 group-hover:text-orange-600 transition-colors duration-200">
-                              #{topic.name}
-                            </p>
-                            {/* 火熱程度指示器 */}
-                            <div className="flex space-x-1">
-                              {[...Array(Math.min(Math.floor(topic.count / 50) + 1, 3))].map((_, i) => (
-                                <div key={i} className="w-1.5 h-1.5 bg-orange-400 rounded-full animate-pulse" />
-                              ))}
-                            </div>
+                      刷新
+                    </button>
+                  )}
+                </div>
+              
+                {trendingTopics.length === 0 ? (
+                  <div className="text-center text-gray-500 py-12">
+                    <div className="w-20 h-20 mx-auto mb-4 bg-gradient-to-br from-orange-100 to-red-100 rounded-full flex items-center justify-center">
+                      <FireIcon className="h-10 w-10 text-orange-400" />
+                    </div>
+                    <p className="text-base font-medium mb-2">暫無熱門話題</p>
+                    <p className="text-sm text-gray-400">成為第一個發起討論的人</p>
+                  </div>
+                ) : (
+                  <div className="space-y-4">
+                    {trendingTopics.slice(0, 8).map((topic, index) => (
+                      <div 
+                        key={topic.name} 
+                        className="flex items-center justify-between p-4 rounded-2xl hover:bg-gradient-to-r hover:from-orange-50/50 hover:to-red-50/50 cursor-pointer transition-all duration-300 group border border-transparent hover:border-orange-200/50"
+                        style={{ 
+                          animationDelay: `${index * 50}ms`,
+                          animation: 'fadeInUp 0.6s ease-out forwards'
+                        }}
+                      >
+                        <div className="flex items-center space-x-4">
+                          <div className={`w-8 h-8 rounded-xl flex items-center justify-center text-sm font-bold text-white shadow-lg ${
+                            index === 0 ? 'bg-gradient-to-br from-yellow-400 to-yellow-600' :
+                            index === 1 ? 'bg-gradient-to-br from-gray-400 to-gray-600' :
+                            index === 2 ? 'bg-gradient-to-br from-orange-400 to-orange-600' :
+                            'bg-gradient-to-br from-blue-400 to-blue-600'
+                          }`}>
+                            {index + 1}
                           </div>
-                          <div className="flex items-center space-x-3">
+                          
+                          <div className="flex-1">
+                            <div className="flex items-center space-x-2 mb-1">
+                              <p className="text-base font-semibold text-gray-900 group-hover:text-orange-600 transition-colors duration-200">
+                                #{topic.name}
+                              </p>
+                            </div>
                             <p className="text-sm text-gray-500 font-medium">
                               {topic.count.toLocaleString()} 次討論
                             </p>
-                            {/* 時間標籤 */}
-                            <span className="px-2 py-1 bg-gray-100 text-gray-600 text-xs rounded-lg font-medium">
-                              24h
-                            </span>
                           </div>
                         </div>
-                      </div>
-                      
-                      <div className="flex items-center space-x-3">
-                        {/* 趨勢指示器 */}
-                        {topic.trend && (
-                          <div className={`px-3 py-1.5 rounded-xl text-sm font-semibold flex items-center space-x-1 shadow-sm ${
-                            topic.trend === 'up' 
-                              ? 'bg-gradient-to-r from-green-100 to-green-200 text-green-700' 
-                              : topic.trend === 'down' 
-                              ? 'bg-gradient-to-r from-red-100 to-red-200 text-red-700' 
-                              : 'bg-gradient-to-r from-gray-100 to-gray-200 text-gray-700'
-                          }`}>
-                            {topic.trend === 'up' ? (
-                              <>
-                                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6" />
-                                </svg>
-                                <span>上升</span>
-                              </>
-                            ) : topic.trend === 'down' ? (
-                              <>
-                                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 17h8m0 0V9m0 8l-8-8-4 4-6-6" />
-                                </svg>
-                                <span>下降</span>
-                              </>
-                            ) : (
-                              <>
-                                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 12h14" />
-                                </svg>
-                                <span>穩定</span>
-                              </>
-                            )}
-                          </div>
-                        )}
                         
-                        {/* 參與按鈕 */}
-                        <button className="p-2 bg-orange-100 hover:bg-orange-200 text-orange-600 rounded-xl transition-all duration-200 hover:scale-110 active:scale-95">
-                          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
-                          </svg>
-                        </button>
+                        <div className="flex items-center space-x-3">
+                          {topic.trend && (
+                            <div className={`px-3 py-1.5 rounded-xl text-sm font-semibold flex items-center space-x-1 shadow-sm ${
+                              topic.trend === 'up' 
+                                ? 'bg-gradient-to-r from-green-100 to-green-200 text-green-700' 
+                                : topic.trend === 'down' 
+                                ? 'bg-gradient-to-r from-red-100 to-red-200 text-red-700' 
+                                : 'bg-gradient-to-r from-gray-100 to-gray-200 text-gray-700'
+                            }`}>
+                              {topic.trend === 'up' ? '上升' : 
+                               topic.trend === 'down' ? '下降' : '穩定'}
+                            </div>
+                          )}
+                        </div>
                       </div>
-                    </div>
-                  ))}
-                  
-                  {/* 查看所有話題按鈕 */}
-                  <div className="text-center pt-4 border-t border-gray-100">
-                    <button className="text-orange-600 hover:text-orange-700 font-medium text-sm hover:underline transition-all duration-200 flex items-center justify-center space-x-1 mx-auto">
-                      <span>探索更多話題</span>
-                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
-                      </svg>
-                    </button>
+                    ))}
                   </div>
-                </div>
-              )}
+                )}
+              </div>
             </div>
 
           </aside>
@@ -905,10 +934,10 @@ const HomePage: React.FC = () => {
       {showPostEditor && (
         <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4">
           <div className="bg-white rounded-2xl shadow-2xl max-w-2xl w-full max-h-[90vh] overflow-hidden">
-                         <PostEditor
-               onPostCreated={handlePostCreated}
-               onClose={() => setShowPostEditor(false)}
-             />
+            <PostEditor
+              onPostCreated={handlePostCreated}
+              onClose={() => setShowPostEditor(false)}
+            />
           </div>
         </div>
       )}
