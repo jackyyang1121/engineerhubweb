@@ -45,6 +45,174 @@ def get_models():
         return Post, Like, PostView, None, Follow
 
 
+class RecommendationConfig:
+    """
+    推薦系統配置
+    
+    集中管理推薦算法的參數和權重
+    """
+    # 推薦權重配置
+    WEIGHTS = {
+        'following': 0.5,    # 追蹤用戶貼文權重
+        'trending': 0.3,     # 熱門貼文權重
+        'personalized': 0.2  # 個性化推薦權重
+    }
+    
+    # 緩存配置
+    CACHE_TIMEOUT = 600  # 10分鐘緩存
+    DEFAULT_PAGE_SIZE = 20
+    
+    # 時間範圍配置
+    FOLLOWING_POSTS_DAYS = 7  # 追蹤用戶貼文的時間範圍
+    TRENDING_POSTS_DAYS = 7   # 熱門貼文的時間範圍
+    INTERACTION_HISTORY_DAYS = 30  # 用戶互動歷史的時間範圍
+
+
+class PostCountCalculator:
+    """
+    貼文數量計算器
+    
+    負責計算各類推薦的數量分配
+    """
+    
+    @staticmethod
+    def calculate_distribution(page_size: int, weights: Dict[str, float]) -> Dict[str, int]:
+        """
+        計算各類推薦的數量分配
+        
+        Args:
+            page_size: 頁面大小
+            weights: 權重配置
+            
+        Returns:
+            Dict[str, int]: 各類推薦的數量分配
+        """
+        following_count = int(page_size * weights['following'])
+        trending_count = int(page_size * weights['trending'])
+        personalized_count = page_size - following_count - trending_count
+        
+        return {
+            'following': following_count,
+            'trending': trending_count,
+            'personalized': personalized_count
+        }
+
+
+class RecommendationCache:
+    """
+    推薦系統緩存管理器
+    
+    負責緩存的讀取、設置和失效管理
+    """
+    
+    @staticmethod
+    def get_cache_key(user_id: int, page: int, page_size: int) -> str:
+        """生成緩存鍵"""
+        return f"feed_recommendations_{user_id}_{page}_{page_size}"
+    
+    @staticmethod
+    def get_recommendations(user_id: int, page: int, page_size: int) -> Optional[Dict[str, Any]]:
+        """從緩存獲取推薦"""
+        cache_key = RecommendationCache.get_cache_key(user_id, page, page_size)
+        return cache.get(cache_key)
+    
+    @staticmethod
+    def set_recommendations(user_id: int, page: int, page_size: int, 
+                          result: Dict[str, Any], timeout: int) -> None:
+        """設置推薦緩存"""
+        cache_key = RecommendationCache.get_cache_key(user_id, page, page_size)
+        cache.set(cache_key, result, timeout)
+
+
+class PostMixer:
+    """
+    貼文混合器
+    
+    負責將不同來源的推薦貼文混合和排序
+    """
+    
+    @staticmethod
+    def mix_recommendations(recommendations: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
+        """
+        混合並打亂推薦，保持一定的隨機性
+        
+        Args:
+            recommendations: 推薦列表
+            
+        Returns:
+            List[Dict[str, Any]]: 混合後的推薦列表
+        """
+        # 按類型分組
+        grouped = PostMixer._group_by_type(recommendations)
+        
+        # 交錯混合不同類型的推薦
+        mixed = PostMixer._interleave_recommendations(grouped)
+        
+        return mixed
+    
+    @staticmethod
+    def _group_by_type(recommendations: List[Dict[str, Any]]) -> Dict[str, List[Dict[str, Any]]]:
+        """按推薦類型分組"""
+        grouped = {'following': [], 'trending': [], 'personalized': []}
+        
+        for rec in recommendations:
+            rec_type = rec.get('recommendation_type', 'personalized')
+            if rec_type in grouped:
+                grouped[rec_type].append(rec)
+        
+        return grouped
+    
+    @staticmethod
+    def _interleave_recommendations(grouped: Dict[str, List[Dict[str, Any]]]) -> List[Dict[str, Any]]:
+        """交錯混合不同類型的推薦"""
+        mixed = []
+        max_length = max(len(posts) for posts in grouped.values()) if grouped.values() else 0
+        
+        for i in range(max_length):
+            for rec_type in ['following', 'trending', 'personalized']:
+                if i < len(grouped[rec_type]):
+                    mixed.append(grouped[rec_type][i])
+        
+        return mixed
+
+
+class RecommendationResultBuilder:
+    """
+    推薦結果構建器
+    
+    負責構建最終的推薦結果數據結構
+    """
+    
+    @staticmethod
+    def build_result(recommendations: List[Dict[str, Any]], page: int, page_size: int,
+                    breakdown: Dict[str, int]) -> Dict[str, Any]:
+        """
+        構建推薦結果
+        
+        Args:
+            recommendations: 推薦列表
+            page: 頁碼
+            page_size: 頁面大小
+            breakdown: 推薦分解數據
+            
+        Returns:
+            Dict[str, Any]: 推薦結果
+        """
+        # 分頁處理
+        start_idx = (page - 1) * page_size
+        end_idx = start_idx + page_size
+        page_recommendations = recommendations[start_idx:end_idx]
+        
+        return {
+            'posts': page_recommendations,
+            'page': page,
+            'page_size': page_size,
+            'total_count': len(recommendations),
+            'has_next': end_idx < len(recommendations),
+            'recommendation_breakdown': breakdown
+        }
+
+
 class RecommendationEngine:
     """
     貼文推薦引擎
@@ -56,15 +224,10 @@ class RecommendationEngine:
     """
     
     def __init__(self):
-        self.cache_timeout = 600  # 10分鐘緩存
-        self.default_page_size = 20
-        
-        # 推薦權重配置
-        self.weights = {
-            'following': 0.5,    # 追蹤用戶貼文權重
-            'trending': 0.3,     # 熱門貼文權重
-            'personalized': 0.2  # 個性化推薦權重
-        }
+        self.config = RecommendationConfig()
+        self.cache = RecommendationCache()
+        self.mixer = PostMixer()
+        self.result_builder = RecommendationResultBuilder()
     
     def get_feed_recommendations(self, user: "AbstractUser", page: int = 1, 
                                page_size: int = 20) -> Dict[str, Any]:
@@ -81,71 +244,82 @@ class RecommendationEngine:
         """
         try:
             # 檢查緩存
-            cache_key = f"feed_recommendations_{user.id}_{page}_{page_size}"
-            cached_result = cache.get(cache_key)
-            
+            cached_result = self.cache.get_recommendations(user.id, page, page_size)
             if cached_result:
                 logger.debug(f"從緩存獲取用戶 {user.username} 的推薦")
                 return cached_result
             
-            # 計算各類推薦的數量分配
-            following_count = int(page_size * self.weights['following'])
-            trending_count = int(page_size * self.weights['trending'])
-            personalized_count = page_size - following_count - trending_count
+            # 生成推薦
+            recommendations, breakdown = self._generate_recommendations(user, page_size)
             
-            recommendations = []
+            # 混合推薦
+            final_recommendations = self.mixer.mix_recommendations(recommendations)
             
-            # 1. 獲取追蹤用戶貼文
-            following_posts = self._get_following_posts(user, following_count)
-            recommendations.extend(following_posts)
-            
-            # 2. 獲取熱門貼文（排除已添加的）
-            exclude_ids = [post['id'] for post in recommendations]
-            trending_posts = self._get_trending_posts(user, trending_count, exclude_ids)
-            recommendations.extend(trending_posts)
-            
-            # 3. 獲取個性化推薦（排除已添加的）
-            exclude_ids = [post['id'] for post in recommendations]
-            personalized_posts = self._get_personalized_posts(user, personalized_count, exclude_ids)
-            recommendations.extend(personalized_posts)
-            
-            # 4. 混合並打亂順序，保持一定的隨機性
-            final_recommendations = self._shuffle_recommendations(recommendations)
-            
-            # 5. 分頁處理
-            start_idx = (page - 1) * page_size
-            end_idx = start_idx + page_size
-            page_recommendations = final_recommendations[start_idx:end_idx]
-            
-            result = {
-                'posts': page_recommendations,
-                'page': page,
-                'page_size': page_size,
-                'total_count': len(final_recommendations),
-                'has_next': end_idx < len(final_recommendations),
-                'recommendation_breakdown': {
-                    'following': len(following_posts),
-                    'trending': len(trending_posts),
-                    'personalized': len(personalized_posts)
-                }
-            }
+            # 構建結果
+            result = self.result_builder.build_result(
+                final_recommendations, page, page_size, breakdown
+            )
             
             # 緩存結果
-            cache.set(cache_key, result, self.cache_timeout)
+            self.cache.set_recommendations(
+                user.id, page, page_size, result, self.config.CACHE_TIMEOUT
+            )
             
-            logger.info(f"為用戶 {user.username} 生成了 {len(page_recommendations)} 條推薦")
+            logger.info(f"為用戶 {user.username} 生成了 {len(result['posts'])} 條推薦")
             return result
             
         except Exception as e:
             logger.error(f"獲取推薦失敗: {str(e)}")
-            return {
-                'posts': [],
-                'page': page,
-                'page_size': page_size,
-                'total_count': 0,
-                'has_next': False,
-                'error': str(e)
-            }
+            return self._get_fallback_result(page, page_size, str(e))
+    
+    def _generate_recommendations(self, user: "AbstractUser", page_size: int) -> tuple:
+        """
+        生成推薦內容
+        
+        Args:
+            user: 目標用戶
+            page_size: 頁面大小
+            
+        Returns:
+            tuple: (推薦列表, 分解數據)
+        """
+        # 計算各類推薦的數量分配
+        distribution = PostCountCalculator.calculate_distribution(page_size, self.config.WEIGHTS)
+        
+        recommendations = []
+        
+        # 1. 獲取追蹤用戶貼文
+        following_posts = self._get_following_posts(user, distribution['following'])
+        recommendations.extend(following_posts)
+        
+        # 2. 獲取熱門貼文（排除已添加的）
+        exclude_ids = [post['id'] for post in recommendations]
+        trending_posts = self._get_trending_posts(user, distribution['trending'], exclude_ids)
+        recommendations.extend(trending_posts)
+        
+        # 3. 獲取個性化推薦（排除已添加的）
+        exclude_ids = [post['id'] for post in recommendations]
+        personalized_posts = self._get_personalized_posts(user, distribution['personalized'], exclude_ids)
+        recommendations.extend(personalized_posts)
+        
+        breakdown = {
+            'following': len(following_posts),
+            'trending': len(trending_posts),
+            'personalized': len(personalized_posts)
+        }
+        
+        return recommendations, breakdown
+    
+    def _get_fallback_result(self, page: int, page_size: int, error: str) -> Dict[str, Any]:
+        """獲取後備結果（當發生錯誤時）"""
+        return {
+            'posts': [],
+            'page': page,
+            'page_size': page_size,
+            'total_count': 0,
+            'has_next': False,
+            'error': error
+        }
     
     def _get_following_posts(self, user: "AbstractUser", limit: int) -> List[Dict[str, Any]]:
         """

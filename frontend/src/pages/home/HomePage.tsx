@@ -711,208 +711,144 @@ const HomePage: React.FC = () => {
             {/* 推薦用戶卡片 */}
             <div 
               data-sidebar="recommendations"
-              className="bg-white/90 backdrop-blur-2xl rounded-3xl shadow-2xl border border-white/40 p-6 hover:shadow-3xl transition-all duration-500 overflow-hidden relative"
+              className="bg-white/95 backdrop-blur-sm rounded-2xl shadow-sm border border-gray-100 p-5"
             >
-              <div className="absolute top-0 left-0 w-full h-2 bg-gradient-to-r from-orange-500 via-red-500 to-pink-500"></div>
+              <div className="flex items-center justify-between mb-4">
+                <h3 className="text-lg font-semibold text-gray-900 flex items-center">
+                  <UserGroupIcon className="h-5 w-5 text-gray-600 mr-2" />
+                  推薦關注
+                </h3>
+                {recommendedUsers.length > 0 && (
+                  <button
+                    onClick={loadRecommendedUsers}
+                    className="text-sm text-gray-500 hover:text-gray-700 transition-colors"
+                  >
+                    刷新
+                  </button>
+                )}
+              </div>
               
-              <div className="relative z-10">
-                <div className="flex items-center justify-between mb-6">
-                  <h3 className="font-bold text-xl text-gray-900 flex items-center">
-                    <div className="p-3 bg-gradient-to-br from-orange-500 via-red-600 to-pink-500 rounded-2xl mr-3 shadow-lg">
-                      <UserGroupIcon className="h-6 w-6 text-white" />
-                    </div>
-                    <div>
-                      <div className="text-xl font-bold">推薦關注</div>
-                      <div className="text-sm text-gray-500 font-normal">發現優秀的工程師</div>
-                    </div>
-                  </h3>
-                  {recommendedUsers.length > 0 && (
-                    <button
-                      onClick={loadRecommendedUsers}
-                      className="px-4 py-2 text-sm text-orange-600 hover:text-orange-700 bg-orange-50/50 hover:bg-orange-100/50 rounded-xl transition-all duration-300 font-medium hover:scale-105 transform backdrop-blur-sm border border-orange-200/30"
-                    >
-                      刷新
-                    </button>
-                  )}
+              {isLoadingUsers ? (
+                <div className="text-center py-8">
+                  <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-gray-400 mx-auto mb-3"></div>
+                  <p className="text-sm text-gray-500">載入中...</p>
                 </div>
-                
-                {isLoadingUsers ? (
-                  <div className="text-center text-gray-500 py-16">
-                    <div className="w-24 h-24 mx-auto mb-6 bg-gradient-to-br from-blue-100 to-purple-100 rounded-3xl flex items-center justify-center shadow-inner">
-                      <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-500"></div>
-                    </div>
-                    <p className="text-lg font-semibold mb-3 text-gray-700">載入推薦用戶中...</p>
-                  </div>
-                ) : recommendedUsers.length === 0 ? (
-                  <div className="text-center text-gray-500 py-16">
-                    <div className="w-24 h-24 mx-auto mb-6 bg-gradient-to-br from-orange-100 to-red-100 rounded-3xl flex items-center justify-center shadow-inner">
-                      <UserGroupIcon className="h-12 w-12 text-orange-400" />
-                    </div>
-                    <p className="text-lg font-semibold mb-3 text-gray-700">暫無推薦用戶</p>
-                    {!isAuthenticated && (
-                      <p className="text-sm text-gray-500">登入後查看個人化推薦</p>
-                    )}
-                    <div className="mt-6">
-                      <button
-                        onClick={loadRecommendedUsers}
-                        className="px-6 py-3 bg-gradient-to-r from-blue-500 to-purple-600 text-white rounded-2xl hover:from-blue-600 hover:to-purple-700 transition-all duration-300 font-medium shadow-lg hover:shadow-xl transform hover:scale-105"
-                      >
-                        重新載入
-                      </button>
-                    </div>
-                  </div>
-                ) : (
-                  <div className="space-y-4">
-                    {recommendedUsers.slice(0, 8).map((user, index) => (
-                      <div 
-                        key={user.id} 
-                        className="flex items-center space-x-4 group p-4 rounded-2xl hover:bg-gradient-to-r hover:from-blue-50/60 hover:to-purple-50/60 transition-all duration-400 cursor-pointer border border-transparent hover:border-blue-100/50 hover:shadow-lg backdrop-blur-sm"
-                        style={{ 
-                          animationDelay: `${index * 150}ms`,
-                          animation: 'fadeInUp 0.8s ease-out forwards'
-                        }}
-                      >
-                        <div className="relative">
-                          <LazyImage
-                            src={user.avatar_url || '/default-avatar.png'}
-                            alt={user.username}
-                            className="w-14 h-14 rounded-2xl object-cover ring-3 ring-white shadow-xl group-hover:ring-blue-200 transition-all duration-400 group-hover:scale-105"
-                            placeholder={
-                              <div className="w-14 h-14 rounded-2xl bg-gradient-to-br from-blue-400 via-purple-500 to-pink-500 flex items-center justify-center shadow-xl">
-                                <span className="text-white text-lg font-bold">
-                                  {user.username?.charAt(0).toUpperCase() || '?'}
-                                </span>
-                              </div>
-                            }
-                          />
-                          <div className="absolute -top-1 -right-1 w-5 h-5 bg-green-400 rounded-full border-3 border-white shadow-lg animate-pulse"></div>
+              ) : recommendedUsers.length === 0 ? (
+                <div className="text-center py-8">
+                  <UserGroupIcon className="h-12 w-12 text-gray-300 mx-auto mb-3" />
+                  <p className="text-sm text-gray-500 mb-3">暫無推薦用戶</p>
+                  <button
+                    onClick={loadRecommendedUsers}
+                    className="text-sm text-blue-600 hover:text-blue-700 transition-colors"
+                  >
+                    重新載入
+                  </button>
+                </div>
+              ) : (
+                <div className="space-y-3">
+                  {recommendedUsers.slice(0, 6).map((user) => (
+                    <div 
+                      key={user.id} 
+                      className="flex items-center justify-between py-2 px-3 rounded-lg hover:bg-gray-50 transition-colors group"
+                    >
+                      <div className="flex items-center space-x-3 flex-1 min-w-0">
+                        {/* 簡化頭像 - 只使用字母頭像 */}
+                        <div className="w-10 h-10 rounded-full bg-gradient-to-br from-blue-500 to-purple-600 flex items-center justify-center flex-shrink-0">
+                          <span className="text-white text-sm font-semibold">
+                            {(user.display_name || user.username)?.charAt(0).toUpperCase() || '?'}
+                          </span>
                         </div>
                         
                         <div className="flex-1 min-w-0">
-                          <div className="flex items-center space-x-2 mb-1">
-                            <p className="text-base font-bold text-gray-900 truncate group-hover:text-blue-600 transition-colors duration-300">
-                              {user.display_name || user.username}
-                            </p>
-                          </div>
-                          
-                          <div className="flex items-center space-x-3 mb-2">
-                            <p className="text-sm text-gray-600 font-medium">
-                              <span className="text-blue-600 font-bold">{user.followers_count.toLocaleString()}</span> 關注者
-                            </p>
-                          </div>
-                          
-                          {user.bio && (
-                            <p className="text-sm text-gray-500 truncate group-hover:text-gray-600 transition-colors duration-300">
-                              {user.bio}
-                            </p>
-                          )}
-                        </div>
-                        
-                        <div className="flex flex-col space-y-2">
-                          <button
-                            onClick={() => handleFollowUser(user.id)}
-                            disabled={user.is_following}
-                            className={`px-5 py-2.5 text-sm font-bold rounded-xl transition-all duration-400 transform hover:scale-105 shadow-lg ${
-                              user.is_following
-                                ? 'bg-gradient-to-r from-gray-100 to-gray-200 text-gray-500 cursor-not-allowed opacity-70 shadow-inner'
-                                : 'bg-gradient-to-r from-blue-500 via-purple-600 to-pink-500 text-white hover:from-blue-600 hover:via-purple-700 hover:to-pink-600 hover:shadow-2xl active:scale-95 shadow-blue-200/50'
-                            }`}
-                          >
-                            {user.is_following ? '已關注' : '關注'}
-                          </button>
+                          <p className="text-sm font-medium text-gray-900 truncate">
+                            {user.display_name || user.username}
+                          </p>
+                          <p className="text-xs text-gray-500">
+                            {user.followers_count.toLocaleString()} 關注者
+                          </p>
                         </div>
                       </div>
-                    ))}
-                  </div>
-                )}
-              </div>
+                      
+                      <button
+                        onClick={() => handleFollowUser(user.id)}
+                        disabled={user.is_following}
+                        className={`px-3 py-1.5 text-xs font-medium rounded-lg transition-all flex-shrink-0 ${
+                          user.is_following
+                            ? 'bg-gray-100 text-gray-500 cursor-not-allowed'
+                            : 'bg-blue-600 text-white hover:bg-blue-700 active:scale-95'
+                        }`}
+                      >
+                        {user.is_following ? '已關注' : '關注'}
+                      </button>
+                    </div>
+                  ))}
+                  
+                  {recommendedUsers.length > 6 && (
+                    <div className="text-center pt-2">
+                      <button className="text-sm text-blue-600 hover:text-blue-700 transition-colors">
+                        查看更多推薦
+                      </button>
+                    </div>
+                  )}
+                </div>
+              )}
             </div>
 
             {/* 熱門話題卡片 */}
-            <div className="bg-white/90 backdrop-blur-2xl rounded-3xl shadow-2xl border border-white/40 p-6 hover:shadow-3xl transition-all duration-500 overflow-hidden relative">
-              <div className="absolute top-0 left-0 w-full h-2 bg-gradient-to-r from-orange-500 via-red-500 to-pink-500"></div>
-              
-              <div className="relative z-10">
-                <div className="flex items-center justify-between mb-6">
-                  <h3 className="font-bold text-xl text-gray-900 flex items-center">
-                    <div className="p-3 bg-gradient-to-br from-orange-500 via-red-600 to-pink-500 rounded-2xl mr-3 shadow-lg">
-                      <FireIcon className="h-6 w-6 text-white" />
-                    </div>
-                    <div>
-                      <div className="text-xl font-bold">熱門話題</div>
-                      <div className="text-sm text-gray-500 font-normal">追蹤最新趨勢</div>
-                    </div>
-                  </h3>
-                  {trendingTopics.length > 0 && (
-                    <button
-                      onClick={loadTrendingTopics}
-                      className="px-4 py-2 text-sm text-orange-600 hover:text-orange-700 bg-orange-50/50 hover:bg-orange-100/50 rounded-xl transition-all duration-300 font-medium hover:scale-105 transform backdrop-blur-sm border border-orange-200/30"
-                    >
-                      刷新
-                    </button>
-                  )}
-                </div>
-              
-                {trendingTopics.length === 0 ? (
-                  <div className="text-center text-gray-500 py-12">
-                    <div className="w-20 h-20 mx-auto mb-4 bg-gradient-to-br from-orange-100 to-red-100 rounded-full flex items-center justify-center">
-                      <FireIcon className="h-10 w-10 text-orange-400" />
-                    </div>
-                    <p className="text-base font-medium mb-2">暫無熱門話題</p>
-                    <p className="text-sm text-gray-400">成為第一個發起討論的人</p>
-                  </div>
-                ) : (
-                  <div className="space-y-4">
-                    {trendingTopics.slice(0, 8).map((topic, index) => (
-                      <div 
-                        key={topic.name} 
-                        className="flex items-center justify-between p-4 rounded-2xl hover:bg-gradient-to-r hover:from-orange-50/50 hover:to-red-50/50 cursor-pointer transition-all duration-300 group border border-transparent hover:border-orange-200/50"
-                        style={{ 
-                          animationDelay: `${index * 50}ms`,
-                          animation: 'fadeInUp 0.6s ease-out forwards'
-                        }}
-                      >
-                        <div className="flex items-center space-x-4">
-                          <div className={`w-8 h-8 rounded-xl flex items-center justify-center text-sm font-bold text-white shadow-lg ${
-                            index === 0 ? 'bg-gradient-to-br from-yellow-400 to-yellow-600' :
-                            index === 1 ? 'bg-gradient-to-br from-gray-400 to-gray-600' :
-                            index === 2 ? 'bg-gradient-to-br from-orange-400 to-orange-600' :
-                            'bg-gradient-to-br from-blue-400 to-blue-600'
-                          }`}>
-                            {index + 1}
-                          </div>
-                          
-                          <div className="flex-1">
-                            <div className="flex items-center space-x-2 mb-1">
-                              <p className="text-base font-semibold text-gray-900 group-hover:text-orange-600 transition-colors duration-200">
-                                #{topic.name}
-                              </p>
-                            </div>
-                            <p className="text-sm text-gray-500 font-medium">
-                              {topic.count.toLocaleString()} 次討論
-                            </p>
-                          </div>
-                        </div>
-                        
-                        <div className="flex items-center space-x-3">
-                          {topic.trend && (
-                            <div className={`px-3 py-1.5 rounded-xl text-sm font-semibold flex items-center space-x-1 shadow-sm ${
-                              topic.trend === 'up' 
-                                ? 'bg-gradient-to-r from-green-100 to-green-200 text-green-700' 
-                                : topic.trend === 'down' 
-                                ? 'bg-gradient-to-r from-red-100 to-red-200 text-red-700' 
-                                : 'bg-gradient-to-r from-gray-100 to-gray-200 text-gray-700'
-                            }`}>
-                              {topic.trend === 'up' ? '上升' : 
-                               topic.trend === 'down' ? '下降' : '穩定'}
-                            </div>
-                          )}
-                        </div>
-                      </div>
-                    ))}
-                  </div>
+            <div className="bg-white/95 backdrop-blur-sm rounded-2xl shadow-sm border border-gray-100 p-5">
+              <div className="flex items-center justify-between mb-4">
+                <h3 className="text-lg font-semibold text-gray-900 flex items-center">
+                  <FireIcon className="h-5 w-5 text-gray-600 mr-2" />
+                  熱門話題
+                </h3>
+                {trendingTopics.length > 0 && (
+                  <button
+                    onClick={loadTrendingTopics}
+                    className="text-sm text-gray-500 hover:text-gray-700 transition-colors"
+                  >
+                    刷新
+                  </button>
                 )}
               </div>
+            
+              {trendingTopics.length === 0 ? (
+                <div className="text-center py-8">
+                  <FireIcon className="h-12 w-12 text-gray-300 mx-auto mb-3" />
+                  <p className="text-sm text-gray-500">暫無熱門話題</p>
+                </div>
+              ) : (
+                <div className="space-y-2">
+                  {trendingTopics.slice(0, 8).map((topic, index) => (
+                    <div 
+                      key={topic.name} 
+                      className="flex items-center justify-between py-2 px-3 rounded-lg hover:bg-gray-50 cursor-pointer transition-colors group"
+                    >
+                      <div className="flex items-center space-x-3 flex-1 min-w-0">
+                        <div className="w-6 h-6 rounded-lg bg-gray-600 flex items-center justify-center flex-shrink-0">
+                          <span className="text-white text-xs font-semibold">
+                            {index + 1}
+                          </span>
+                        </div>
+                        
+                        <div className="flex-1 min-w-0">
+                          <p className="text-sm font-medium text-gray-900 truncate">
+                            #{topic.name}
+                          </p>
+                          <p className="text-xs text-gray-500">
+                            {topic.count.toLocaleString()} 次討論
+                          </p>
+                        </div>
+                      </div>
+                      
+                      {topic.trend && topic.trend === 'up' && (
+                        <div className="text-xs text-green-600 flex-shrink-0">
+                          ↗ 上升
+                        </div>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              )}
             </div>
 
           </aside>

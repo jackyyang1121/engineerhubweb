@@ -71,6 +71,116 @@ class UserValidationError(Exception):
     """
     pass
 
+class UserDataValidator:
+    """
+    用戶數據驗證器
+    
+    單一職責：專門負責用戶數據的各種驗證邏輯
+    """
+    
+    @staticmethod
+    def validate_user_registration_data(email: str, username: str, password: str) -> None:
+        """
+        驗證用戶註冊數據
+        
+        Args:
+            email: 電子郵件地址
+            username: 用戶名稱
+            password: 密碼
+            
+        Raises:
+            UserValidationError: 當任何驗證失敗時
+        """
+        # 驗證電子郵件格式
+        if not UserService.validate_email_format(email):
+            raise UserValidationError("電子郵件格式不正確")
+        
+        # 驗證用戶名格式
+        if not UserService.validate_username_format(username):
+            raise UserValidationError("用戶名格式不正確（3-30字符，字母開頭，只能包含字母數字下劃線）")
+        
+        # 驗證密碼強度
+        if not UserService.validate_password_strength(password):
+            raise UserValidationError("密碼強度不足（至少8字符，包含大小寫字母、數字和特殊字符）")
+    
+    @staticmethod
+    def check_user_uniqueness(email: str, username: str) -> None:
+        """
+        檢查用戶唯一性約束
+        
+        Args:
+            email: 電子郵件地址
+            username: 用戶名稱
+            
+        Raises:
+            UserValidationError: 當唯一性檢查失敗時
+        """
+        # 檢查郵件是否已存在
+        if User.objects.filter(email=email).exists():
+            raise UserValidationError("該電子郵件已被註冊")
+        
+        # 檢查用戶名是否已存在
+        if User.objects.filter(username=username).exists():
+            raise UserValidationError("該用戶名已被使用")
+
+
+class UserCreationService:
+    """
+    用戶創建服務
+    
+    單一職責：專門負責用戶創建的業務邏輯
+    """
+    
+    @staticmethod
+    def prepare_user_data(email: str, username: str, first_name: Optional[str], 
+                         last_name: Optional[str], **extra_fields) -> Dict[str, Any]:
+        """
+        準備用戶創建數據
+        
+        Args:
+            email: 電子郵件地址
+            username: 用戶名稱
+            first_name: 名字（可選）
+            last_name: 姓氏（可選）
+            **extra_fields: 其他額外字段
+            
+        Returns:
+            Dict[str, Any]: 準備好的用戶數據
+        """
+        return {
+            'email': email,
+            'username': username,
+            'first_name': first_name or '',
+            'last_name': last_name or '',
+            **extra_fields
+        }
+    
+    @staticmethod
+    def create_user_instance(password: str, user_data: Dict[str, Any]) -> UserType:
+        """
+        創建用戶實例
+        
+        Args:
+            password: 用戶密碼
+            user_data: 用戶數據字典
+            
+        Returns:
+            UserType: 創建的用戶實例
+        """
+        return User.objects.create_user(password=password, **user_data)
+    
+    @staticmethod
+    def setup_user_defaults(user: UserType) -> None:
+        """
+        設置用戶默認配置
+        
+        Args:
+            user: 用戶實例
+        """
+        # 創建用戶設置（使用默認值）
+        UserSettings.objects.create(user=user)
+
+
 class UserService:
     """
     用戶核心服務類
@@ -174,49 +284,27 @@ class UserService:
             UserValidationError: 當用戶資料驗證失敗時
             IntegrityError: 當數據庫約束違反時（如重複的電子郵件或用戶名）
         """
+        logger.info(f"🔄 開始創建用戶 - 電子郵件: {email}, 用戶名: {username}")
+        
         try:
             # 第一階段：數據格式驗證
-            logger.info(f"🔄 開始創建用戶 - 電子郵件: {email}, 用戶名: {username}")
-            
-            # 驗證電子郵件格式
-            if not UserService.validate_email_format(email):
-                raise UserValidationError("電子郵件格式不正確")
-            
-            # 驗證用戶名格式
-            if not UserService.validate_username_format(username):
-                raise UserValidationError("用戶名格式不正確（3-30字符，字母開頭，只能包含字母數字下劃線）")
-            
-            # 驗證密碼強度
-            if not UserService.validate_password_strength(password):
-                raise UserValidationError("密碼強度不足（至少8字符，包含大小寫字母、數字和特殊字符）")
+            UserDataValidator.validate_user_registration_data(email, username, password)
             
             # 第二階段：數據庫事務處理
             with transaction.atomic():
-                # 檢查郵件是否已存在
-                if User.objects.filter(email=email).exists():
-                    raise UserValidationError("該電子郵件已被註冊")
-                
-                # 檢查用戶名是否已存在
-                if User.objects.filter(username=username).exists():
-                    raise UserValidationError("該用戶名已被使用")
+                # 檢查用戶唯一性
+                UserDataValidator.check_user_uniqueness(email, username)
                 
                 # 準備用戶數據
-                user_data = {
-                    'email': email,
-                    'username': username,
-                    'first_name': first_name or '',
-                    'last_name': last_name or '',
-                    **extra_fields
-                }
-                
-                # 創建用戶實例
-                user = User.objects.create_user(
-                    password=password,
-                    **user_data
+                user_data = UserCreationService.prepare_user_data(
+                    email, username, first_name, last_name, **extra_fields
                 )
                 
-                # 創建用戶設置（使用默認值）
-                UserSettings.objects.create(user=user)
+                # 創建用戶實例
+                user = UserCreationService.create_user_instance(password, user_data)
+                
+                # 設置用戶默認配置
+                UserCreationService.setup_user_defaults(user)
                 
                 # 記錄成功日誌
                 logger.info(f"✅ 新用戶註冊成功: {user.email} (ID: {user.id})")

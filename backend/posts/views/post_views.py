@@ -75,8 +75,7 @@ class PostFollowingAPIView(generics.ListAPIView):
 class PostTrendingAPIView(generics.ListAPIView):
     """
     獲取熱門貼文
-    - 基於點讚數、評論數等計算熱門度
-    - 使用簡化的排序邏輯，避免複雜計算
+    - 簡化版本，基於基本字段排序
     - 按熱門度排序
     """
     serializer_class = PostSerializer
@@ -85,41 +84,29 @@ class PostTrendingAPIView(generics.ListAPIView):
 
     def get_queryset(self):
         try:
-            # 簡化版本：直接按照互動數據排序，避免複雜的計算
-            # 首先嘗試獲取最近一週的貼文
-            one_week_ago = timezone.now() - timedelta(days=7)
+            # 簡化但有效的熱門貼文邏輯
+            queryset = Post.objects.filter(is_published=True)
             
-            queryset = Post.objects.filter(
-                is_published=True,
-                created_at__gte=one_week_ago
-            ).select_related('author').prefetch_related('likes', 'comments')
-            
-            # 如果最近一週沒有貼文，擴展到一個月
-            if not queryset.exists():
-                one_month_ago = timezone.now() - timedelta(days=30)
-                queryset = Post.objects.filter(
-                    is_published=True,
-                    created_at__gte=one_month_ago
-                ).select_related('author').prefetch_related('likes', 'comments')
-            
-            # 如果還是沒有，就返回所有已發布的貼文
-            if not queryset.exists():
-                queryset = Post.objects.filter(
-                    is_published=True
-                ).select_related('author').prefetch_related('likes', 'comments')
-            
-            # 簡單排序：先按點讚數，再按評論數，最後按創建時間
-            return queryset.order_by('-likes_count', '-comments_count', '-created_at')
+            # 嘗試按互動數據排序，如果有問題則回退到時間排序
+            try:
+                # 按點讚數和評論數排序，再按時間排序
+                return queryset.select_related('author').order_by(
+                    '-likes_count', 
+                    '-comments_count', 
+                    '-created_at'
+                )
+            except Exception:
+                # 如果排序有問題，使用簡單的時間排序
+                return queryset.select_related('author').order_by('-created_at')
             
         except Exception as e:
-            # 如果發生任何錯誤，返回基本的已發布貼文列表
+            # 如果發生任何錯誤，返回最基本的查詢
             import traceback
             print(f"Error in PostTrendingAPIView: {e}")
             print(f"Traceback: {traceback.format_exc()}")
-            # 最簡單的回退邏輯
-            return Post.objects.filter(
-                is_published=True
-            ).select_related('author').order_by('-created_at')[:50]  # 限制數量以提高性能
+            
+            # 最基本的查詢
+            return Post.objects.filter(is_published=True).order_by('-id')[:10]
 
 class PostRecommendationsAPIView(generics.ListAPIView):
     """

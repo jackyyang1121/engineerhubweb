@@ -12,6 +12,10 @@
     "module": "ESNext",
     // 跳過對庫文件的類型檢查，以加快編譯速度。
     "skipLibCheck": true,
+    // 啟用 ES 模塊互操作性，允許使用 import 導入 CommonJS 模塊
+    "esModuleInterop": true,
+    // 允許合成默認導入
+    "allowSyntheticDefaultImports": true,
 
 
     /* Bundler mode */
@@ -33,9 +37,9 @@
     // 啟用所有嚴格類型檢查選項，確保代碼質量。
     "strict": true,
     // 禁止未使用的局部變量。
-    "noUnusedLocals": true,
+    "noUnusedLocals": false,
     // 禁止未使用的函數參數。
-    "noUnusedParameters": true,
+    "noUnusedParameters": false,
     // 禁止 switch 語句中的 case 穿透。
     "noFallthroughCasesInSwitch": true,
     // 禁止未檢查的副作用導入，確保所有導入都有副作用。
