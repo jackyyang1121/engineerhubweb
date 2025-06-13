@@ -96,7 +96,7 @@ export const getPosts = async (page = 1, pageSize = 10): Promise<PaginatedRespon
  */
 export const getFollowingPosts = async (page = 1, pageSize = 10): Promise<PaginatedResponse<Post>> => {
   return handleApiCall(
-    () => api.get('/posts/following_posts/', {
+    () => api.get('/posts/following/', {
       params: { page, page_size: pageSize }
     }),
     '獲取關注用戶貼文'

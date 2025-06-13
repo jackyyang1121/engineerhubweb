@@ -19,7 +19,7 @@ from rest_framework.routers import DefaultRouter
 from .views.post_crud import PostCRUDViewSet
 from .views.post_interactions import PostInteractionViewSet
 from .views.comments import CommentViewSet
-from .views.post_views import PostFeedAPIView, PostRecommendationsAPIView
+from .views.post_views import PostFeedAPIView, PostRecommendationsAPIView, PostFollowingAPIView, PostTrendingAPIView
 
 # 創建DRF路由器 - 遵循 Flexible 原則，支援自動路由生成
 router = DefaultRouter()
@@ -41,6 +41,8 @@ router.register(r'(?P<post_pk>\d+)/interactions', PostInteractionViewSet, basena
 urlpatterns = [
     # 新增的 Feed 和 Recommendations 路由
     path('feed/', PostFeedAPIView.as_view(), name='post-feed'),
+    path('following/', PostFollowingAPIView.as_view(), name='post-following'),
+    path('trending/', PostTrendingAPIView.as_view(), name='post-trending'),
     path('recommendations/', PostRecommendationsAPIView.as_view(), name='post-recommendations'),
     
     # 包含所有由路由器註冊的URL

@@ -30,8 +30,39 @@ import { LazyImage } from '../../components/ui/LazyImage';
 // API 服務導入 - 統一的數據獲取接口
 import { getFeed, getFollowingPosts, getTrendingPosts, getRecommendedUsers } from '../../api/postApi';
 import { getTrendingTopics } from '../../api/searchApi';
+import { followUser } from '../../api/userApi';
 import { useAuthStore } from '../../store/authStore';
 import type { TrendingTopic as ApiTrendingTopic, Post } from '../../types';
+
+// CSS 動畫樣式
+const animationStyles = `
+  @keyframes fadeInUp {
+    from {
+      opacity: 0;
+      transform: translateY(20px);
+    }
+    to {
+      opacity: 1;
+      transform: translateY(0);
+    }
+  }
+  
+  @keyframes pulse {
+    0%, 100% {
+      opacity: 1;
+    }
+    50% {
+      opacity: 0.5;
+    }
+  }
+`;
+
+// 將動畫樣式注入到頁面
+if (typeof document !== 'undefined') {
+  const style = document.createElement('style');
+  style.textContent = animationStyles;
+  document.head.appendChild(style);
+}
 
 /**
  * 推薦用戶數據結構
@@ -234,8 +265,12 @@ const HomePage: React.FC = () => {
     try {
       console.log(`👥 嘗試關注用戶: ${userId}`);
       
-      // TODO: 實現關注 API 調用
-      // await followAPI.followUser(userId);
+      // 檢查是否為當前用戶
+      const targetUser = recommendedUsers.find(user => user.id === userId);
+      if (!targetUser) {
+        console.error('❌ 找不到目標用戶');
+        return;
+      }
       
       // 樂觀更新 UI - 先更新界面，再等待服務器確認
       setRecommendedUsers(prev => 
@@ -250,12 +285,37 @@ const HomePage: React.FC = () => {
         )
       );
       
+      // 調用關注 API
+      await followUser(userId);
+      
       console.log(`✅ 成功關注用戶: ${userId}`);
+      
+      // 顯示成功提示
+      if (typeof window !== 'undefined' && window.alert) {
+        window.alert(`已關注 ${targetUser.display_name || targetUser.username}`);
+      }
     } catch (error) {
       console.error(`❌ 關注用戶失敗: ${userId}`, error);
-      // TODO: 顯示錯誤提示給用戶
+      
+      // 發生錯誤時回滾 UI 狀態
+      setRecommendedUsers(prev => 
+        prev.map(user => 
+          user.id === userId 
+            ? { 
+                ...user, 
+                is_following: false, 
+                followers_count: Math.max(0, user.followers_count - 1)
+              }
+            : user
+        )
+      );
+      
+      // 顯示錯誤提示
+      if (typeof window !== 'undefined' && window.alert) {
+        window.alert('關注失敗，請重試');
+      }
     }
-  }, []);
+  }, [recommendedUsers]);
 
   /**
    * 處理貼文創建成功
@@ -572,16 +632,18 @@ const HomePage: React.FC = () => {
           <aside className="hidden lg:block lg:w-80 space-y-6">
             
             {/* 推薦用戶卡片 */}
-            <div className="bg-white/70 backdrop-blur-xl rounded-2xl shadow-xl border border-white/20 p-6">
-              <div className="flex items-center justify-between mb-4">
-                <h3 className="font-semibold text-gray-900 flex items-center">
-                  <UserGroupIcon className="h-5 w-5 mr-2 text-blue-500" />
+            <div className="bg-white/80 backdrop-blur-xl rounded-3xl shadow-xl border border-white/30 p-6 hover:shadow-2xl transition-all duration-300">
+              <div className="flex items-center justify-between mb-6">
+                <h3 className="font-bold text-lg text-gray-900 flex items-center">
+                  <div className="p-2 bg-gradient-to-br from-blue-500 to-purple-600 rounded-xl mr-3">
+                    <UserGroupIcon className="h-5 w-5 text-white" />
+                  </div>
                   推薦關注
                 </h3>
                 {recommendedUsers.length > 0 && (
                   <button
                     onClick={loadRecommendedUsers}
-                    className="text-sm text-blue-600 hover:text-blue-700 transition-colors"
+                    className="text-sm text-blue-600 hover:text-blue-700 transition-colors font-medium hover:scale-105 transform duration-200"
                   >
                     刷新
                   </button>
@@ -589,65 +651,123 @@ const HomePage: React.FC = () => {
               </div>
               
               {recommendedUsers.length === 0 ? (
-                <div className="text-center text-gray-500 py-8">
-                  <UserGroupIcon className="h-12 w-12 mx-auto text-gray-300 mb-3" />
-                  <p className="text-sm">暫無推薦用戶</p>
+                <div className="text-center text-gray-500 py-12">
+                  <div className="w-20 h-20 mx-auto mb-4 bg-gradient-to-br from-gray-100 to-gray-200 rounded-full flex items-center justify-center">
+                    <UserGroupIcon className="h-10 w-10 text-gray-400" />
+                  </div>
+                  <p className="text-base font-medium mb-2">暫無推薦用戶</p>
                   {!isAuthenticated && (
-                    <p className="text-xs mt-2 text-gray-400">登入後查看推薦</p>
+                    <p className="text-sm text-gray-400">登入後查看個人化推薦</p>
                   )}
                 </div>
               ) : (
-                <div className="space-y-4">
-                  {recommendedUsers.slice(0, 5).map((user) => (
-                    <div key={user.id} className="flex items-center space-x-3 group">
-                      <LazyImage
-                        src={user.avatar_url || '/default-avatar.png'}
-                        alt={user.username}
-                        className="w-10 h-10 rounded-full object-cover"
-                        placeholder={
-                          <div className="w-10 h-10 rounded-full bg-gradient-to-br from-blue-400 to-purple-500 flex items-center justify-center">
-                            <span className="text-white text-sm font-bold">
-                              {user.username?.charAt(0).toUpperCase() || '?'}
-                            </span>
-                          </div>
-                        }
-                      />
-                      <div className="flex-1 min-w-0">
-                        <p className="text-sm font-medium text-gray-900 truncate">
-                          {user.display_name || user.username}
-                        </p>
-                        <p className="text-xs text-gray-500 truncate">
-                          {user.followers_count} 位關注者
-                        </p>
+                <div className="space-y-5">
+                  {recommendedUsers.slice(0, 5).map((user, index) => (
+                    <div 
+                      key={user.id} 
+                      className="flex items-center space-x-4 group p-3 rounded-2xl hover:bg-gradient-to-r hover:from-blue-50/50 hover:to-purple-50/50 transition-all duration-300 cursor-pointer"
+                      style={{ 
+                        animationDelay: `${index * 100}ms`,
+                        animation: 'fadeInUp 0.6s ease-out forwards'
+                      }}
+                    >
+                      <div className="relative">
+                        <LazyImage
+                          src={user.avatar_url || '/default-avatar.png'}
+                          alt={user.username}
+                          className="w-12 h-12 rounded-xl object-cover ring-2 ring-white shadow-lg group-hover:ring-blue-200 transition-all duration-300"
+                          placeholder={
+                            <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-blue-400 to-purple-500 flex items-center justify-center shadow-lg">
+                              <span className="text-white text-base font-bold">
+                                {user.username?.charAt(0).toUpperCase() || '?'}
+                              </span>
+                            </div>
+                          }
+                        />
+                        {/* 在線狀態指示器 */}
+                        <div className="absolute -top-1 -right-1 w-4 h-4 bg-green-400 rounded-full border-2 border-white shadow-sm"></div>
                       </div>
+                      
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center space-x-2">
+                          <p className="text-base font-semibold text-gray-900 truncate group-hover:text-blue-600 transition-colors duration-200">
+                            {user.display_name || user.username}
+                          </p>
+                          {/* 驗證徽章 */}
+                          <div className="w-4 h-4 bg-blue-500 rounded-full flex items-center justify-center">
+                            <svg className="w-2.5 h-2.5 text-white" fill="currentColor" viewBox="0 0 20 20">
+                              <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
+                            </svg>
+                          </div>
+                        </div>
+                        <div className="flex items-center space-x-3 mt-1">
+                          <p className="text-sm text-gray-500">
+                            {user.followers_count.toLocaleString()} 關注者
+                          </p>
+                          {user.bio && (
+                            <>
+                              <span className="text-gray-300">•</span>
+                              <p className="text-sm text-gray-500 truncate max-w-24">
+                                {user.bio}
+                              </p>
+                            </>
+                          )}
+                        </div>
+                      </div>
+                      
                       <button
                         onClick={() => handleFollowUser(user.id)}
                         disabled={user.is_following}
-                        className={`px-3 py-1 text-xs font-medium rounded-full transition-all duration-200 ${
+                        className={`px-4 py-2 text-sm font-semibold rounded-xl transition-all duration-300 transform hover:scale-105 shadow-lg ${
                           user.is_following
-                            ? 'bg-gray-100 text-gray-500 cursor-not-allowed'
-                            : 'bg-blue-600 text-white hover:bg-blue-700 hover:shadow-md'
+                            ? 'bg-gray-100 text-gray-500 cursor-not-allowed opacity-70'
+                            : 'bg-gradient-to-r from-blue-500 to-purple-600 text-white hover:from-blue-600 hover:to-purple-700 hover:shadow-xl active:scale-95'
                         }`}
                       >
-                        {user.is_following ? '已關注' : '關注'}
+                        {user.is_following ? (
+                          <div className="flex items-center space-x-1">
+                            <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
+                              <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
+                            </svg>
+                            <span>已關注</span>
+                          </div>
+                        ) : (
+                          <div className="flex items-center space-x-1">
+                            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
+                            </svg>
+                            <span>關注</span>
+                          </div>
+                        )}
                       </button>
                     </div>
                   ))}
+                  
+                  {/* 查看更多按鈕 */}
+                  {recommendedUsers.length > 5 && (
+                    <div className="text-center pt-4 border-t border-gray-100">
+                      <button className="text-blue-600 hover:text-blue-700 font-medium text-sm hover:underline transition-all duration-200">
+                        查看更多推薦 ({recommendedUsers.length - 5})
+                      </button>
+                    </div>
+                  )}
                 </div>
               )}
             </div>
 
             {/* 熱門話題卡片 */}
-            <div className="bg-white/70 backdrop-blur-xl rounded-2xl shadow-xl border border-white/20 p-6">
-              <div className="flex items-center justify-between mb-4">
-                <h3 className="font-semibold text-gray-900 flex items-center">
-                  <FireIcon className="h-5 w-5 mr-2 text-orange-500" />
+            <div className="bg-white/80 backdrop-blur-xl rounded-3xl shadow-xl border border-white/30 p-6 hover:shadow-2xl transition-all duration-300">
+              <div className="flex items-center justify-between mb-6">
+                <h3 className="font-bold text-lg text-gray-900 flex items-center">
+                  <div className="p-2 bg-gradient-to-br from-orange-500 to-red-600 rounded-xl mr-3">
+                    <FireIcon className="h-5 w-5 text-white" />
+                  </div>
                   熱門話題
                 </h3>
                 {trendingTopics.length > 0 && (
                   <button
                     onClick={loadTrendingTopics}
-                    className="text-sm text-blue-600 hover:text-blue-700 transition-colors"
+                    className="text-sm text-orange-600 hover:text-orange-700 transition-colors font-medium hover:scale-105 transform duration-200"
                   >
                     刷新
                   </button>
@@ -655,45 +775,113 @@ const HomePage: React.FC = () => {
               </div>
               
               {trendingTopics.length === 0 ? (
-                <div className="text-center text-gray-500 py-8">
-                  <FireIcon className="h-12 w-12 mx-auto text-gray-300 mb-3" />
-                  <p className="text-sm">暫無熱門話題</p>
-                  <p className="text-xs mt-2 text-gray-400">成為第一個發起討論的人</p>
+                <div className="text-center text-gray-500 py-12">
+                  <div className="w-20 h-20 mx-auto mb-4 bg-gradient-to-br from-orange-100 to-red-100 rounded-full flex items-center justify-center">
+                    <FireIcon className="h-10 w-10 text-orange-400" />
+                  </div>
+                  <p className="text-base font-medium mb-2">暫無熱門話題</p>
+                  <p className="text-sm text-gray-400">成為第一個發起討論的人</p>
                 </div>
               ) : (
-                <div className="space-y-3">
+                <div className="space-y-4">
                   {trendingTopics.slice(0, 8).map((topic, index) => (
                     <div 
                       key={topic.name} 
-                      className="flex items-center justify-between p-2 rounded-lg hover:bg-gray-50/50 cursor-pointer transition-colors group"
+                      className="flex items-center justify-between p-4 rounded-2xl hover:bg-gradient-to-r hover:from-orange-50/50 hover:to-red-50/50 cursor-pointer transition-all duration-300 group border border-transparent hover:border-orange-200/50"
+                      style={{ 
+                        animationDelay: `${index * 50}ms`,
+                        animation: 'fadeInUp 0.6s ease-out forwards'
+                      }}
                     >
-                      <div className="flex items-center space-x-3">
-                        <span className="text-sm font-medium text-gray-600">
-                          #{index + 1}
-                        </span>
-                        <div>
-                          <p className="text-sm font-medium text-gray-900 group-hover:text-blue-600 transition-colors">
-                            #{topic.name}
-                          </p>
-                          <p className="text-xs text-gray-500">
-                            {topic.count} 次討論
-                          </p>
+                      <div className="flex items-center space-x-4">
+                        {/* 排名徽章 */}
+                        <div className={`w-8 h-8 rounded-xl flex items-center justify-center text-sm font-bold text-white shadow-lg ${
+                          index === 0 ? 'bg-gradient-to-br from-yellow-400 to-yellow-600' :
+                          index === 1 ? 'bg-gradient-to-br from-gray-400 to-gray-600' :
+                          index === 2 ? 'bg-gradient-to-br from-orange-400 to-orange-600' :
+                          'bg-gradient-to-br from-blue-400 to-blue-600'
+                        }`}>
+                          {index + 1}
+                        </div>
+                        
+                        <div className="flex-1">
+                          <div className="flex items-center space-x-2 mb-1">
+                            <p className="text-base font-semibold text-gray-900 group-hover:text-orange-600 transition-colors duration-200">
+                              #{topic.name}
+                            </p>
+                            {/* 火熱程度指示器 */}
+                            <div className="flex space-x-1">
+                              {[...Array(Math.min(Math.floor(topic.count / 50) + 1, 3))].map((_, i) => (
+                                <div key={i} className="w-1.5 h-1.5 bg-orange-400 rounded-full animate-pulse" />
+                              ))}
+                            </div>
+                          </div>
+                          <div className="flex items-center space-x-3">
+                            <p className="text-sm text-gray-500 font-medium">
+                              {topic.count.toLocaleString()} 次討論
+                            </p>
+                            {/* 時間標籤 */}
+                            <span className="px-2 py-1 bg-gray-100 text-gray-600 text-xs rounded-lg font-medium">
+                              24h
+                            </span>
+                          </div>
                         </div>
                       </div>
-                      {/* 趨勢指示器 */}
-                      {topic.trend && (
-                        <div className={`text-xs px-2 py-1 rounded-full ${
-                          topic.trend === 'up' 
-                            ? 'bg-green-100 text-green-600' 
-                            : topic.trend === 'down' 
-                            ? 'bg-red-100 text-red-600' 
-                            : 'bg-gray-100 text-gray-600'
-                        }`}>
-                          {topic.trend === 'up' ? '↗' : topic.trend === 'down' ? '↘' : '→'}
-                        </div>
-                      )}
+                      
+                      <div className="flex items-center space-x-3">
+                        {/* 趨勢指示器 */}
+                        {topic.trend && (
+                          <div className={`px-3 py-1.5 rounded-xl text-sm font-semibold flex items-center space-x-1 shadow-sm ${
+                            topic.trend === 'up' 
+                              ? 'bg-gradient-to-r from-green-100 to-green-200 text-green-700' 
+                              : topic.trend === 'down' 
+                              ? 'bg-gradient-to-r from-red-100 to-red-200 text-red-700' 
+                              : 'bg-gradient-to-r from-gray-100 to-gray-200 text-gray-700'
+                          }`}>
+                            {topic.trend === 'up' ? (
+                              <>
+                                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6" />
+                                </svg>
+                                <span>上升</span>
+                              </>
+                            ) : topic.trend === 'down' ? (
+                              <>
+                                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 17h8m0 0V9m0 8l-8-8-4 4-6-6" />
+                                </svg>
+                                <span>下降</span>
+                              </>
+                            ) : (
+                              <>
+                                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 12h14" />
+                                </svg>
+                                <span>穩定</span>
+                              </>
+                            )}
+                          </div>
+                        )}
+                        
+                        {/* 參與按鈕 */}
+                        <button className="p-2 bg-orange-100 hover:bg-orange-200 text-orange-600 rounded-xl transition-all duration-200 hover:scale-110 active:scale-95">
+                          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
+                          </svg>
+                        </button>
+                      </div>
                     </div>
                   ))}
+                  
+                  {/* 查看所有話題按鈕 */}
+                  <div className="text-center pt-4 border-t border-gray-100">
+                    <button className="text-orange-600 hover:text-orange-700 font-medium text-sm hover:underline transition-all duration-200 flex items-center justify-center space-x-1 mx-auto">
+                      <span>探索更多話題</span>
+                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                      </svg>
+                    </button>
+                  </div>
                 </div>
               )}
             </div>
