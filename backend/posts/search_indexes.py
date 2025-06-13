@@ -143,6 +143,57 @@ class PostIndex(AlgoliaIndex):
         return ' '.join(content_parts)
 
 
+class PostSearchService:
+    """
+    貼文搜尋服務
+    
+    職責：
+    - 提供統一的搜尋接口
+    - 處理搜尋邏輯和結果過濾
+    - 整合 Algolia 和資料庫搜尋
+    """
+    
+    @staticmethod
+    def search(query: str, user=None, filters=None):
+        """
+        搜尋貼文
+        
+        Args:
+            query: 搜尋關鍵字
+            user: 當前用戶
+            filters: 額外篩選條件
+            
+        Returns:
+            QuerySet[Post]: 搜尋結果
+        """
+        from django.db.models import Q
+        from .models import Post
+        
+        # 基本查詢
+        queryset = Post.objects.filter(status='published')
+        
+        if query:
+            # 使用 Q 物件進行複雜搜尋
+            search_query = Q(title__icontains=query) | Q(content__icontains=query)
+            
+            # 如果是程式碼相關搜尋
+            if any(keyword in query.lower() for keyword in ['def ', 'function', 'class ', 'import', 'const ', 'let ', 'var ']):
+                search_query |= Q(code_snippet__icontains=query)
+            
+            queryset = queryset.filter(search_query)
+        
+        # 應用額外篩選
+        if filters:
+            if 'language' in filters:
+                queryset = queryset.filter(code_language=filters['language'])
+            if 'author' in filters:
+                queryset = queryset.filter(author__username=filters['author'])
+            if 'tag' in filters:
+                queryset = queryset.filter(tags__name=filters['tag'])
+        
+        return queryset.select_related('author').prefetch_related('tags', 'likes').order_by('-created_at')
+
+
 @register(User)
 class UserIndex(AlgoliaIndex):
     """

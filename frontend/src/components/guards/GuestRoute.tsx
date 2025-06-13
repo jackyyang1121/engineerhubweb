@@ -14,7 +14,7 @@
 
 import React from 'react';
 import { Navigate } from 'react-router-dom';
-import { useAuthStore } from '../../store/authStore';
+import { useAuthGuard } from '../../store/auth';
 
 /**
  * 訪客路由組件屬性介面
@@ -43,8 +43,13 @@ const GuestRoute: React.FC<GuestRouteProps> = ({
   redirectTo = '/',
   fallback: Fallback 
 }) => {
-  // 獲取認證狀態
-  const isAuthenticated = useAuthStore(state => state.isAuthenticated);
+  // 獲取認證守衛狀態
+  const { isAuthenticated, showLoading } = useAuthGuard();
+  
+  // 如果還在載入中，顯示 fallback 或什麼都不顯示
+  if (showLoading) {
+    return Fallback ? <Fallback /> : null;
+  }
   
   // 如果提供了 fallback 組件且用戶已認證，顯示 fallback
   if (isAuthenticated && Fallback) {

@@ -1,10 +1,24 @@
-import { Outlet } from 'react-router-dom';
-// 在你的父路由(AuthLayout)中放 <Outlet />。
-// 當使用者訪問 /login 時，React Router 會：
-// 先渲染父路由（例如 AuthLayout）
-// 然後把 login 子路由對應的 <LoginPage /> 渲染到 <Outlet /> 位置上。
+import React from 'react';
 
-const AuthLayout = () => {
+/**
+ * 認證頁面佈局組件
+ * 
+ * 功能：
+ * - 提供優美的認證頁面背景
+ * - 品牌展示區域
+ * - 表單內容區域
+ * 
+ * 設計原則：
+ * - Narrowly focused: 專注於認證頁面佈局
+ * - Flexible: 支援任意認證表單
+ * - Loosely coupled: 不依賴特定認證流程
+ */
+interface AuthLayoutProps {
+  /** 要渲染的認證表單組件 */
+  children: React.ReactNode;
+}
+
+const AuthLayout: React.FC<AuthLayoutProps> = ({ children }) => {
   return (
   // 創建一個全屏容器，設置背景漸層並隱藏溢出內容。 
     <div className="min-h-screen bg-gradient-to-br from-indigo-900 via-purple-900 to-pink-900 relative overflow-hidden">
@@ -113,12 +127,8 @@ const AuthLayout = () => {
         <div className="w-full lg:w-1/2 flex items-center justify-center p-8">
           {/* 限制表單內容寬度並渲染子路由組件。 */}
           <div className="w-full max-w-md">
-            {/* 使用 Outlet 組件，作為子路由的渲染位置，例如登錄或註冊頁面。 */}
-            <Outlet />
-            {/* Outlet 是 React Router（從 react-router-dom 匯入）提供的一個組件，用於在 巢狀路由 中，指定子路由要被渲染的位置。 */}
-            {/* 簡單來說： */}
-            {/* 如果父路由（例如 AuthLayout）定義了 <Outlet />，那它的子路由（例如 login、register）的 element 內容，就會被插入在 <Outlet /> 的位置。 */}
-            {/* <Outlet /> 就是一个占位符，React Router 會根據當前 URL 把對應子路由的组件"插"到這個位置 */}
+            {/* 渲染認證表單子組件 - 如登錄、註冊、密碼重置等 */}
+            {children}
           </div>
         </div>
       </div>

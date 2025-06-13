@@ -462,7 +462,7 @@ const SearchPage: React.FC = () => {
       setSearchType(urlType);
       performSearch(urlQuery, urlType);
     }
-  }, []);
+  }, [performSearch, query, setQuery, setSearchType]);
 
   // ==================== 條件渲染：錯誤狀態 ====================
 

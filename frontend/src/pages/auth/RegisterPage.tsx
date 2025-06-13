@@ -14,7 +14,7 @@ import { Link, useNavigate } from 'react-router-dom';
 import { useForm } from 'react-hook-form';
 import { toast } from 'react-toastify';
 import { EyeIcon, EyeSlashIcon } from '@heroicons/react/24/outline';
-import { useAuthStore } from '../../store/authStore';
+import { useAuthOperations } from '../../store/auth';
 
 // 註冊表單輸入接口
 interface RegisterFormInputs {  
@@ -64,7 +64,7 @@ const RegisterPage = () => {
   const [serverErrors, setServerErrors] = useState<Record<string, string[]>>({});
   
   // 從認證 store 獲取註冊方法
-  const register = useAuthStore(state => state.register);
+  const { register } = useAuthOperations();
   
   // React Hook Form 配置
   const {

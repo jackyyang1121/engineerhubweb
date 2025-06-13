@@ -3,7 +3,7 @@ import { Link, useNavigate, useLocation } from 'react-router-dom'; // 從 react-
 import { useForm } from 'react-hook-form'; // 從 react-hook-form 導入 useForm 鉤子，用於表單管理和驗證
 import { toast } from 'react-toastify'; // 從 react-toastify 導入 toast 函數，用於顯示提示消息
 import { EyeIcon, EyeSlashIcon } from '@heroicons/react/24/outline'; // 從 @heroicons/react 導入 EyeIcon（眼睛圖標）和 EyeSlashIcon（隱藏眼睛圖標），用於密碼顯示切換
-import { useAuthStore } from '../../store/authStore'; // 從自定義的 authStore 文件中導入 useAuthStore，用於管理認證狀態
+import { useAuthOperations } from '../../store/auth'; // 從認證模組導入 useAuthOperations，用於管理認證操作
 
 interface LoginFormInputs { // 定義 LoginFormInputs 接口，用於指定表單數據的類型
   username: string; // 用戶名字段，必須是字符串類型
@@ -18,7 +18,7 @@ const LoginPage = () => { // 定義 LoginPage 組件，這是一個函數式組�
   
   
   
-  const login = useAuthStore(state => state.login); // 從 useAuthStore 中提取 login 函數，用於執行登錄操作
+  const { login } = useAuthOperations(); // 從 useAuthOperations 中提取 login 函數，用於執行登錄操作
   
   // 用戶之前想要訪問的頁面，如果沒有指定則默認為首頁（根路徑 '/'）
   const from = (location.state as { from?: { pathname: string } })?.from?.pathname || '/';

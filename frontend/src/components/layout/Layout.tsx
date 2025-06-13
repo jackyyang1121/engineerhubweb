@@ -3,19 +3,34 @@ import { Outlet } from 'react-router-dom';
 import Header from './Header';
 import { GlobalToast } from '../common/Toast';
 import { useUIStore } from '../../store/uiStore';
-import { useAuthStore } from '../../store/authStore';
+import { useAuth, useAuthOperations } from '../../store/auth';
 import Loading from '../common/Loading';
 
 interface LayoutProps {
   children?: React.ReactNode;
 }
 
+/**
+ * 主要佈局組件 - 負責應用程式的整體結構
+ * 
+ * 設計原則：
+ * - Narrowly focused: 專注於佈局結構管理
+ * - Flexible: 支援不同內容的動態載入
+ * - Loosely coupled: 透過props注入依賴，不直接依賴特定組件
+ */
 const Layout: React.FC<LayoutProps> = ({ children }) => {
+  // 從UI store獲取全域載入狀態，用於顯示載入遮罩
   const { isLoading: globalLoading } = useUIStore();
-  const { checkAuth, isLoading } = useAuthStore();
+  
+  // 從認證store獲取載入狀態，用於初始化檢查
+  const { isLoading } = useAuth();
+  
+  // 從認證操作store獲取檢查認證狀態的方法
+  const { checkAuth } = useAuthOperations();
 
-  // 初始化應用
+  // 初始化應用 - 檢查用戶認證狀態
   useEffect(() => {
+    // 應用啟動時檢查用戶是否已登入
     checkAuth();
   }, [checkAuth]);
 
@@ -33,7 +48,7 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
 
   return (
     <div className="min-h-screen bg-gray-50 dark:bg-gray-900 transition-colors duration-200">
-      {/* 全局載入遮罩 */}
+      {/* 全局載入遮罩 - 當有API請求進行中時顯示 */}
       {globalLoading && (
         <Loading 
           fullScreen={true}
@@ -42,15 +57,15 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
         />
       )}
 
-      {/* 頭部導航 */}
+      {/* 頭部導航區域 - 包含導航選單、搜尋框、用戶選單等 */}
       <Header />
 
-      {/* 主要內容區域 */}
+      {/* 主要內容區域 - 支援兩種方式：直接傳入children或使用React Router的Outlet */}
       <main className="flex-1">
         {children || <Outlet />}
       </main>
 
-      {/* 全局 Toast 通知 */}
+      {/* 全局 Toast 通知系統 - 顯示成功、錯誤、警告等訊息 */}
       <GlobalToast />
     </div>
   );
@@ -58,7 +73,7 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
 
 // 受保護的佈局（需要登入）
 export const ProtectedLayout: React.FC<LayoutProps> = ({ children }) => {
-  const { isAuthenticated } = useAuthStore();
+  const { isAuthenticated } = useAuth();
   const { showToast } = useUIStore();
 
   useEffect(() => {
@@ -100,7 +115,7 @@ export const PublicLayout: React.FC<LayoutProps> = ({ children }) => {
 
 // 認證佈局（用於登入/註冊頁面）
 export const AuthLayout: React.FC<LayoutProps> = ({ children }) => {
-  const { isAuthenticated } = useAuthStore();
+  const { isAuthenticated } = useAuth();
 
   // 如果已經登入，重定向到首頁
   useEffect(() => {

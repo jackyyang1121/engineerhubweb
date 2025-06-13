@@ -261,8 +261,10 @@ const MessagesPage: React.FC = () => {
     refetch
   } = useConversations();
 
-  // 提取對話列表，提供安全的默認值
-  const conversations = conversationsResponse?.results || [];
+  // 提取對話列表，提供安全的默認值並使用useMemo優化性能
+  const conversations = useMemo(() => {
+    return conversationsResponse?.results || [];
+  }, [conversationsResponse?.results]);
 
   // 使用搜尋Hook處理對話過濾
   const {

@@ -13,7 +13,8 @@
  * - Loosely coupled: 最小化對外部依賴
  */
 
-import React, { Component, ErrorInfo, ReactNode } from 'react';
+import React, { Component } from 'react';
+import type { ErrorInfo, ReactNode } from 'react';
 
 /**
  * 錯誤資訊介面
@@ -87,7 +88,7 @@ const DefaultErrorFallback: React.FC<{
       </p>
 
       {/* 錯誤詳情（開發環境） */}
-      {process.env.NODE_ENV === 'development' && (
+      {import.meta.env.DEV && (
         <details className="text-left bg-gray-100 rounded p-3 mb-4">
           <summary className="cursor-pointer text-sm font-medium text-gray-700 mb-2">
             錯誤詳情（開發模式）
@@ -159,8 +160,8 @@ class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundaryState> {
     // 記錄錯誤詳情
     const errorDetails: ErrorDetails = {
       message: error.message,
-      stack: error.stack,
-      componentStack: errorInfo.componentStack,
+      stack: error.stack || undefined,
+      componentStack: errorInfo.componentStack || undefined,
       timestamp: new Date(),
       userAgent: navigator.userAgent,
       url: window.location.href
@@ -177,7 +178,7 @@ class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundaryState> {
     }
 
     // 在開發環境中輸出錯誤資訊
-    if (process.env.NODE_ENV === 'development') {
+    if (import.meta.env.DEV) {
       console.group('🚨 React Error Boundary');
       console.error('錯誤:', error);
       console.error('錯誤資訊:', errorInfo);
@@ -186,7 +187,7 @@ class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundaryState> {
     }
 
     // 在生產環境中可以發送錯誤到監控服務
-    if (process.env.NODE_ENV === 'production') {
+    if (import.meta.env.PROD) {
       // 這裡可以整合錯誤監控服務，如 Sentry
       // Sentry.captureException(error, { contexts: { react: errorInfo } });
     }

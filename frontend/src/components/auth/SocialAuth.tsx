@@ -10,36 +10,16 @@
 
 import React, { useState } from 'react';
 import { toast } from 'react-toastify';
-import { useAuthStore } from '../../store/authStore';
+import { useSocialAuth, type GoogleOAuthResponse } from '../../store/auth/socialAuth';
+import '../../types/google';
 
-// Google OAuth 響應類型
-interface GoogleOAuthResponse {
-  access_token?: string;
-  error?: string;
-  error_description?: string;
-}
+// 類型定義已在 socialAuth.ts 中統一管理
 
-// Google OAuth 客戶端配置
-interface GoogleOAuthConfig {
-  client_id: string;
-  scope: string;
-  callback: (response: GoogleOAuthResponse) => void;
-}
-
-// Google API 類型定義
-interface GoogleAPI {
-  accounts: {
-    oauth2: {
-      initTokenClient: (config: GoogleOAuthConfig) => {
-        requestAccessToken: () => void;
-      };
-    };
-  };
-}
+// Google API 類型定義已在 socialAuth.ts 中統一定義
 
 // Google 登入按鈕組件
 const GoogleLoginButton: React.FC<{ onLoading: (loading: boolean) => void }> = ({ onLoading }) => {
-  const loginWithGoogle = useAuthStore(state => state.loginWithGoogle);
+  const { loginWithGoogle } = useSocialAuth();
 
   const handleGoogleLogin = async () => {
     onLoading(true);
@@ -110,7 +90,7 @@ const GoogleLoginButton: React.FC<{ onLoading: (loading: boolean) => void }> = (
 
 // GitHub 登入按鈕組件
 const GitHubLoginButton: React.FC<{ onLoading: (loading: boolean) => void }> = ({ onLoading }) => {
-  const loginWithGitHub = useAuthStore(state => state.loginWithGitHub);
+  const { loginWithGitHub } = useSocialAuth();
 
   const handleGitHubLogin = async () => {
     onLoading(true);
@@ -225,10 +205,4 @@ const SocialAuth: React.FC<SocialAuthProps> = ({ className = '' }) => {
 };
 
 export default SocialAuth;
-
-// 擴展 Window 介面以支援 Google API
-declare global {
-  interface Window {
-    google?: GoogleAPI;
-  }
-} 
+ 
