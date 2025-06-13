@@ -25,12 +25,15 @@ EngineerHub - 依賴注入接口定義
 """
 
 from abc import ABC, abstractmethod
-from typing import Dict, Any, Optional, List, Tuple, Union
-from django.contrib.auth import get_user_model
+from typing import Dict, Any, Optional, List, Tuple, Union, TYPE_CHECKING
 from django.core.files.uploadedfile import UploadedFile
 
-# 動態獲取用戶模型 - 支持自定義用戶模型
-User = get_user_model()
+# 類型檢查時導入用戶模型，避免循環導入和配置問題
+if TYPE_CHECKING:
+    from django.contrib.auth.models import AbstractUser
+else:
+    # 在運行時使用字符串類型註解，避免早期導入問題
+    AbstractUser = "AbstractUser"
 
 # ======================================================================================
 # 🔐 認證相關接口 (Authentication Interfaces)
@@ -103,12 +106,12 @@ class ITokenManager(ABC):
     """
     
     @abstractmethod
-    def generate_tokens(self, user: User) -> Dict[str, str]:
+    def generate_tokens(self, user: AbstractUser) -> Dict[str, str]:
         """
         為用戶生成訪問令牌和刷新令牌
         
         Args:
-            user (User): 用戶實例
+            user (AbstractUser): 用戶實例
         
         Returns:
             Dict[str, str]: 包含 access 和 refresh token 的字典
@@ -226,7 +229,7 @@ class IUserRepository(ABC):
     """
     
     @abstractmethod
-    def create_user(self, user_data: Dict[str, Any]) -> User:
+    def create_user(self, user_data: Dict[str, Any]) -> AbstractUser:
         """
         創建新用戶
         
@@ -234,12 +237,12 @@ class IUserRepository(ABC):
             user_data (Dict[str, Any]): 用戶數據
         
         Returns:
-            User: 創建的用戶實例
+            AbstractUser: 創建的用戶實例
         """
         pass
     
     @abstractmethod
-    def get_user_by_email(self, email: str) -> Optional[User]:
+    def get_user_by_email(self, email: str) -> Optional[AbstractUser]:
         """
         根據電子郵件獲取用戶
         
@@ -247,12 +250,12 @@ class IUserRepository(ABC):
             email (str): 電子郵件地址
         
         Returns:
-            Optional[User]: 用戶實例或 None
+            Optional[AbstractUser]: 用戶實例或 None
         """
         pass
     
     @abstractmethod
-    def get_user_by_username(self, username: str) -> Optional[User]:
+    def get_user_by_username(self, username: str) -> Optional[AbstractUser]:
         """
         根據用戶名獲取用戶
         
@@ -260,31 +263,31 @@ class IUserRepository(ABC):
             username (str): 用戶名
         
         Returns:
-            Optional[User]: 用戶實例或 None
+            Optional[AbstractUser]: 用戶實例或 None
         """
         pass
     
     @abstractmethod
-    def update_user(self, user: User, update_data: Dict[str, Any]) -> User:
+    def update_user(self, user: AbstractUser, update_data: Dict[str, Any]) -> AbstractUser:
         """
         更新用戶資料
         
         Args:
-            user (User): 用戶實例
+            user (AbstractUser): 用戶實例
             update_data (Dict[str, Any]): 更新數據
         
         Returns:
-            User: 更新後的用戶實例
+            AbstractUser: 更新後的用戶實例
         """
         pass
     
     @abstractmethod
-    def delete_user(self, user: User) -> bool:
+    def delete_user(self, user: AbstractUser) -> bool:
         """
         刪除用戶
         
         Args:
-            user (User): 要刪除的用戶實例
+            user (AbstractUser): 要刪除的用戶實例
         
         Returns:
             bool: 刪除是否成功
@@ -356,7 +359,7 @@ class ISearchEngine(ABC):
     """
     
     @abstractmethod
-    def search_users(self, query: str, limit: int = 10) -> List[User]:
+    def search_users(self, query: str, limit: int = 10) -> List[AbstractUser]:
         """
         搜索用戶
         
@@ -365,7 +368,7 @@ class ISearchEngine(ABC):
             limit (int): 結果數量限制
         
         Returns:
-            List[User]: 搜索結果列表
+            List[AbstractUser]: 搜索結果列表
         """
         pass
     

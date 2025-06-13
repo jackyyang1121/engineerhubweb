@@ -28,7 +28,7 @@ EngineerHub - 用戶視圖層重構示例
 ======================================================================================
 """
 
-from typing import Dict, Any, Optional, List, Tuple
+from typing import Dict, Any, Optional, List, Tuple, TYPE_CHECKING
 from rest_framework import status, generics
 from rest_framework.decorators import api_view, permission_classes
 from rest_framework.response import Response
@@ -41,8 +41,13 @@ import logging
 # 導入模型
 from .models import Follow, BlockedUser
 
-# 獲取用戶模型
-User = get_user_model()
+# 安全的用戶模型獲取 - 避免早期導入問題
+if TYPE_CHECKING:
+    from django.contrib.auth.models import AbstractUser
+    User = AbstractUser
+else:
+    User = get_user_model()
+
 logger = logging.getLogger('engineerhub.accounts')
 
 

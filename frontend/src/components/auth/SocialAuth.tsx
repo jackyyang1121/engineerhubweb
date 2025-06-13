@@ -27,32 +27,54 @@
  */
 
 import React, { useState, useCallback } from 'react';
-import { toast } from 'react-toastify';
 
 // ======================================================================================
 // 🔧 類型定義 - 清晰的接口設計
 // ======================================================================================
 
 /**
- * Google API 全局對象類型聲明
+ * Google API 類型定義
  * 
  * 📚 學習重點：
- * - 全局對象的類型聲明
- * - TypeScript 的環境聲明
- * - 第三方API的類型安全
+ * - 避免全局類型衝突
+ * - 使用類型斷言處理第三方API
+ * - 靈活的類型聲明方法
  */
-declare global {
-  interface Window {
-    google?: {
-      accounts?: {
-        id?: {
-          initialize: (config: any) => void;
-          prompt: () => void;
-        };
-      };
+type GoogleAuthConfig = {
+  client_id: string;
+  callback: (response: GoogleAuthResponse) => void;
+  auto_select?: boolean;
+  cancel_on_tap_outside?: boolean;
+};
+
+type GoogleAuthResponse = {
+  credential: string;
+  select_by?: string;
+};
+
+type GoogleAccountsAPI = {
+  initialize: (config: GoogleAuthConfig) => void;
+  prompt: () => void;
+};
+
+type WindowWithGoogle = Window & {
+  google?: {
+    accounts?: {
+      id?: GoogleAccountsAPI;
     };
-  }
-}
+  };
+};
+
+type GoogleJWTPayload = {
+  sub: string;
+  email: string;
+  name?: string;
+  picture?: string;
+  aud: string;
+  exp: number;
+  iat: number;
+  iss: string;
+};
 
 /**
  * OAuth 回調數據接口
@@ -158,7 +180,7 @@ class GoogleOAuthHandler {
    */
   private _isGoogleAPIAvailable(): boolean {
     // 使用類型斷言來安全地訪問 Google API
-    return !!(window as any).google?.accounts?.id;
+    return !!(window as unknown as WindowWithGoogle).google?.accounts?.id;
   }
   
   /**
@@ -166,11 +188,11 @@ class GoogleOAuthHandler {
    * 
    * 🔒 私有方法：僅供內部使用，不對外暴露
    */
-  private _performGoogleAuth(): Promise<any> {
+  private _performGoogleAuth(): Promise<GoogleAuthResponse> {
     return new Promise((resolve, reject) => {
       try {
-        // 安全地訪問 Google API
-        const googleAccounts = (window as any).google?.accounts?.id;
+        // 使用類型斷言安全地訪問 Google API
+        const googleAccounts = (window as unknown as WindowWithGoogle).google?.accounts?.id;
         if (!googleAccounts) {
           reject(new Error('Google API 不可用'));
           return;
@@ -178,7 +200,7 @@ class GoogleOAuthHandler {
         
         googleAccounts.initialize({
           client_id: this.clientId,
-          callback: (response: any) => {
+          callback: (response: GoogleAuthResponse) => {
             if (response.credential) {
               resolve(response);
             } else {
@@ -207,9 +229,9 @@ class GoogleOAuthHandler {
    * Returns:
    *   OAuthCallbackData: 標準化的認證數據
    */
-  private _normalizeAuthResult(authResult: any): OAuthCallbackData {
+  private _normalizeAuthResult(authResult: GoogleAuthResponse): OAuthCallbackData {
     // 解碼 JWT token 獲取用戶信息
-    const payload = JSON.parse(atob(authResult.credential.split('.')[1]));
+    const payload = JSON.parse(atob(authResult.credential.split('.')[1])) as GoogleJWTPayload;
     
     return {
       access_token: authResult.credential,

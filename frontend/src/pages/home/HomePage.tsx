@@ -192,74 +192,6 @@ const HomePage: React.FC = () => {
     retryDelay: (attemptIndex) => Math.min(1000 * 2 ** attemptIndex, 3000),
   });
 
-  // ==================== 輔助功能載入 ====================
-  const loadTrendingTopics = useCallback(async (): Promise<void> => {
-    if (isLoadingTopics.current) {
-      console.log('🔄 熱門話題正在載入中，跳過重複請求');
-      return;
-    }
-    
-    isLoadingTopics.current = true;
-    console.log('🔥 開始載入熱門話題...');
-    
-    try {
-      const response = await getTrendingTopics('24h', 10);
-      
-      const topics: TrendingTopic[] = response.trending_topics.map((topic: ApiTrendingTopic) => ({
-        name: topic.name,
-        count: topic.count || 0,
-        trend: topic.growth_rate && topic.growth_rate > 0 ? 'up' : 
-               topic.growth_rate && topic.growth_rate < 0 ? 'down' : 'stable',
-      }));
-      
-      setTrendingTopics(topics);
-      console.log(`✅ 熱門話題載入成功: ${topics.length} 個話題`);
-    } catch (error) {
-      console.error('❌ 載入熱門話題失敗:', error);
-      setTrendingTopics([]);
-    } finally {
-      isLoadingTopics.current = false;
-    }
-  }, []);
-
-  const loadRecommendedUsers = useCallback(async (): Promise<void> => {
-    if (!isAuthenticated) {
-      console.log('👤 用戶未登入，載入模擬推薦用戶');
-      setRecommendedUsers(generateMockUsers());
-      return;
-    }
-
-    try {
-      console.log('👥 開始載入推薦用戶...');
-      setIsLoadingUsers(true);
-
-      const response = await getRecommendedUsers();
-      const realUsers = response.results || [];
-      console.log(`✅ 成功載入 ${realUsers.length} 個真實推薦用戶`);
-
-      let combinedUsers = [...realUsers];
-      if (combinedUsers.length < 8) {
-        const mockUsers = generateMockUsers();
-        const additionalUsers = mockUsers.slice(0, 12 - combinedUsers.length);
-        combinedUsers = [...combinedUsers, ...additionalUsers];
-        console.log(`📝 添加了 ${additionalUsers.length} 個模擬用戶，總共 ${combinedUsers.length} 個推薦用戶`);
-      }
-
-      const shuffledUsers = combinedUsers.sort(() => Math.random() - 0.5);
-      
-      setRecommendedUsers(shuffledUsers);
-      console.log(`✅ 推薦用戶載入完成，總數: ${shuffledUsers.length}`);
-
-    } catch (error) {
-      console.error('❌ 載入推薦用戶失敗:', error);
-      
-      console.log('🔄 回退到模擬推薦用戶');
-      setRecommendedUsers(generateMockUsers());
-      
-    } finally {
-      setIsLoadingUsers(false);
-    }
-  }, [isAuthenticated]);
 
   /**
    * 生成模擬推薦用戶（臨時使用，直到有更多真實用戶）
@@ -342,6 +274,76 @@ const HomePage: React.FC = () => {
     
     return mockUsers;
   }, []);
+
+  
+  // ==================== 輔助功能載入 ====================
+  const loadTrendingTopics = useCallback(async (): Promise<void> => {
+    if (isLoadingTopics.current) {
+      console.log('🔄 熱門話題正在載入中，跳過重複請求');
+      return;
+    }
+    
+    isLoadingTopics.current = true;
+    console.log('🔥 開始載入熱門話題...');
+    
+    try {
+      const response = await getTrendingTopics('24h', 10);
+      
+      const topics: TrendingTopic[] = response.trending_topics.map((topic: ApiTrendingTopic) => ({
+        name: topic.name,
+        count: topic.count || 0,
+        trend: topic.growth_rate && topic.growth_rate > 0 ? 'up' : 
+               topic.growth_rate && topic.growth_rate < 0 ? 'down' : 'stable',
+      }));
+      
+      setTrendingTopics(topics);
+      console.log(`✅ 熱門話題載入成功: ${topics.length} 個話題`);
+    } catch (error) {
+      console.error('❌ 載入熱門話題失敗:', error);
+      setTrendingTopics([]);
+    } finally {
+      isLoadingTopics.current = false;
+    }
+  }, []);
+
+  const loadRecommendedUsers = useCallback(async (): Promise<void> => {
+    if (!isAuthenticated) {
+      console.log('👤 用戶未登入，載入模擬推薦用戶');
+      setRecommendedUsers(generateMockUsers());
+      return;
+    }
+
+    try {
+      console.log('👥 開始載入推薦用戶...');
+      setIsLoadingUsers(true);
+
+      const response = await getRecommendedUsers();
+      const realUsers = response.results || [];
+      console.log(`✅ 成功載入 ${realUsers.length} 個真實推薦用戶`);
+
+      let combinedUsers = [...realUsers];
+      if (combinedUsers.length < 8) {
+        const mockUsers = generateMockUsers();
+        const additionalUsers = mockUsers.slice(0, 12 - combinedUsers.length);
+        combinedUsers = [...combinedUsers, ...additionalUsers];
+        console.log(`📝 添加了 ${additionalUsers.length} 個模擬用戶，總共 ${combinedUsers.length} 個推薦用戶`);
+      }
+
+      const shuffledUsers = combinedUsers.sort(() => Math.random() - 0.5);
+      
+      setRecommendedUsers(shuffledUsers);
+      console.log(`✅ 推薦用戶載入完成，總數: ${shuffledUsers.length}`);
+
+    } catch (error) {
+      console.error('❌ 載入推薦用戶失敗:', error);
+      
+      console.log('🔄 回退到模擬推薦用戶');
+      setRecommendedUsers(generateMockUsers());
+      
+    } finally {
+      setIsLoadingUsers(false);
+    }
+  }, [isAuthenticated, generateMockUsers]);
 
   // ==================== 用戶互動處理 ====================
   const handleFollowUser = useCallback(async (userId: string): Promise<void> => {

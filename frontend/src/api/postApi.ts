@@ -122,7 +122,7 @@ export const getTrendingPosts = async (page = 1, pageSize = 10): Promise<Paginat
     console.warn('⚠️ 熱門貼文 API 失敗，檢查是否需要回退:', error);
     
     // 檢查錯誤類型，如果是伺服器錯誤，拋出原始錯誤讓上層處理回退
-    const errorMessage = (error as any)?.message || '';
+    const errorMessage = (error instanceof Error) ? error.message : String(error);
     if (errorMessage.includes('500') || errorMessage.includes('伺服器')) {
       throw error; // 讓上層的 trending case 處理回退
     }
