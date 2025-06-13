@@ -1,4 +1,3 @@
-
 ///////////還沒看懂//////////////////////
 
 
@@ -12,6 +11,23 @@
 
 // 引入 Axios 套件，用於發送 HTTP 請求
 import axios from 'axios';
+
+// 輔助函數：從 authStore persist 數據中獲取 token
+function getTokenFromAuthStore() {
+  try {
+    const persistedData = localStorage.getItem('engineerhub-auth-storage');
+    if (persistedData) {
+      const parsed = JSON.parse(persistedData);
+      return {
+        accessToken: parsed.state?.token || null,
+        refreshToken: parsed.state?.refreshToken || null
+      };
+    }
+  } catch (error) {
+    console.error('❌ 解析 authStore persist 數據失敗:', error);
+  }
+  return { accessToken: null, refreshToken: null };
+}
 
 // 創建 Axios 實例 - 純 JWT 認證
 // 這裡使用 axios.create 方法創建一個自定義的 Axios 實例，方便設置全局配置
@@ -40,19 +56,20 @@ api.interceptors.request.use(      //.use 方法是 Axios 提供的 API，讓你
     /*
     config 讓我在請求發送之前修改請求的設置。例如，我的程式碼檢查 localStorage 中的 token，並將其添加到 config.headers['Authorization'] 中。
     */
-    // 從 localStorage 中獲取名為 'engineerhub_token' 的 JWT token，用於認證
-    const token = localStorage.getItem('engineerhub_token');
+    // 從 authStore persist 數據中獲取 JWT token
+    const { accessToken } = getTokenFromAuthStore();
+    
     // 記錄請求的相關信息到控制台，方便調試
     console.log('🔐 請求攔截器:', {
       url: config.url, // 請求的目標 URL
       method: config.method, // 請求的方法（例如 GET、POST）
-      hasToken: !!token, // 檢查是否有 token，!!token 將值轉為布林值
-      token: token ? token.substring(0, 20) + '...' : 'None' // 如果有 token，顯示前 20 字符加 '...'，否則顯示 'None'
+      hasToken: !!accessToken, // 檢查是否有 token，!!token 將值轉為布林值
+      token: accessToken ? accessToken.substring(0, 20) + '...' : 'None' // 如果有 token，顯示前 20 字符加 '...'，否則顯示 'None'
     });
     
     // 如果 token 存在，將其添加到請求頭的 'Authorization' 字段，格式為 'Bearer <token>'
-    if (token) {
-      config.headers['Authorization'] = `Bearer ${token}`;
+    if (accessToken) {
+      config.headers['Authorization'] = `Bearer ${accessToken}`;
     }
     // 返回修改後的請求配置，繼續執行請求
     return config;
@@ -98,8 +115,9 @@ api.interceptors.response.use(
       // 將原始請求標記為已重試，防止無限循環
       originalRequest._retry = true;
       
-      // 從 localStorage 中獲取名為 'engineerhub_refresh_token' 的 refresh token
-      const refreshToken = localStorage.getItem('engineerhub_refresh_token');
+      // 從 authStore persist 數據中獲取 refresh token
+      const { refreshToken } = getTokenFromAuthStore();
+      
       // 如果 refresh token 存在，嘗試刷新 access token
       if (refreshToken) {
         // 記錄正在嘗試刷新 token 的信息
@@ -113,8 +131,24 @@ api.interceptors.response.use(
           
           // 從響應數據中提取新的 access token
           const newAccessToken = response.data.access;
-          // 將新的 access token 存入 localStorage，更新舊的 token
-          localStorage.setItem('engineerhub_token', newAccessToken);
+          
+          // 更新 authStore persist 數據中的 token
+          try {
+            const persistedData = localStorage.getItem('engineerhub-auth-storage');
+            if (persistedData) {
+              const parsed = JSON.parse(persistedData);
+              if (parsed.state) {
+                parsed.state.token = newAccessToken;
+                // 如果後端返回新的 refresh token，也要更新
+                if (response.data.refresh) {
+                  parsed.state.refreshToken = response.data.refresh;
+                }
+                localStorage.setItem('engineerhub-auth-storage', JSON.stringify(parsed));
+              }
+            }
+          } catch (updateError) {
+            console.error('❌ 更新 authStore persist 數據失敗:', updateError);
+          }
           
           // 記錄 token 刷新成功的消息
           console.log('✅ Token 刷新成功');
@@ -127,9 +161,23 @@ api.interceptors.response.use(
         } catch (refreshError) {
           // 如果刷新 token 失敗，記錄錯誤信息
           console.error('❌ Token 刷新失敗:', refreshError);
-          // 清除無效的 access token 和 refresh token
-          localStorage.removeItem('engineerhub_token');
-          localStorage.removeItem('engineerhub_refresh_token');
+          
+          // 清除 authStore persist 數據中的認證信息
+          try {
+            const persistedData = localStorage.getItem('engineerhub-auth-storage');
+            if (persistedData) {
+              const parsed = JSON.parse(persistedData);
+              if (parsed.state) {
+                parsed.state.token = null;
+                parsed.state.refreshToken = null;
+                parsed.state.user = null;
+                parsed.state.isAuthenticated = false;
+                localStorage.setItem('engineerhub-auth-storage', JSON.stringify(parsed));
+              }
+            }
+          } catch (clearError) {
+            console.error('❌ 清除 authStore persist 數據失敗:', clearError);
+          }
           
           // 檢查當前頁面是否為登入頁，若不是則重定向到登入頁
           if (window.location.pathname !== '/login') {
@@ -139,9 +187,23 @@ api.interceptors.response.use(
       } else {
         // 如果沒有 refresh token，記錄相關信息
         console.log('❌ 沒有 refresh token，重定向到登入頁');
-        // 清除無效的 token
-        localStorage.removeItem('engineerhub_token');
-        localStorage.removeItem('engineerhub_refresh_token');
+        
+        // 清除 authStore persist 數據中的認證信息
+        try {
+          const persistedData = localStorage.getItem('engineerhub-auth-storage');
+          if (persistedData) {
+            const parsed = JSON.parse(persistedData);
+            if (parsed.state) {
+              parsed.state.token = null;
+              parsed.state.refreshToken = null;
+              parsed.state.user = null;
+              parsed.state.isAuthenticated = false;
+              localStorage.setItem('engineerhub-auth-storage', JSON.stringify(parsed));
+            }
+          }
+        } catch (clearError) {
+          console.error('❌ 清除 authStore persist 數據失敗:', clearError);
+        }
         
         // 檢查當前頁面是否為登入頁，若不是則重定向到登入頁
         if (window.location.pathname !== '/login') {

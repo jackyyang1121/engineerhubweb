@@ -9,46 +9,7 @@ import PostCard from '../../components/posts/PostCard';
 import type { Project } from '../../components/profile/ProjectCard';
 import { useAuthStore } from '../../store/authStore';
 import * as postApi from '../../api/postApi';
-import type { UserData } from '../../api/authApi';
-
-// 模擬的API調用函數，實際項目中應替換為真實API
-const fetchUserProfile = async (username: string): Promise<{
-  user: UserData;
-  stats: {
-    posts_count: number;
-    followers_count: number;
-    following_count: number;
-  };
-  is_following: boolean;
-}> => {
-  // 這裡應該調用實際的API
-  // 模擬網絡延遲
-  await new Promise(resolve => setTimeout(resolve, 500));
-  
-  // 返回模擬數據
-  return {
-    user: {
-      id: '1',
-      username,
-      email: `${username}@example.com`,
-      avatar: `https://ui-avatars.com/api/?name=${username}&background=random&size=256`,
-      followers_count: 128,
-      following_count: 97,
-      posts_count: 42,
-      likes_received_count: 0,
-      bio: '工程師 | 技術愛好者 | 開源貢獻者\n熱愛解決問題和創建優秀的用戶體驗。',
-      skill_tags: ['JavaScript', 'TypeScript', 'React', 'Node.js', 'Python', 'Docker'],
-      is_online: true,
-      last_online: new Date().toISOString()
-    },
-    stats: {
-      posts_count: 42,
-      followers_count: 128,
-      following_count: 97
-    },
-    is_following: false
-  };
-};
+import { getUserByUsername } from '../../api/userApi';
 
 // 模擬獲取用戶項目
 const fetchUserProjects = async (): Promise<Project[]> => {
@@ -90,14 +51,14 @@ const fetchUserProjects = async (): Promise<Project[]> => {
 const followUser = async (): Promise<void> => {
   // 模擬網絡延遲
   await new Promise(resolve => setTimeout(resolve, 300));
-  // 將來會使用 userId 參數調用實際API
+  // 將來會調用實際API
 };
 
 // 模擬取消關注用戶API
 const unfollowUser = async (): Promise<void> => {
   // 模擬網絡延遲
   await new Promise(resolve => setTimeout(resolve, 300));
-  // 將來會使用 userId 參數調用實際API
+  // 將來會調用實際API
 };
 
 const ProfilePage = () => {
@@ -121,7 +82,7 @@ const ProfilePage = () => {
     isError: isProfileError 
   } = useQuery({
     queryKey: ['userProfile', username],
-    queryFn: () => fetchUserProfile(username || ''),
+    queryFn: () => getUserByUsername(username || ''),
     enabled: !!username,
   });
   
@@ -143,18 +104,8 @@ const ProfilePage = () => {
     isError: isPostsError 
   } = useQuery({
     queryKey: ['userPosts', username],
-    queryFn: () => {
-      // 如果是當前用戶的個人頁面，使用 currentUser.id
-      if (username === currentUser?.username && currentUser?.id) {
-        return postApi.getUserPosts(currentUser.id, 1, 10);
-      }
-      // 否則使用 profileData 中的用戶 ID
-      return postApi.getUserPosts(profileData?.user.id || '', 1, 10);
-    },
-    enabled: !!(
-      (username === currentUser?.username && currentUser?.id) || 
-      (profileData?.user.id && activeTab === 'posts')
-    ),
+    queryFn: () => postApi.getUserPosts(profileData?.id || '', 1, 10),
+    enabled: !!profileData?.id && activeTab === 'posts',
   });
   
   // 處理關注用戶
@@ -214,14 +165,20 @@ const ProfilePage = () => {
     );
   }
 
+  const posts = postsData?.results || [];
+
   return (
     <div>
       {/* 個人資料卡片 */}
       <div className="mb-8">
         <ProfileCard 
-          user={profileData.user}
-          stats={profileData.stats}
-          isFollowing={profileData.is_following}
+          user={profileData}
+          stats={{
+            posts_count: profileData.posts_count,
+            followers_count: profileData.followers_count,
+            following_count: profileData.following_count
+          }}
+          isFollowing={profileData.is_following || false}
           onFollow={handleFollow}
           onUnfollow={handleUnfollow}
         />
@@ -248,78 +205,49 @@ const ProfilePage = () => {
             }`}
             onClick={() => setActiveTab('projects')}
           >
-            作品集
+            項目
           </button>
         </div>
       </div>
       
-      {/* 貼文標籤頁 */}
-      {activeTab === 'posts' && (
-        <div>
-          {isLoadingPosts && (
-            <div className="text-center py-8">
-              <p className="text-gray-500">加載貼文中...</p>
-            </div>
-          )}
-          
-          {isPostsError && (
-            <div className="text-center py-8">
-              <p className="text-red-500">加載貼文失敗</p>
-              <button 
-                onClick={handleRefreshPosts} 
-                className="mt-4 btn-primary py-2 px-4"
-              >
-                重試
-              </button>
-            </div>
-          )}
-          
-          {!isLoadingPosts && !isPostsError && postsData?.results.length === 0 && (
-            <div className="text-center py-12 bg-white rounded-lg shadow">
-              <p className="text-gray-600">暫無貼文</p>
-            </div>
-          )}
-          
-          {!isLoadingPosts && !isPostsError && postsData?.results.map(post => (
-            <PostCard 
-              key={post.id} 
-              post={post} 
-              onPostDeleted={handlePostDeleted}
-            />
-          ))}
-        </div>
-      )}
-      
-      {/* 項目標籤頁 */}
-      {activeTab === 'projects' && (
-        <div>
-          {isLoadingProjects && (
-            <div className="text-center py-8">
-              <p className="text-gray-500">加載項目中...</p>
-            </div>
-          )}
-          
-          {isProjectsError && (
-            <div className="text-center py-8">
-              <p className="text-red-500">加載項目失敗</p>
-            </div>
-          )}
-          
-          {!isLoadingProjects && !isProjectsError && projects?.length === 0 && (
-            <div className="text-center py-12 bg-white rounded-lg shadow">
-              <p className="text-gray-600">暫無作品集</p>
-            </div>
-          )}
-          
-          {!isLoadingProjects && !isProjectsError && projects && projects.length > 0 && (
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-              {projects.map(project => (
-                <ProjectCard key={project.id} project={project} />
-              ))}
-            </div>
-          )}
-        </div>
-      )}
+      {/* 內容區域 */}
+      <div>
+        {activeTab === 'posts' && (
+          <div>
+            {isLoadingPosts && <p>正在加載貼文...</p>}
+            {isPostsError && <p className="text-red-500">無法加載貼文</p>}
+            {posts.length > 0 ? (
+              <div className="space-y-6">
+                {posts.map(post => (
+                  <PostCard 
+                    key={post.id} 
+                    post={post}
+                    onPostDeleted={handlePostDeleted}
+                  />
+                ))}
+              </div>
+            ) : (
+              !isLoadingPosts && <p>這位用戶還沒有發布任何貼文。</p>
+            )}
+          </div>
+        )}
+        
+        {activeTab === 'projects' && (
+          <div>
+            {isLoadingProjects && <p>正在加載項目...</p>}
+            {isProjectsError && <p className="text-red-500">無法加載項目</p>}
+            {projects && projects.length > 0 ? (
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                {projects.map(project => (
+                  <ProjectCard key={project.id} project={project} />
+                ))}
+              </div>
+            ) : (
+              !isLoadingProjects && <p>這位用戶還沒有添加任何項目。</p>
+            )}
+          </div>
+        )}
+      </div>
     </div>
   );
 };

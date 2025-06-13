@@ -44,6 +44,14 @@ class User(AbstractUser):
         help_text="用戶名，用於@提及和URL"
     )
     
+    following = models.ManyToManyField(
+        'self',
+        through='Follow',
+        related_name='followers',
+        symmetrical=False,
+        help_text="用戶關注的其他用戶"
+    )
+    
     # 個人資料
     bio = models.TextField(
         max_length=500,

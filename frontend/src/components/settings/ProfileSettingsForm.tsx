@@ -40,7 +40,7 @@ const ProfileSettingsForm = () => {
         await userApi.uploadAvatar(avatar);
       }
       // 然後更新其他資料
-      return userApi.updateUserProfile(data);
+      return userApi.updateProfile(data);
     },
     onSuccess: (updatedUser: UserData) => {
       // 更新全局用戶數據

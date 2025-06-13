@@ -1,3 +1,14 @@
+"""
+EngineerHub - 主 URL 配置文件
+使用 dj-rest-auth + allauth + SimpleJWT 提供完整的認證系統
+
+URL 結構說明：
+- /api/auth/: dj-rest-auth 提供的標準認證端點
+- /api/auth/registration/: 用戶註冊端點
+- /api/auth/social/: 社交登入端點
+- /accounts/: allauth 提供的傳統認證頁面（主要用於管理後台）
+"""
+
 from django.contrib import admin
 from django.urls import path, include
 from django.conf import settings
@@ -5,6 +16,7 @@ from django.conf.urls.static import static
 from django.shortcuts import redirect
 from django.http import HttpResponse
 from drf_spectacular.views import SpectacularAPIView, SpectacularSwaggerView, SpectacularRedocView
+from core import views as core_views
 # SpectacularAPIView 是 drf-spectacular（一個針對 Django REST Framework 的 OpenAPI 3 規格生成器）提供的視圖，用來 產生整個 API 的 OpenAPI schema（也就是 JSON 格式的規格文件）。
 # 簡單講：
 # 產生一份完整的 API 文件（OpenAPI 格式）給 Swagger 或 Redoc 使用。
@@ -30,78 +42,71 @@ from drf_spectacular.views import SpectacularAPIView, SpectacularSwaggerView, Sp
 #-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------#
 
 def root_view(request):
-    """根據路徑視圖，提供項目信息或重定向到API文檔"""
-    return redirect('/admin/')   #redirect() 是 Python 內建的函式，用來重定向到指定的 URL。
+    """根路徑視圖，重定向到 API 文檔"""
+    return redirect('/api/docs/')
 
-# 健康檢查視圖
 def health_check(request):
-    """健康檢查端點"""
-    return HttpResponse('OK', content_type='text/plain')  #content_type='text/plain' 是告訴瀏覽器，這個回應的內容是純文字，不是 HTML 或 JSON 等其他格式。
-    #HttpResponse 是 Django 內建的函式，用來生成 HTTP 回應。
-
+    """健康檢查端點，用於監控服務狀態"""
+    return HttpResponse('OK', content_type='text/plain')
 
 urlpatterns = [
-    # 根路径 - 重定向到 admin
-    path('', root_view, name='root'),
+    # ==================== 基礎路由 ====================
+    path('', root_view, name='root'),                    # 根路徑重定向到 API 文檔
+    path('health/', health_check, name='health-check'), # 健康檢查端點
     
-    # 健康檢查
-    path('health/', health_check, name='health-check'),
+    # ==================== 管理後台 ====================
+    path('admin/', admin.site.urls),                    # Django 管理後台
     
-    # 管理員界面
-    path('admin/', admin.site.urls),  # admin.site.urls是集合路由，簡單講就是進去admin管理頁面後，可以到各個頁面隨便操作因為已經把所有路由都寫好了
+    # ==================== API 文檔 ====================
+    path('api/schema/', SpectacularAPIView.as_view(), name='schema'),           # OpenAPI 3.0 規格文件
+    path('api/docs/', SpectacularSwaggerView.as_view(url_name='schema'), name='swagger-ui'), # Swagger UI 文檔
+    path('api/redoc/', SpectacularRedocView.as_view(url_name='schema'), name='redoc'),       # ReDoc 文檔
     
-    # API文檔 (drf-spectacular)
-    path('api/schema/', SpectacularAPIView.as_view(), name='schema'),
-    path('api/docs/', SpectacularSwaggerView.as_view(url_name='schema'), name='swagger-ui'),
-    path('api/redoc/', SpectacularRedocView.as_view(url_name='schema'), name='redoc'),
-
-
-    # 應用API
-    path('api/', include('accounts.urls')),
-    path('api/posts/', include('posts.urls')),
-    path('api/chat/', include('chat.urls')),
-    path('api/core/', include('core.urls')),
-    path('api/notifications/', include('notifications.urls')),
+    # ==================== 認證系統 (dj-rest-auth) ====================
+    # 標準認證端點 - 替代自定義認證系統
+    path('api/auth/', include('dj_rest_auth.urls')),           # 標準認證端點
+    # 包含的端點：
+    # POST /api/auth/login/          - 登入
+    # POST /api/auth/logout/         - 登出
+    # GET  /api/auth/user/           - 獲取當前用戶信息
+    # PUT  /api/auth/user/           - 更新用戶信息
+    # POST /api/auth/password/change/ - 修改密碼
+    # POST /api/auth/password/reset/  - 密碼重置請求
+    # POST /api/auth/password/reset/confirm/ - 密碼重置確認
+    # POST /api/auth/token/refresh/   - 刷新 JWT Token
+    # POST /api/auth/token/verify/    - 驗證 JWT Token
     
-    # 其他認證API (dj-rest-auth) 
-    path('api/auth/', include('dj_rest_auth.urls')),
-    # dj_rest_auth.urls包含其他路由包括:
-    # /dj-rest-auth/login/   # POST
-    # /dj-rest-auth/logout/  # POST
-    # /dj-rest-auth/user/  # GET, PUT, PATCH
-    # /dj-rest-auth/password/change/  # POST
-    # /dj-rest-auth/password/reset/  # POST
-    # /dj-rest-auth/password/reset/confirm/  # POST
-    # /dj-rest-auth/token/refresh/  # POST (JWT)
-    # /dj-rest-auth/token/verify/  # POST (JWT)
+    path('api/auth/registration/', include('dj_rest_auth.registration.urls')), # 註冊端點
+    # 包含的端點：
+    # POST /api/auth/registration/           - 用戶註冊
+    # POST /api/auth/registration/verify-email/ - 郵箱驗證
+    # POST /api/auth/registration/resend-email/ - 重新發送驗證郵件
     
-    # 社交登入 (AllAuth) - Admin 使用
-    path('accounts/', include('allauth.urls')),
+    # ==================== 社交登入 ====================
+    # Allauth 社交登入端點（用於管理後台和傳統頁面）
+    path('accounts/', include('allauth.urls')),            # Allauth 傳統認證頁面
+    
+    # ==================== 業務 API ====================
+    path('api/', include('accounts.urls')),                # 用戶相關 API（非認證部分）
+    path('api/posts/', include('posts.urls')),             # 文章相關 API
+    path('api/chat/', include('chat.urls')),               # 聊天相關 API
+    path('api/core/', include('core.urls')),               # 核心功能 API
+    path('api/notifications/', include('notifications.urls')), # 通知相關 API
+    path('api/trending/topics/', core_views.trending_topics, name='trending-topics'),
 ]
 
-# 在開發環境中添加媒體文件的URL
-if settings.DEBUG:  #如果settings.DEBUG是True，代表是開發環境，就會執行以下程式碼
+# ==================== 開發環境配置 ====================
+if settings.DEBUG:
+    # 媒體文件服務（開發環境）
     urlpatterns += static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)
     urlpatterns += static(settings.STATIC_URL, document_root=settings.STATIC_ROOT)
-    #這幾行功能是讓我在開發階段也能PO有圖片的文
-    #static() 會根據設定的 URL（ /media/）和資料夾（ MEDIA_ROOT），自動生成一組 URL route，讓開發伺服器可以直接回傳檔案。
     
-    # Django Debug Toolbar URLs
-    #以下這段其實可以刪掉，因為debug_toolbar已經在MIDDLEWARE中設定好並會顯示了，這段只是讓我可以輸入http://localhost:8000/__debug__/網址可以看到而已
-    import debug_toolbar
-    urlpatterns += [
-        path('__debug__/', include(debug_toolbar.urls)),
-    #讓我可以在後端網頁右手邊看到debug_toolbar
-    #Django Debug Toolbar 的工作原理:
-    #中間件是關鍵 MIDDLEWARE += ['debug_toolbar.middleware.DebugToolbarMiddleware']
-    #這個中間件會：
-    #攔截每個 HTTP 回應
-    #檢查是否為 HTML 頁面
-    #自動在 </body> 標籤前注入 JavaScript 和 CSS
-    #這樣就可以在例如admin等頁面中顯示 Debug Toolbar(因為admin頁面是Django內建的頁面，是HTML頁面，所以會被注入)
-
-# debug_toolbar.urls 是 Django Debug Toolbar 套件內建的一組 URL patterns（路由集合）。
-# 簡單說，它就是 Debug Toolbar 提供的那個獨立「詳細診斷介面」的 URL 路由集合。
-# debug_toolbar.urls 是 Debug Toolbar 套件幫你定義好的一組 URL 路由清單，讓你能透過 http://localhost:8000/__debug__/ 進入 Debug Toolbar 的獨立頁面。
-# 如果你不加這段路由，Debug Toolbar 依然會在頁面右側注入工具條，但你無法訪問那些獨立的詳細介面頁面。
-    ] 
+    # Django Debug Toolbar（開發工具）
+    try:
+        import debug_toolbar
+        urlpatterns += [
+            path('__debug__/', include(debug_toolbar.urls)),
+        ]
+    except ImportError:
+        # debug_toolbar 未安裝時忽略
+                 pass 

@@ -183,36 +183,35 @@ DJANGO_APPS = [
 THIRD_PARTY_APPS = [
     # Django REST Framework: 構建 RESTful API 的工具包
     'rest_framework',                   # DRF 核心功能
-    'rest_framework.authtoken',         # Token 認證
-    'rest_framework_simplejwt',         # JWT 認證
-    'rest_framework_simplejwt.token_blacklist',  # JWT 黑名單功能
+    'rest_framework_simplejwt',         # JWT 認證系統
+    'rest_framework_simplejwt.token_blacklist',  # JWT 黑名單功能，用於登出時使 token 失效
     'drf_spectacular',                  # API 文檔生成工具
     
-    # 認證相關: 用戶認證和社交登入
-    'dj_rest_auth',                     # RESTful 認證端點
-    'dj_rest_auth.registration',        # 註冊功能
-    'allauth',                          # Allauth 核心
-    'allauth.account',                  # 帳戶管理
-    'allauth.socialaccount',            # 社交帳戶支持
-    'allauth.socialaccount.providers.google',  # Google 社交登入
-    'allauth.socialaccount.providers.github',  # GitHub 社交登入
+    # 認證相關: 使用 dj-rest-auth + allauth 替代自定義認證系統
+    'dj_rest_auth',                     # RESTful 認證端點，提供標準化的認證 API
+    'dj_rest_auth.registration',        # 註冊功能，處理用戶註冊流程
+    'allauth',                          # Django-allauth 核心，強大的認證框架
+    'allauth.account',                  # 帳戶管理，處理用戶帳戶相關功能
+    'allauth.socialaccount',            # 社交帳戶支持，啟用第三方登入
+    'allauth.socialaccount.providers.google',  # Google OAuth2 社交登入提供者
+    'allauth.socialaccount.providers.github',  # GitHub OAuth2 社交登入提供者
     
     # CORS: 處理跨域請求
-    'corsheaders',                      # 跨來源資源共享
+    'corsheaders',                      # 跨來源資源共享，允許前端跨域訪問 API
     
     # WebSocket: 支援即時通訊
-    'channels',                         # Django Channels
+    'channels',                         # Django Channels，支援 WebSocket 和異步處理
     
     # 任務佇列: 異步任務處理
-    'django_celery_beat',               # 定時任務
+    'django_celery_beat',               # 定時任務調度
     'django_celery_results',            # 任務結果存儲
     
     # 搜尋服務: 全文搜尋功能（可動態移除）
     'algoliasearch_django',             # Algolia 搜尋整合
     
     # 開發工具: 提升開發效率(可在終端機輸入指令但我目前不太會用)
-    'django_extensions',                # 額外管理命令
-    'django_filters',                   # 過濾查詢
+    'django_extensions',                # 額外管理命令和工具
+    'django_filters',                   # 過濾查詢功能
 ]
 
 # LOCAL_APPS: 本地開發的自定義應用程式，專案特定功能模組。
@@ -311,7 +310,7 @@ REDIS_URL = config('REDIS_URL', default='redis://localhost:6379/0')
 CACHES = {
     'default': {
         'BACKEND': 'django_redis.cache.RedisCache',  # Redis 緩存後端
-        #這裡的 BACKEND 是指指定背後實作的“引擎”，也就是讓你告訴 Django 該用哪個程式庫或模組來完成特定的任務
+        #這裡的 BACKEND 是指指定背後實作的"引擎"，也就是讓你告訴 Django 該用哪個程式庫或模組來完成特定的任務
         'LOCATION': REDIS_URL,                       # Redis 連接地址
         'OPTIONS': {
             'CLIENT_CLASS': 'django_redis.client.DefaultClient', # Redis 客戶端類
@@ -587,14 +586,32 @@ SOCIALACCOUNT_PROVIDERS = {
 }
 
 # ==================== dj-rest-auth 配置 ====================
-# REST_AUTH: dj-rest-auth 的配置，用於 RESTful 認證。
+# REST_AUTH: dj-rest-auth 的配置，用於 RESTful 認證系統
 REST_AUTH = {
-    'USE_JWT': True,                         # 使用 JWT 認證
-    'JWT_AUTH_COOKIE': 'auth-jwt',           # JWT Cookie 名稱
-    'JWT_AUTH_REFRESH_COOKIE': 'auth-jwt-refresh', # Refresh Token Cookie 名稱
-    'JWT_AUTH_HTTPONLY': False,              # 允許前端讀取 Cookie
-    'USER_DETAILS_SERIALIZER': 'accounts.serializers.UserSerializer', # 用戶詳情序列化器
-    'REGISTER_SERIALIZER': 'accounts.serializers.CustomRegisterSerializer', # 註冊序列化器
+    # JWT 相關設置
+    'USE_JWT': True,                         # 啟用 JWT 認證，替代傳統的 Token 認證
+    'JWT_AUTH_COOKIE': 'engineerhub-jwt',    # JWT Access Token 的 Cookie 名稱
+    'JWT_AUTH_REFRESH_COOKIE': 'engineerhub-jwt-refresh', # JWT Refresh Token 的 Cookie 名稱
+    'JWT_AUTH_HTTPONLY': False,              # 允許前端 JavaScript 讀取 Cookie（設為 True 更安全但需調整前端）
+    'JWT_AUTH_SECURE': False,                # 開發環境設為 False，生產環境應設為 True（僅 HTTPS）
+    'JWT_AUTH_SAMESITE': 'Lax',             # Cookie 的 SameSite 屬性，防止 CSRF 攻擊
+    
+    # 序列化器配置 - 使用 dj-rest-auth 的預設序列化器
+    'USER_DETAILS_SERIALIZER': 'dj_rest_auth.serializers.UserDetailsSerializer', # 用戶詳情序列化器
+    'LOGIN_SERIALIZER': 'dj_rest_auth.serializers.LoginSerializer',              # 登入序列化器
+    'PASSWORD_RESET_SERIALIZER': 'dj_rest_auth.serializers.PasswordResetSerializer', # 密碼重置序列化器
+    'PASSWORD_RESET_CONFIRM_SERIALIZER': 'dj_rest_auth.serializers.PasswordResetConfirmSerializer', # 密碼重置確認序列化器
+    'PASSWORD_CHANGE_SERIALIZER': 'dj_rest_auth.serializers.PasswordChangeSerializer', # 密碼修改序列化器
+    
+    # 註冊相關配置
+    'REGISTER_SERIALIZER': 'accounts.serializers.CustomRegisterSerializer', # 自定義註冊序列化器，包含額外字段
+    
+    # 會話相關設置
+    'SESSION_LOGIN': False,                  # 禁用會話登入，僅使用 JWT
+    'OLD_PASSWORD_FIELD_ENABLED': True,     # 修改密碼時需要提供舊密碼
+    
+    # Token 相關設置
+    'TOKEN_MODEL': None,                     # 不使用 DRF Token，僅使用 JWT
 }
 # | 設定名稱                   | 說明                                                                                               |
 # | ------------------------- | ------------------------------------------------------------------------------------------------- |
@@ -891,7 +908,7 @@ CELERY_BEAT_SCHEDULER = 'django_celery_beat.schedulers:DatabaseScheduler'
 CHANNEL_LAYERS = {
     'default': {
         'BACKEND': 'channels_redis.core.RedisChannelLayer',
-        #這裡的 BACKEND 是指指定背後實作的“引擎”，也就是讓你告訴 Django Channels（或 Celery）該用哪個程式庫或模組來完成特定的任務
+        #這裡的 BACKEND 是指指定背後實作的"引擎"，也就是讓你告訴 Django Channels（或 Celery）該用哪個程式庫或模組來完成特定的任務
         #只要在INSTALLED_APPS安裝了 channels和在requirements.txt安裝了channels_redis就可以使用 channels_redis.core.RedisChannelLayer 當作 Channel Layer 的 backend。
         'CONFIG': {
             'hosts': [REDIS_URL],

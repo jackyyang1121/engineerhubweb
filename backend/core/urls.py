@@ -28,7 +28,4 @@ urlpatterns = [
     
     # 平台統計API
     path('stats/', views.PlatformStatsAPIView.as_view(), name='platform-stats'),
-    
-    # 熱門話題API
-    path('trending/', views.trending_topics, name='trending-topics'),
 ] 

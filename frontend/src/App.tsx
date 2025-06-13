@@ -1,5 +1,5 @@
 // 導入 React 的 useEffect 鉤子，用於在組件渲染後執行副作用（例如檢查認證狀態）
-import { useEffect } from 'react';
+
 // 從 react-router-dom 導入路由相關組件：
 // - Routes：用於定義應用程式的路由結構。
 // - Route：用於定義單一路由，指定路徑和對應的元件。
@@ -10,7 +10,7 @@ import { Routes, Route, Navigate, useLocation } from 'react-router-dom';
 // 導入自定義的身份驗證狀態管理鉤子 useAuthStore，用於存取和管理用戶認證狀態（例如是否已登入）。
 // useAuthStore 是一個 Zustand（狀態管理庫） 的 Hook，用來管理跟認證（Auth）相關的全域狀態。
 // 可以把它當作一個「資料倉庫」來管理登入、登出、使用者資料、token 之類的東西。
-import { useAuthStore } from './store/authStore';
+import { useAuthStore, useAuthInitialized } from './store/authStore';
 // 導入 ToastContainer 組件，用於顯示通知訊息（如成功、錯誤提示），提升用戶體驗。
 import { ToastContainer } from 'react-toastify';
 // 導入 ToastContainer 的預設樣式檔案，確保通知訊息有適當的視覺效果。
@@ -176,38 +176,22 @@ const NotFoundPage = () => (
 
 // 定義 App 組件，作為應用程式的根組件，管理路由和全局狀態。
 function App() {
-  // 從 useAuthStore 中獲取 checkAuth 函數，用於檢查用戶的認證狀態（例如是否已登入）。
-  const checkAuth = useAuthStore(state => state.checkAuth);
-  // useAuthStore 是一個 hook，呼叫時可以傳一個函式（selector）。
-  // state 就是整個 store 的狀態（物件）。
-  // state => state.checkAuth 表示「我要拿到 store 裡面的 checkAuth 函式」。
+  // 使用專用hook等待認證狀態初始化完成
+  const isAuthInitialized = useAuthInitialized();
   
-  // 使用 useEffect 鉤子，在組件掛載時執行 checkAuth 檢查認證狀態，依賴項為 checkAuth。
-  // 功能：確保應用啟動時自動檢查用戶是否已登入。
-  useEffect(() => {
-    checkAuth();
-  }, [checkAuth]);
-//   語法解析
-// ✅ useEffect 是 React 的 副作用（Side Effect）Hook
-// 用來在元件「渲染後」執行某些程式碼，例如：
-// 資料取得（API 請求）
-// 設置訂閱、監聽
-// 操作 DOM
-// 清理（返回一個清理函式）
-
-// ✅ () => { checkAuth(); }
-// 這裡是一個 callback function，會在特定時機被呼叫。
-// 它的內容就是執行 checkAuth() 這個函式。
-
-// ✅ [checkAuth]（依賴陣列）
-// 告訴 React：只有在 checkAuth 函式改變時（例如由父層重新建立）才要重新執行 useEffect。
-// 如果沒有寫依賴陣列，useEffect 每次渲染都會執行。
-// 如果寫成空陣列（[]），就只在「第一次 render」執行一次（相當於 componentDidMount）。
-// 寫 [checkAuth]，就是：
-// 第一次渲染時執行一次
-// 之後只要 checkAuth 這個函式有變化（通常不太會），就重新執行一次
-
-
+  // 在初始化完成前顯示載入狀態
+  if (!isAuthInitialized) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-blue-500 via-purple-500 to-pink-500 flex items-center justify-center">
+        <div className="bg-white/20 backdrop-blur-xl rounded-3xl shadow-2xl border border-white/30 p-8">
+          <div className="flex items-center space-x-4">
+            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-white"></div>
+            <span className="text-white font-medium">正在初始化應用...</span>
+          </div>
+        </div>
+      </div>
+    );
+  }
   
   // 返回應用程式的 JSX 結構。
   return (

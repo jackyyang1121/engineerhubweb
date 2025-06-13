@@ -6,7 +6,16 @@
  */
 
 import { useState, useEffect, useRef, useCallback } from 'react';
-import { getWebSocketURL } from '../api/client';
+// WebSocket URL 配置 - 修復參數問題
+const getWebSocketURL = (path: string = '') => {
+  const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+  const host = window.location.host;
+  const basePath = '/ws/';
+  
+  // 處理路徑拼接，避免雙斜線
+  const cleanPath = path.startsWith('/') ? path.slice(1) : path;
+  return `${protocol}//${host}${basePath}${cleanPath}`;
+};
 
 // WebSocket 連接狀態
 export enum WebSocketState {

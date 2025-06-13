@@ -11,7 +11,7 @@
 
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { PlusIcon, SparklesIcon, UserGroupIcon, FireIcon } from '@heroicons/react/24/outline';
-import { useInfiniteQuery } from '@tanstack/react-query';
+import { useInfiniteQuery, useQueryClient } from '@tanstack/react-query';
 import { useInView } from 'react-intersection-observer';
 
 import PostCard from '../../components/posts/PostCard';
@@ -19,37 +19,29 @@ import PostEditor from '../../components/posts/PostEditor';
 import LoadingSpinner from '../../components/common/LoadingSpinner';
 import EmptyState from '../../components/common/EmptyState';
 import { getFeed, getRecommendedUsers } from '../../api/postApi';
-import { searchAPI } from '../../api/search';
+import { getTrendingTopics } from '../../api/searchApi';
 import { useAuthStore } from '../../store/authStore';
 
-// 推薦用戶介面
+// 推薦用戶介面（匹配後端實際返回格式）
 interface RecommendedUser {
-  id: number;
+  id: string;
   username: string;
-  first_name: string;
-  last_name: string;
-  avatar: string | null;
+  display_name: string;
   bio: string;
+  avatar_url: string;
   followers_count: number;
-  is_following: boolean;
-}
-
-// 熱門話題項目類型
-interface TrendingTopicItem {
-  name: string;
-  count?: number;
-  [key: string]: unknown;
+  is_following?: boolean;
 }
 
 const HomePage: React.FC = () => {
   const { user, isAuthenticated, token } = useAuthStore();
+  const queryClient = useQueryClient();
   const [showPostEditor, setShowPostEditor] = useState(false);
   const [trendingTopics, setTrendingTopics] = useState<string[]>([]);
   const [recommendedUsers, setRecommendedUsers] = useState<RecommendedUser[]>([]);
   
   // 防止重複調用的ref
   const isLoadingRecommendedUsers = useRef(false);
-  const lastLoadTime = useRef<number>(0);
 
   // 無限滾動載入檢測
   const { ref: loadMoreRef, inView } = useInView({
@@ -62,8 +54,7 @@ const HomePage: React.FC = () => {
     fetchNextPage,
     hasNextPage,
     isFetchingNextPage,
-    isLoading,
-    refetch
+    isLoading
   } = useInfiniteQuery({
     queryKey: ['feed'],
     queryFn: async ({ pageParam = 1 }) => {
@@ -85,28 +76,26 @@ const HomePage: React.FC = () => {
   // 載入熱門話題
   const loadTrendingTopics = useCallback(async () => {
     try {
-      const response = await searchAPI.getTrendingTopics();
-      // 確保 response.trending_topics 是正確的格式
-      if (Array.isArray(response.trending_topics)) {
-        const topics = response.trending_topics.map((topic: string | TrendingTopicItem) => 
-          typeof topic === 'string' ? topic : (topic.name || String(topic))
-        );
-        setTrendingTopics(topics);
-      } else {
-        setTrendingTopics([]);
-      }
+      console.log('🔄 開始載入熱門話題...');
+      
+      // 使用正確的 getTrendingTopics API
+      const response = await getTrendingTopics('24h', 10);
+      
+      // 提取話題名稱用於顯示
+      const topicNames = response.trending_topics.map(topic => topic.name);
+      setTrendingTopics(topicNames);
+      
+      console.log('✅ 熱門話題載入成功:', topicNames.length, '個話題');
     } catch (error) {
-      console.error('載入熱門話題失敗:', error);
+      console.error('❌ 載入熱門話題失敗:', error);
       setTrendingTopics([]);
     }
   }, []);
 
   // 載入推薦用戶
   const loadRecommendedUsers = useCallback(async () => {
-    const now = Date.now();
-    
-    // 防止重複調用或短時間內重複載入（5分鐘緩存）
-    if (isLoadingRecommendedUsers.current || (now - lastLoadTime.current < 5 * 60 * 1000)) {
+    // 移除緩存邏輯，直接載入
+    if (isLoadingRecommendedUsers.current) {
       return;
     }
     
@@ -115,9 +104,9 @@ const HomePage: React.FC = () => {
     
     try {
       const response = await getRecommendedUsers();
-      console.log('✅ 推薦用戶載入成功:', response.users.length, '個用戶');
-      setRecommendedUsers(response.users || []);
-      lastLoadTime.current = now;
+      console.log('✅ 推薦用戶載入成功:', response);
+      console.log('✅ 推薦用戶數量:', response.results?.length || 0);
+      setRecommendedUsers(response.results || []);
     } catch (error) {
       console.error('❌ 載入推薦用戶失敗:', error);
       setRecommendedUsers([]);
@@ -127,7 +116,7 @@ const HomePage: React.FC = () => {
   }, []);
 
   // 處理關注用戶
-  const handleFollowUser = async (userId: number) => {
+  const handleFollowUser = async (userId: string) => {
     try {
       // 這裡需要實現關注API
       console.log('關注用戶:', userId);
@@ -148,12 +137,14 @@ const HomePage: React.FC = () => {
   // 處理貼文創建成功
   const handlePostCreated = () => {
     setShowPostEditor(false);
-    refetch(); // 重新載入信息流
+    // 使用 queryClient 強制失效緩存並重新獲取數據
+    queryClient.invalidateQueries({ queryKey: ['feed'] });
   };
 
   // 處理貼文刪除成功
   const handlePostDeleted = () => {
-    refetch(); // 重新載入信息流
+    // 使用 queryClient 強制失效緩存並重新獲取數據
+    queryClient.invalidateQueries({ queryKey: ['feed'] });
   };
 
   // 監聽滾動載入更多
@@ -309,27 +300,27 @@ const HomePage: React.FC = () => {
                       className="flex items-center space-x-3 p-3 bg-gradient-to-r from-blue-50 to-purple-50 rounded-xl hover:from-blue-100 hover:to-purple-100 transition-all duration-300 group"
                     >
                       <img
-                        src={user.avatar || '/default-avatar.png'}
+                        src={user.avatar_url || '/default-avatar.png'}
                         alt={user.username}
                         className="w-10 h-10 rounded-xl object-cover border-2 border-white shadow-md group-hover:scale-110 transition-transform duration-300"
                       />
                       <div className="flex-1 min-w-0">
                         <p className="font-semibold text-slate-800 text-sm truncate">
-                          {user.first_name} {user.last_name}
+                          {user.display_name}
                         </p>
                         <p className="text-slate-500 text-xs truncate">@{user.username}</p>
                         <p className="text-slate-400 text-xs">{user.followers_count} 關注者</p>
                       </div>
                       <button
                         onClick={() => handleFollowUser(user.id)}
-                        disabled={user.is_following}
+                        disabled={user.is_following === true}
                         className={`px-3 py-1 text-xs font-medium rounded-lg transition-all duration-300 ${
-                          user.is_following
+                          user.is_following === true
                             ? 'bg-green-100 text-green-700 cursor-not-allowed'
                             : 'bg-blue-500 text-white hover:bg-blue-600 hover:scale-105'
                         }`}
                       >
-                        {user.is_following ? '已關注' : '關注'}
+                        {user.is_following === true ? '已關注' : '關注'}
                       </button>
                     </div>
                   ))}

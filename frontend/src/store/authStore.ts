@@ -1,114 +1,156 @@
+/**
+ * EngineerHub - 認證狀態管理 Store
+ * 
+ * 使用 Zustand 管理用戶認證狀態，整合 dj-rest-auth + SimpleJWT
+ * 
+ * 主要功能：
+ * - JWT Token 管理（access + refresh）
+ * - 用戶登入/登出/註冊
+ * - 自動 Token 刷新
+ * - 認證狀態持久化
+ * - 社交登入支援
+ */
+
+import React from 'react'; // 導入 React，用於 useEffect
 import { create } from 'zustand'; // 導入 zustand 的 create 函數，用於創建 store，store功能是管理用戶認證狀態
 import { devtools, persist } from 'zustand/middleware'; // 導入 zustand 的中間件：devtools（用於調試工具集成）和 persist（用於持久化存儲）
 import { jwtDecode } from 'jwt-decode'; // 導入 jwt-decode 函數，用於解碼 JWT 令牌
 import type { UserData } from '../api/authApi'; // 導入 UserData 類型，從 authApi 文件中
 import * as authApi from '../api/authApi'; // 導入 authApi 模塊中的所有導出內容
 
-interface JwtPayload { // 定義 JwtPayload 接口，用於指定 JWT 令牌解碼後的 payload 結構
-  exp: number; // 令牌的過期時間（Unix 時間戳）
-  user_id: string; // 用戶 ID
+// JWT Payload 接口定義
+interface JwtPayload {
+  exp: number;        // Token 過期時間（Unix 時間戳）
+  user_id: string;    // 用戶 ID
+  iat?: number;       // Token 簽發時間
+  jti?: string;       // Token 唯一標識符
 }
 
-interface AuthState { // 定義 AuthState 接口，描述認證 store 的狀態和方法
-  token: string | null; // 訪問令牌
-  refreshToken: string | null; // 刷新令牌
-  user: UserData | null; // 用戶數據
-  isAuthenticated: boolean; // 是否已認證
-  isLoading: boolean; // 是否正在加載
-  error: string | null; // 錯誤訊息
+// 新增 API 錯誤類型定義
+interface ApiError {
+  response?: {
+    data?: {
+      detail?: string;
+      non_field_errors?: string | string[];
+      username?: string | string[];
+      email?: string | string[];
+      password1?: string | string[];
+      [key: string]: unknown;
+    };
+  };
+  message?: string;
+}
 
-  // 登錄
-  login: (username: string, password: string) => Promise<void>;   //表示這個函式回傳一個 Promise，裡面不含任何有意義的資料（void）
-  //✅ => 是箭頭函式符號（在這裡只是描述函式的型態）
-  //✅ Promise<void> 表示它是一個非同步函式，並且不會有實際回傳值（只要完成就算成功）
+// 認證狀態接口定義
+interface AuthState {
+  // ==================== 狀態屬性 ====================
+  token: string | null;           // JWT Access Token
+  refreshToken: string | null;    // JWT Refresh Token
+  user: UserData | null;          // 用戶數據
+  isAuthenticated: boolean;       // 認證狀態
+  isLoading: boolean;             // 加載狀態
+  error: string | null;           // 錯誤訊息
+  isInitialized: boolean;         // 是否已初始化完成
 
-  // 註冊
+  // ==================== 認證方法 ====================
+  /**
+   * 用戶登入
+   * @param username 用戶名或郵箱
+   * @param password 密碼
+   */
+  login: (username: string, password: string) => Promise<void>;
+
+  /**
+   * 用戶註冊
+   * @param userData 註冊數據
+   */
   register: (userData: authApi.RegisterData) => Promise<void>;
-  // 登出
+
+  /**
+   * 用戶登出
+   */
   logout: () => Promise<void>;
-  // 檢查認證狀態
+
+  /**
+   * 檢查認證狀態
+   * @returns 是否已認證
+   */
   checkAuth: () => Promise<boolean>;
-  // 刷新令牌
+
+  /**
+   * 刷新認證 Token
+   * @returns 刷新是否成功
+   */
   refreshAuth: () => Promise<boolean>;
-  // 更新用戶信息
+
+  /**
+   * 更新用戶信息
+   * @param userData 要更新的用戶數據
+   */
   updateUser: (userData: Partial<UserData>) => Promise<void>;
-  // 社交登錄：Google
+
+  // ==================== 社交登入方法 ====================
+  /**
+   * Google 社交登入
+   * @param accessToken Google 訪問令牌
+   */
   loginWithGoogle: (accessToken: string) => Promise<void>;
-  // 社交登錄：GitHub
+
+  /**
+   * GitHub 社交登入
+   * @param code GitHub 授權碼
+   */
   loginWithGitHub: (code: string) => Promise<void>;
-  // 清除錯誤
+
+  // ==================== 工具方法 ====================
+  /**
+   * 清除錯誤訊息
+   */
   clearError: () => void;
-  // 設置加載狀態
+
+  /**
+   * 設置加載狀態
+   * @param isLoading 加載狀態
+   */
   setLoading: (isLoading: boolean) => void;
 }
 
-//因為要管理狀態，故將所有方法封裝在 useAuthStore內，並將useAuthStore作為一個hook，讓其他組件可以呼叫useAuthStore()來取得和更新狀態
-export const useAuthStore = create<AuthState>()( // 使用 create 函數創建自定義變數 AuthState 類型的 store
-  /*
-  create 是 Zustand（一個輕量化的 React 狀態管理庫）提供的函數，用來建立一個 store。
-  簡單來說：
-  我把狀態放進 create，它就幫我產生一個可以在 React 組件裡用的 hook（例如 useAuthStore）。
-  做了什麼？
-  建立了 useAuthStore 這個 hook。
-  讓 React 組件可以呼叫 useAuthStore() 取得和更新狀態。
-  */
-  devtools( // 使用 devtools 中間件，集成 Redux DevTools
-    /*
-    devtools 是 Zustand 的中間件，幫助你把 store 和 Redux DevTools（開發者工具）串接起來。
-    做了什麼？
-    讓我在瀏覽器的 Redux DevTools 外掛裡看到 store 的變化（例如：dispatch action、狀態變化、time travel debugging）。
-    */ 
-    persist( // 使用 persist 中間件，實現狀態持久化
-      /*
-      persist 是 Zustand 的另一個中間件，幫助把 store 的狀態存在本地儲存（localStorage）。
-      做了什麼？
-      每次狀態改變時，就會自動把狀態序列化並存在 localStorage（或 sessionStorage）。
-      當頁面重新整理或重新開啟時，自動把狀態從 localStorage 裡讀回來，還原到 store。
-      */ 
-      (set, get) => ({ // 定義 store 的初始狀態和方法
-        // 初始化時從 localStorage 讀取 token
-        token: typeof window !== 'undefined' ? localStorage.getItem('engineerhub_token') : null, // 訪問令牌，根據環境從 localStorage 獲取
-        //typeof 是 JavaScript 的運算符（operator），用來檢查一個值的類型。它會回傳一個字串（像 "string", "number", "undefined", "object", "function"）。
-        /*window 是瀏覽器環境提供的全域物件（Global Object），它代表整個瀏覽器視窗（window）。
-        👉 它裡面包含了：
-        document（DOM）
-        location（網址）
-        localStorage
-        alert, console 等常用功能
-        甚至像 fetch, setTimeout, clearTimeout 也都在這個物件裡。
-        簡單來說，在瀏覽器執行 JavaScript 時，window 就是整個全域環境的入口。
-        */
-        /*
-        typeof window !== 'undefined' : 👉 「如果這個程式在瀏覽器執行的話（window 存在），就執行後面的程式碼；否則，就執行 null。」
-        localStorage.getItem('engineerhub_token') : 👉 如果在瀏覽器環境中，就去讀取 localStorage 中的 'engineerhub_token'，作為這個 token 的值。
-        ? = 三元運算子: 如果typeof window !== 'undefined'這個程式在瀏覽器執行的話就為true，否則為false。若為真則執行localStorage.getItem('engineerhub_token')，否為否則為null。
-        */ 
-        refreshToken: typeof window !== 'undefined' ? localStorage.getItem('engineerhub_refresh_token') : null, // 刷新令牌，根據環境從 localStorage 獲取
-        user: null, // 初始用戶數據為 null
-        isAuthenticated: false, // 初始認證狀態為 false
-        isLoading: false, // 初始加載狀態為 false
-        error: null, // 初始錯誤訊息為 null
+// 創建認證 Store
+export const useAuthStore = create<AuthState>()(
+  devtools(
+    persist(
+      (set, get) => ({
+        // ==================== 初始狀態 ====================
+        // persist 會自動從 localStorage 恢復這些狀態
+        token: null,
+        refreshToken: null,
+        user: null,
+        isAuthenticated: false,
+        isLoading: false,
+        error: null,
+        isInitialized: false,
 
-        login: async (username, password) => { // 定義 login 方法，處理用戶登錄
-          set({ isLoading: true, error: null }); // 設置加載狀態為 true，清除錯誤訊息
+        // ==================== 登入方法 ====================
+        login: async (username, password) => {
+          set({ isLoading: true, error: null });
+          
           try {
             console.log('🔐 開始登入流程...');
-            const response = await authApi.login({ username, password }); // 調用 authApi 的 login 函數進行登錄
             
-            console.log('✅ 登入API成功，響應數據:', {
+            // 調用 dj-rest-auth 登入 API
+            const response = await authApi.login({ username, password });
+            
+            console.log('✅ 登入 API 成功，響應數據:', {
               hasAccessToken: !!response.access,
               hasRefreshToken: !!response.refresh,
               hasUser: !!response.user,
               username: response.user?.username
             });
 
-            // 同步 token 到 localStorage
-            localStorage.setItem('engineerhub_token', response.access); // 將後端儲存的訪問令牌存入 localStorage
-            localStorage.setItem('engineerhub_refresh_token', response.refresh); // 將後端儲存的刷新令牌存入 localStorage
+            console.log('✅ Token 將通過 persist 自動保存');
 
-            console.log('✅ Token已存入localStorage');
-
-            set({ // 更新 store 狀態
+            // 更新 Store 狀態
+            set({
               token: response.access,
               refreshToken: response.refresh,
               user: response.user,
@@ -117,282 +159,523 @@ export const useAuthStore = create<AuthState>()( // 使用 create 函數創建�
               error: null
             });
             
-            console.log('✅ Store狀態已更新，用戶已認證');
-          } catch (error) { // 捕獲登錄過程中的錯誤
+            console.log('✅ Store 狀態已更新，用戶已認證');
+            
+            // 調試：檢查設置後的狀態
+            const currentState = get();
+            console.log('🔍 登入後當前狀態:', {
+              hasToken: !!currentState.token,
+              hasRefreshToken: !!currentState.refreshToken,
+              hasUser: !!currentState.user,
+              isAuthenticated: currentState.isAuthenticated,
+              tokenLength: currentState.token?.length || 0
+            });
+            
+          } catch (error) {
             console.error('❌ 登入失敗:', error);
+            
+            // 處理錯誤訊息
+            let errorMessage = '登入失敗';
+            if (error instanceof Error) {
+              errorMessage = error.message;
+            } else if (typeof error === 'object' && error !== null && 'response' in error) {
+              const apiError = error as ApiError;
+              if (apiError.response?.data?.detail) {
+                errorMessage = apiError.response.data.detail;
+              } else if (apiError.response?.data?.non_field_errors) {
+                const nonFieldErrors = apiError.response.data.non_field_errors;
+                errorMessage = Array.isArray(nonFieldErrors) ? nonFieldErrors[0] : nonFieldErrors || '登入失敗';
+              }
+            }
+            
             set({ 
               isLoading: false, 
-              error: error instanceof Error ? error.message : '登錄失敗' // 設置錯誤訊息
-              // Error 是 JavaScript 內建的錯誤物件，一出錯就會回傳Error物件(錯誤訊息)
-              // instanceof 是 JavaScript 的一個運算子，用來檢查某個值（物件）是不是某個類型（constructor）的實例。
-              // 判斷 error 是不是 Error 物件的實例
-              // 如果是 Error 物件，就執行 error.message（取出錯誤訊息）。
-              // 否則就直接回傳 '登錄失敗'（因為它可能只是個字串或其他型別，不一定有 message 屬性）。
+              error: errorMessage,
+              isAuthenticated: false,
+              token: null,
+              refreshToken: null,
+              user: null
             });
-            throw error; // 重新拋出錯誤，以便調用方處理
+            
+            // Token 清除將通過 persist 自動處理
+            
+            throw error;
           }
         },
 
-        register: async (userData) => { // 定義 register 方法，處理用戶註冊
-          set({ isLoading: true, error: null }); // 設置加載狀態為 true，清除錯誤訊息
+        // ==================== 註冊方法 ====================
+        register: async (userData) => {
+          set({ isLoading: true, error: null });
+          
           try {
-            const response = await authApi.register(userData); // 調用 authApi 的 register 函數進行註冊
+            console.log('📝 開始註冊流程...');
+            
+            // 調用 dj-rest-auth 註冊 API
+            const response = await authApi.register(userData);
+            
+            console.log('✅ 註冊 API 成功，響應數據:', {
+              hasAccessToken: !!response.access,
+              hasRefreshToken: !!response.refresh,
+              hasUser: !!response.user,
+              accessTokenPreview: response.access ? response.access.substring(0, 50) + '...' : 'None',
+              refreshTokenPreview: response.refresh ? response.refresh.substring(0, 50) + '...' : 'None',
+              username: response.user?.username || 'None'
+            });
 
-            // 同步 token 到 localStorage
-            localStorage.setItem('engineerhub_token', response.access); // 將訪問令牌存入 localStorage
-            localStorage.setItem('engineerhub_refresh_token', response.refresh); // 將刷新令牌存入 localStorage
+            // Token 將通過 persist 自動保存
 
-            set({ // 更新 store 狀態
+            // 更新 Store 狀態
+            set({
               token: response.access,
               refreshToken: response.refresh,
               user: response.user,
               isAuthenticated: true,
-              isLoading: false
+              isLoading: false,
+              error: null
             });
-          } catch (error) { // 捕獲註冊過程中的錯誤
+            
+            console.log('✅ Store 狀態已更新');
+            
+            // 驗證設置後的狀態
+            const currentState = get();
+            console.log('🔍 註冊後當前狀態驗證:', {
+              hasToken: !!currentState.token,
+              hasRefreshToken: !!currentState.refreshToken,
+              hasUser: !!currentState.user,
+              isAuthenticated: currentState.isAuthenticated,
+              tokenPreview: currentState.token ? currentState.token.substring(0, 50) + '...' : 'None',
+              username: currentState.user?.username || 'None'
+            });
+            
+            // 檢查 persist 是否正確保存
+            setTimeout(() => {
+              try {
+                const persistedData = localStorage.getItem('engineerhub-auth-storage');
+                if (persistedData) {
+                  const parsed = JSON.parse(persistedData);
+                  console.log('🔍 註冊後 localStorage 驗證:', {
+                    hasToken: !!parsed.state?.token,
+                    hasRefreshToken: !!parsed.state?.refreshToken,
+                    hasUser: !!parsed.state?.user,
+                    isAuthenticated: !!parsed.state?.isAuthenticated,
+                    tokenPreview: parsed.state?.token ? parsed.state.token.substring(0, 50) + '...' : 'None'
+                  });
+                } else {
+                  console.error('❌ localStorage 中沒有找到 persist 數據');
+                }
+              } catch (error) {
+                console.error('❌ 檢查 localStorage 失敗:', error);
+              }
+            }, 100);
+            
+            console.log('✅ 註冊成功，用戶已認證');
+            
+          } catch (error) {
+            console.error('❌ 註冊失敗:', error);
+            
+            // 處理錯誤訊息
+            let errorMessage = '註冊失敗';
+            if (error instanceof Error) {
+              errorMessage = error.message;
+            } else if (typeof error === 'object' && error !== null && 'response' in error) {
+              const apiError = error as ApiError;
+              if (apiError.response?.data?.detail) {
+                errorMessage = apiError.response.data.detail;
+              } else if (apiError.response?.data) {
+                // 處理字段特定錯誤
+                const data = apiError.response.data;
+                const fieldErrors: string[] = [];
+                
+                if (data.username) {
+                  const usernameError = Array.isArray(data.username) ? data.username[0] : data.username;
+                  fieldErrors.push(`用戶名: ${usernameError}`);
+                }
+                if (data.email) {
+                  const emailError = Array.isArray(data.email) ? data.email[0] : data.email;
+                  fieldErrors.push(`郵箱: ${emailError}`);
+                }
+                if (data.password1) {
+                  const passwordError = Array.isArray(data.password1) ? data.password1[0] : data.password1;
+                  fieldErrors.push(`密碼: ${passwordError}`);
+                }
+                if (data.non_field_errors) {
+                  const nonFieldErrors = Array.isArray(data.non_field_errors) ? data.non_field_errors[0] : data.non_field_errors;
+                  fieldErrors.push(nonFieldErrors || '註冊失敗');
+                }
+                
+                if (fieldErrors.length > 0) {
+                  errorMessage = fieldErrors.join('; ');
+                }
+              }
+            }
+            
             set({ 
               isLoading: false, 
-              error: error instanceof Error ? error.message : '註冊失敗' // 設置錯誤訊息
+              error: errorMessage,
+              isAuthenticated: false,
+              token: null,
+              refreshToken: null,
+              user: null
             });
-            throw error; // 重新拋出錯誤
-            //throw error 是 JavaScript 中用來拋出錯誤的語法。
-            //當你遇到錯誤時，可以使用 throw 語法來拋出錯誤，這樣錯誤可以被捕獲並處理。
-            //不能用return，因為return沒辦法和catch一起使用
+            
+            throw error;
           }
         },
 
-        logout: async () => { // 定義 logout 方法，處理用戶登出
-          set({ isLoading: true }); // 設置加載狀態為 true
+        // ==================== 登出方法 ====================
+        logout: async () => {
+          set({ isLoading: true });
+          
           try {
-            await authApi.logout(); // 調用 authApi 的 logout 函數進行登出
+            console.log('🚪 開始登出流程...');
+            
+            // 調用 dj-rest-auth 登出 API（會將 refresh token 加入黑名單）
+            await authApi.logout();
+            
+            console.log('✅ 登出 API 成功');
+            
           } catch (error) {
-            console.error('登出時出錯', error); // 記錄登出錯誤
-          } finally { //finally 是 JavaScript 中 try...catch...finally 語法的一部分，用來保證「不論 try 區塊裡的程式碼是否執行成功（沒有錯誤）或失敗（有錯誤），都一定會執行 finally 區塊裡的程式碼」。
-            // 清除 localStorage 中的 token
-            localStorage.removeItem('engineerhub_token'); // 移除訪問令牌
-            localStorage.removeItem('engineerhub_refresh_token'); // 移除刷新令牌
+            console.error('⚠️ 登出 API 失敗，但仍清除本地狀態:', error);
+          } finally {
+            // 無論 API 是否成功，都清除本地狀態
+            // Token 清除將通過 persist 自動處理
 
-            set({ // 更新 store 狀態
+            set({
               token: null,
               refreshToken: null,
               user: null,
               isAuthenticated: false,
-              isLoading: false
+              isLoading: false,
+              error: null
             });
+            
+            console.log('✅ 本地認證狀態已清除');
           }
         },
 
-        checkAuth: async () => { // 定義 checkAuth 方法，檢查認證狀態
-          const { token, refreshAuth } = get(); // 從 store 中獲取 token 和 refreshAuth 方法
+        // ==================== 檢查認證狀態 ====================
+        checkAuth: async () => {
+          const state = get();
+          const { token, refreshAuth, isInitialized } = state;
 
           console.log('🔐 檢查認證狀態:', {
-            hasToken: !!token,   //兩個驚嘆號是布林運算子，用來檢查token是否存在，邏輯是：如果token存在，則為true，否則為false
-            tokenPreview: token ? token.substring(0, 20) + '...' : 'None'  //如果token存在，則顯示token的前20個字元，否則顯示'None'
-          }); // 記錄調試信息
+            hasToken: !!token,
+            tokenPreview: token ? token.substring(0, 20) + '...' : 'None',
+            isInitialized
+          });
 
-          // 如果沒有令牌，則未認證
+          // 如果persist還沒有恢復完成，等待一小段時間再重試
+          if (!isInitialized) {
+            console.log('⏳ 等待 persist 恢復...');
+            await new Promise(resolve => setTimeout(resolve, 100));
+            return get().checkAuth(); // 遞歸重試
+          }
+
+          // 如果沒有 Token，則未認證
           if (!token) {
-            console.log('❌ 沒有 token，設為未認證');
-            set({ isAuthenticated: false }); // 設置認證狀態為 false
+            console.log('❌ 沒有 Token，設為未認證');
+            set({ isAuthenticated: false });
             return false;
           }
 
-          // 檢查令牌是否過期
           try {
-            const decoded = jwtDecode<JwtPayload>(token); // 解碼 JWT 令牌
-            const currentTime = Date.now() / 1000; // 獲取當前時間（Unix 時間戳）
-
-            console.log('🔐 Token 解碼結果:', {
+            // 檢查 Token 是否過期
+            const decoded = jwtDecode<JwtPayload>(token);
+            const currentTime = Date.now() / 1000;
+            
+            console.log('🔍 Token 檢查:', {
               exp: decoded.exp,
-              currentTime,
-              isExpired: decoded.exp <= currentTime,
-              timeUntilExpiry: decoded.exp - currentTime
-            }); // 記錄解碼結果
+              current: currentTime,
+              isExpired: decoded.exp < currentTime,
+              timeLeft: Math.max(0, decoded.exp - currentTime)
+            });
 
-            // 如果令牌還有效，獲取最新的用戶信息
-            if (decoded.exp > currentTime) {
-              try {
-                console.log('✅ Token 有效，獲取用戶信息...');
-                const user = await authApi.getCurrentUser(); // 調用 authApi 獲取當前用戶信息
-                console.log('✅ 用戶信息獲取成功:', user.username);
-                set({ user, isAuthenticated: true }); // 更新用戶信息和認證狀態
-                return true;
-              } catch (error: any) {
-                console.error('❌ 獲取用戶信息失敗:', error);
-                console.error('❌ 錯誤詳情:', error.response?.data || error.message);
-                
-                // 如果是401錯誤，token可能無效，嘗試刷新
-                if (error.response?.status === 401) {
-                  console.log('🔄 401錯誤，嘗試刷新 token...');
-                  return refreshAuth();
-                } else {
-                  // 其他錯誤，保持已認證狀態，使用現有用戶信息
-                  console.log('⚠️ 獲取用戶信息失敗，但保持認證狀態');
-                  set({ isAuthenticated: true });
+            // 如果 Token 過期，嘗試刷新
+            if (decoded.exp < currentTime) {
+              console.log('⏰ Token 已過期，嘗試刷新...');
+              const refreshSuccess = await refreshAuth();
+              
+              if (!refreshSuccess) {
+                console.log('❌ Token 刷新失敗，設為未認證');
+                set({ isAuthenticated: false });
+                return false;
+              }
+              
+              console.log('✅ Token 刷新成功');
+            }
+
+            // 獲取當前用戶信息
+            try {
+              const user = await authApi.getCurrentUser();
+              set({ 
+                user, 
+                isAuthenticated: true 
+              });
+              
+              console.log('✅ 用戶信息已更新:', user.username);
+              return true;
+              
+            } catch (userError) {
+              console.error('❌ 獲取用戶信息失敗:', userError);
+              
+              // 如果獲取用戶信息失敗，可能是 Token 無效
+              const refreshSuccess = await refreshAuth();
+              if (refreshSuccess) {
+                // 刷新成功後重試獲取用戶信息
+                try {
+                  const user = await authApi.getCurrentUser();
+                  set({ 
+                    user, 
+                    isAuthenticated: true 
+                  });
                   return true;
+                } catch (retryError) {
+                  console.error('❌ 重試獲取用戶信息失敗:', retryError);
                 }
               }
-            } else {
-              // 令牌過期，嘗試刷新
-              console.log('⏰ Token 已過期，嘗試刷新...');
-              return refreshAuth(); // 調用 refreshAuth 方法刷新令牌
+              
+              set({ isAuthenticated: false });
+              return false;
             }
+
           } catch (error) {
-            // 解碼令牌出錯，嘗試刷新
-            console.error('❌ Token 解碼失敗:', error);
-            console.log('🔄 嘗試刷新 token...');
-            return refreshAuth(); // 調用 refreshAuth 方法刷新令牌
+            console.error('❌ Token 解析失敗:', error);
+            set({ isAuthenticated: false });
+            return false;
           }
         },
 
-        refreshAuth: async () => { // 定義 refreshAuth 方法，刷新認證令牌
-          const { refreshToken } = get(); // 從 store 中獲取 refreshToken
+        // ==================== 刷新認證 Token ====================
+        refreshAuth: async () => {
+          const { refreshToken } = get();
 
-          console.log('🔄 嘗試刷新認證:', {
-            hasRefreshToken: !!refreshToken,
-            refreshTokenPreview: refreshToken ? refreshToken.substring(0, 20) + '...' : 'None'
-          }); // 記錄調試信息
-
-          if (!refreshToken) { // 如果沒有 refreshToken
-            console.log('❌ 沒有 refresh token，清除認證狀態');
-            // 清除所有 token
-            localStorage.removeItem('engineerhub_token');
-            localStorage.removeItem('engineerhub_refresh_token');
-
-            set({ 
-              token: null, 
-              refreshToken: null, 
-              user: null, 
-              isAuthenticated: false 
-            }); // 更新 store 狀態
+          if (!refreshToken) {
+            console.log('❌ 沒有 Refresh Token');
             return false;
           }
 
           try {
-            console.log('🔄 調用 refresh token API...');
-            // 使用 fetch 調用刷新 token 的 API
-            const response = await fetch(`${import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000/api'}/auth/token/refresh/`, {
-              method: 'POST',
-              headers: {
-                'Content-Type': 'application/json',
-              },
-              body: JSON.stringify({
-                refresh: refreshToken // 傳遞 refreshToken
-              })
-            });
-
-            if (!response.ok) { // 如果響應不成功
-              throw new Error(`HTTP ${response.status}: ${response.statusText}`); // 拋出錯誤
-            }
-
-            const data = await response.json(); // 解析響應數據
+            console.log('🔄 開始刷新 Token...');
+            
+            // 調用 dj-rest-auth Token 刷新 API
+            const response = await authApi.refreshToken(refreshToken);
+            
             console.log('✅ Token 刷新成功');
 
-            // 同步新 token 到 localStorage
-            localStorage.setItem('engineerhub_token', data.access); // 存儲新的訪問令牌
-            if (data.refresh) {
-              localStorage.setItem('engineerhub_refresh_token', data.refresh); // 如果有新的刷新令牌，則存儲
-            }
+            // Token 將通過 persist 自動保存
 
-            // 獲取用戶信息
-            const user = await authApi.getCurrentUser(); // 調用 authApi 獲取當前用戶信息
-
-            set({ // 更新 store 狀態
-              token: data.access,
-              refreshToken: data.refresh || refreshToken, // 如果有新的 refreshToken 則使用，否則保持原來的
-              user: user,
+            // 更新 Store 狀態
+            set({
+              token: response.access,
+              refreshToken: response.refresh || refreshToken, // 如果沒有新的 refresh token，保持原有的
               isAuthenticated: true
             });
-            return true;
-          } catch (error) { // 捕獲刷新過程中的錯誤
-            console.error('❌ Token 刷新失敗:', error);
-            // 清除所有 token
-            localStorage.removeItem('engineerhub_token');
-            localStorage.removeItem('engineerhub_refresh_token');
 
-            set({ 
-              token: null, 
-              refreshToken: null, 
-              user: null, 
-              isAuthenticated: false 
-            }); // 更新 store 狀態
+            return true;
+
+          } catch (error) {
+            console.error('❌ Token 刷新失敗:', error);
+            
+            // 刷新失敗，清除所有認證狀態
+            // Token 清除將通過 persist 自動處理
+            
+            set({
+              token: null,
+              refreshToken: null,
+              user: null,
+              isAuthenticated: false
+            });
+
             return false;
           }
         },
 
-        updateUser: async (userData) => { // 定義 updateUser 方法，更新用戶信息
-          set({ isLoading: true, error: null }); // 設置加載狀態為 true，清除錯誤訊息
+        // ==================== 更新用戶信息 ====================
+        updateUser: async (userData) => {
+          set({ isLoading: true, error: null });
+          
           try {
-            const updatedUser = await authApi.updateUserProfile(userData); // 調用 authApi 的 updateUserProfile 函數更新用戶信息
-            set({ // 更新 store 狀態
+            console.log('👤 更新用戶信息...');
+            
+            // 調用 dj-rest-auth 用戶更新 API
+            const updatedUser = await authApi.patchUserProfile(userData);
+            
+            set({
               user: updatedUser,
               isLoading: false
             });
-          } catch (error) { // 捕獲更新過程中的錯誤
+            
+            console.log('✅ 用戶信息更新成功');
+            
+          } catch (error) {
+            console.error('❌ 用戶信息更新失敗:', error);
+            
+            let errorMessage = '更新失敗';
+            if (error instanceof Error) {
+              errorMessage = error.message;
+            }
+            
             set({ 
               isLoading: false, 
-              error: error instanceof Error ? error.message : '更新用戶信息失敗' // 設置錯誤訊息
+              error: errorMessage 
             });
-            throw error; // 重新拋出錯誤
+            
+            throw error;
           }
         },
 
-        loginWithGoogle: async (accessToken) => { // 定義 loginWithGoogle 方法，處理 Google 社交登錄
-          set({ isLoading: true, error: null }); // 設置加載狀態為 true，清除錯誤訊息
+        // ==================== Google 社交登入 ====================
+        loginWithGoogle: async (accessToken) => {
+          set({ isLoading: true, error: null });
+          
           try {
-            const response = await authApi.loginWithGoogle(accessToken); // 調用 authApi 的 loginWithGoogle 函數
-            set({ // 更新 store 狀態
+            console.log('🔐 Google 社交登入...');
+            
+            const response = await authApi.loginWithGoogle(accessToken);
+            
+            // Token 將通過 persist 自動保存
+
+            set({
               token: response.access,
               refreshToken: response.refresh,
               user: response.user,
               isAuthenticated: true,
               isLoading: false
             });
-          } catch (error) { // 捕獲登錄過程中的錯誤
+            
+            console.log('✅ Google 登入成功');
+            
+          } catch (error) {
+            console.error('❌ Google 登入失敗:', error);
+            
             set({ 
               isLoading: false, 
-              error: error instanceof Error ? error.message : 'Google 登錄失敗' // 設置錯誤訊息
+              error: 'Google 登入失敗' 
             });
-            throw error; // 重新拋出錯誤
+            
+            throw error;
           }
         },
 
-        loginWithGitHub: async (code) => { // 定義 loginWithGitHub 方法，處理 GitHub 社交登錄
-          set({ isLoading: true, error: null }); // 設置加載狀態為 true，清除錯誤訊息
+        // ==================== GitHub 社交登入 ====================
+        loginWithGitHub: async (code) => {
+          set({ isLoading: true, error: null });
+          
           try {
-            const response = await authApi.loginWithGitHub(code); // 調用 authApi 的 loginWithGitHub 函數
-            set({ // 更新 store 狀態
+            console.log('🔐 GitHub 社交登入...');
+            
+            const response = await authApi.loginWithGitHub(code);
+            
+            // Token 將通過 persist 自動保存
+
+            set({
               token: response.access,
               refreshToken: response.refresh,
               user: response.user,
               isAuthenticated: true,
               isLoading: false
             });
-          } catch (error) { // 捕獲登錄過程中的錯誤
+            
+            console.log('✅ GitHub 登入成功');
+            
+          } catch (error) {
+            console.error('❌ GitHub 登入失敗:', error);
+            
             set({ 
               isLoading: false, 
-              error: error instanceof Error ? error.message : 'GitHub 登錄失敗' // 設置錯誤訊息
+              error: 'GitHub 登入失敗' 
             });
-            throw error; // 重新拋出錯誤
+            
+            throw error;
           }
         },
 
-        clearError: () => set({ error: null }), // 定義 clearError 方法，清除錯誤訊息
+        // ==================== 工具方法 ====================
+        clearError: () => {
+          set({ error: null });
+        },
 
-        setLoading: (isLoading) => set({ isLoading }) // 定義 setLoading 方法，設置加載狀態
+        setLoading: (isLoading) => {
+          set({ isLoading });
+        },
       }),
       {
-        name: 'engineerhub-auth-storage', // 持久化存儲的名稱
-        partialize: (state) => ({ // 定義需要持久化的狀態部分
+        name: 'engineerhub-auth-storage', // localStorage 鍵名
+        partialize: (state) => ({
+          // 只持久化必要的狀態
           token: state.token,
           refreshToken: state.refreshToken,
           user: state.user,
-          isAuthenticated: state.isAuthenticated
-        })
+          isAuthenticated: state.isAuthenticated,
+          // 不持久化 isInitialized，每次啟動都重新初始化
+        }),
+        // 添加persist完成回調
+        onRehydrateStorage: () => (state) => {
+          console.log('🔄 Persist 恢復完成:', {
+            hasState: !!state,
+            hasToken: !!state?.token,
+            hasRefreshToken: !!state?.refreshToken,
+            hasUser: !!state?.user,
+            isAuthenticated: !!state?.isAuthenticated,
+            tokenPreview: state?.token ? state.token.substring(0, 20) + '...' : 'None'
+          });
+          
+          // 額外調試：檢查localStorage中的實際數據
+          try {
+            const persistedData = localStorage.getItem('engineerhub-auth-storage');
+            console.log('📦 localStorage 實際數據:', {
+              exists: !!persistedData,
+              preview: persistedData ? persistedData.substring(0, 100) + '...' : 'None'
+            });
+            
+            if (persistedData) {
+              const parsedData = JSON.parse(persistedData);
+              console.log('📊 解析後的數據結構:', {
+                hasState: !!parsedData.state,
+                hasToken: !!parsedData.state?.token,
+                hasRefreshToken: !!parsedData.state?.refreshToken,
+                hasUser: !!parsedData.state?.user,
+                isAuthenticated: !!parsedData.state?.isAuthenticated
+              });
+            }
+          } catch (error) {
+            console.error('❌ 讀取localStorage失敗:', error);
+          }
+          
+          // 恢復完成後自動標記為已初始化
+          if (state) {
+            state.isInitialized = true;
+          }
+        },
       }
-    )
+    ),
+    {
+      name: 'engineerhub-auth-store', // DevTools 中的 store 名稱
+    }
   )
 );
+
+// ==================== 專用 Hook：等待 Persist 初始化 ====================
+/**
+ * 確保 persist 恢復完成的 Hook
+ * 在應用啟動時使用，確保 checkAuth 在正確的時機執行
+ * 
+ * @returns 是否已初始化完成
+ */
+export const useAuthInitialized = () => {
+  const isInitialized = useAuthStore(state => state.isInitialized);
+  const checkAuth = useAuthStore(state => state.checkAuth);
+  
+  // 當初始化完成時，自動執行認證檢查
+  React.useEffect(() => {
+    if (isInitialized) {
+      console.log('✅ Auth Store 已初始化，執行認證檢查');
+      checkAuth();
+    }
+  }, [isInitialized, checkAuth]);
+  
+  return isInitialized;
+};
 
 
 

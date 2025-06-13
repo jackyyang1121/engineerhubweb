@@ -16,6 +16,8 @@ import { HeartIcon as HeartSolidIcon } from '@heroicons/react/24/solid';
 import { useAuthStore } from '../../store/authStore';
 import CommentForm from './CommentForm';
 import * as commentApi from '../../api/commentApi';
+// 導入重構後的權限檢查工具 - 遵循高階工程師原則
+import { usePermissions } from '../../utils/permission';
 
 // 使用全局評論類型
 import type { Comment } from '../../types';
@@ -63,7 +65,17 @@ const CommentItem: React.FC<CommentItemProps> = ({
   const [showActions, setShowActions] = useState(false);
   
   const currentUser = useAuthStore(state => state.user);
-  const isCommentOwner = currentUser?.id === comment.author_details.id;
+  
+  // 使用重構後的統一權限檢查工具 - 遵循 Narrowly focused 原則
+  // 將評論數據轉換為權限檢查工具所需的格式
+  const commentResource = {
+    author: comment.author_details.id
+  };
+  const { canEdit } = usePermissions(currentUser, commentResource);
+  
+  // 保持向後兼容性：isCommentOwner 現在通過統一工具提供
+  // 這確保了 Loosely coupled 原則：組件不需要了解權限檢查的內部實現
+  const isCommentOwner = canEdit.allowed;
   
   // 格式化日期
   const formattedDate = format(new Date(comment.created_at), 'PPp', { locale: zhTW });

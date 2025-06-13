@@ -1,10 +1,15 @@
 """
 EngineerHub - 用戶序列化器
 定義用戶相關的數據序列化和驗證邏輯
+
+使用 dj-rest-auth 後的變化：
+- CustomRegisterSerializer: 兼容 dj-rest-auth 的註冊序列化器
+- 移除自定義登入序列化器（使用 dj-rest-auth 預設）
+- 保留用戶管理相關序列化器
 """
 
 from rest_framework import serializers
-from rest_framework_simplejwt.serializers import TokenObtainPairSerializer
+from dj_rest_auth.registration.serializers import RegisterSerializer
 from django.core.exceptions import ValidationError
 from django.contrib.auth import authenticate
 from PIL import Image
@@ -12,67 +17,50 @@ import re
 
 from .models import User, Follow, PortfolioProject, UserSettings, BlockedUser
 
-class CustomRegisterSerializer(serializers.ModelSerializer):
+class CustomRegisterSerializer(RegisterSerializer):
     """
-    自定義註冊序列化器
-    用於dj-rest-auth註冊功能
-    """
-    """
-    繼承ModelSerializer獲得的功能:
-    ModelSerializer 自動將 Django 模型的字段映射為序列化器字段，簡化數據序列化（模型 → JSON）和反序列化（JSON → 模型）的過程。主要功能包括：
-
-    自動生成字段：根據模型的字段（如 CharField、EmailField）自動創建對應的序列化器字段。
-    數據驗證：驗證輸入數據是否符合模型定義（如必填、唯一性）。
-    創建/更新實例：提供 create() 和 update() 方法，將驗證後的數據保存到數據庫。
-    序列化輸出：將模型實例轉為 JSON 格式（或從 JSON 轉回 Python 對象）。
-    支持關聯字段：自動處理模型的外鍵（ForeignKey）、多對多（ManyToManyField）等關聯。
-    內建屬性
-    ModelSerializer 的功能通過以下內建屬性配置（通常在 Meta 類中定義）：
-
-    model（必須）：指定關聯的 Django 模型。
-        示例：model = User
-    fields（可選）：指定要序列化的字段列表，或使用 '__all__' 包含所有字段。
-        示例：fields = ['id', 'username', 'email']
-    exclude（可選）：指定要排除的字段，與 fields 互斥。
-        示例：exclude = ['password']
-    read_only_fields（可選）：指定只讀字段（僅用於輸出，不可寫入）。
-        示例：read_only_fields = ['id']
-    extra_kwargs（可選）：為字段添加額外配置，如設置字段為只寫或添加驗證規則。
-        示例：extra_kwargs = {'password': {'write_only': True}}
-    depth（可選）：控制關聯字段的展開深度（默認不展開，僅返回 ID）。
-        示例：depth = 1（展開一層關聯對象）。
+    自定義註冊序列化器 - 兼容 dj-rest-auth
+    
+    繼承 dj-rest-auth 的 RegisterSerializer，添加額外字段：
+    - first_name: 名字
+    - last_name: 姓氏
+    
+    dj-rest-auth 會自動處理：
+    - 用戶創建
+    - 郵箱驗證
+    - JWT Token 生成
     """
     
-    password1 = serializers.CharField(
-        write_only=True,
-# write_only=True：表示這個字段僅用於寫入（即接收用戶輸入的數據），不會出現在序列化器的輸出（例如 API 響應）中。
-# 這是為了安全性，因為密碼是敏感信息，不應該在 API 響應中返回。
-        style={'input_type': 'password'}
-# style={'input_type': 'password'}：
-# 這是一個前端渲染提示，告訴前端框架（例如 Django REST Framework 的自動生成表單或 Swagger UI）這個字段應該渲染為密碼輸入框（<input type="password">），這樣用戶輸入的字符會被隱藏（顯示為 ****）。
-# 這只是 UI 層面的提示，對後端邏輯沒有直接影響。
+    # 添加額外字段到註冊表單
+    first_name = serializers.CharField(
+        required=True,
+        max_length=30,
+        help_text="用戶的名字"
     )
-    password2 = serializers.CharField(
-        write_only=True,
-        style={'input_type': 'password'}
+    last_name = serializers.CharField(
+        required=True,
+        max_length=30,
+        help_text="用戶的姓氏"
     )
     
-    class Meta:
-        model = User
-        fields = [
-            'username', 'email', 'first_name', 'last_name',
-            'password1', 'password2'
-        ]
-    
-    def validate_username(self, value):
-        """驗證用戶名"""
-        if not re.match(r'^[a-zA-Z0-9_]+$', value):
+    def validate_username(self, username):
+        """
+        驗證用戶名規則
+        - 只能包含字母、數字和下劃線
+        - 長度 3-30 字符
+        - 不能使用保留用戶名
+        """
+        # 調用父類的驗證
+        username = super().validate_username(username)
+        
+        # 自定義驗證規則
+        if not re.match(r'^[a-zA-Z0-9_]+$', username):
             raise serializers.ValidationError('用戶名只能包含字母、數字和下劃線')
         
-        if len(value) < 3:
+        if len(username) < 3:
             raise serializers.ValidationError('用戶名至少需要3個字符')
         
-        if len(value) > 30:
+        if len(username) > 30:
             raise serializers.ValidationError('用戶名不能超過30個字符')
         
         # 檢查保留用戶名
@@ -81,74 +69,80 @@ class CustomRegisterSerializer(serializers.ModelSerializer):
             'about', 'contact', 'terms', 'privacy', 'settings',
             'profile', 'user', 'users', 'root', 'system'
         ]
-        if value.lower() in reserved_usernames:
+        if username.lower() in reserved_usernames:
             raise serializers.ValidationError('此用戶名不可用')
         
-        return value
+        return username
     
-    def validate_email(self, value):
-        """驗證郵箱"""
-        if User.objects.filter(email=value).exists():
+    def validate_email(self, email):
+        """
+        驗證郵箱唯一性
+        dj-rest-auth 會處理基本的郵箱格式驗證
+        """
+        # 調用父類的驗證
+        email = super().validate_email(email)
+        
+        # 檢查郵箱是否已被使用
+        if User.objects.filter(email=email).exists():
             raise serializers.ValidationError('此郵箱已被註冊')
-        return value
+        
+        return email
     
-    def validate(self, attrs):
-        """驗證密碼確認"""
-        if attrs['password1'] != attrs['password2']:
-            raise serializers.ValidationError({
-                'password2': '兩次密碼輸入不一致'
-            })
-        return attrs
+    def validate_first_name(self, value):
+        """驗證名字"""
+        if not value.strip():
+            raise serializers.ValidationError('名字不能為空')
+        
+        if len(value) > 30:
+            raise serializers.ValidationError('名字不能超過30個字符')
+        
+        return value.strip()
+    
+    def validate_last_name(self, value):
+        """驗證姓氏"""
+        if not value.strip():
+            raise serializers.ValidationError('姓氏不能為空')
+        
+        if len(value) > 30:
+            raise serializers.ValidationError('姓氏不能超過30個字符')
+        
+        return value.strip()
     
     def get_cleaned_data(self):
-        """為 dj-rest-auth 提供清理後的數據"""
-        return {
-            'username': self.validated_data.get('username', ''),
-            'email': self.validated_data.get('email', ''),
+        """
+        為 dj-rest-auth 提供清理後的數據
+        這個方法會被 dj-rest-auth 調用來獲取用戶數據
+        """
+        data = super().get_cleaned_data()
+        data.update({
             'first_name': self.validated_data.get('first_name', ''),
             'last_name': self.validated_data.get('last_name', ''),
-            'password1': self.validated_data.get('password1', ''),
-        }
+        })
+        return data
     
     def save(self, request):
-        """創建用戶 - 兼容 dj-rest-auth"""
-        cleaned_data = self.get_cleaned_data()
+        """
+        創建用戶實例 - 兼容 dj-rest-auth
+        dj-rest-auth 會調用這個方法來創建用戶
+        """
+        # 調用父類的 save 方法創建基本用戶
+        user = super().save(request)
         
-        # 創建用戶
-        user = User.objects.create_user(
-            username=cleaned_data['username'],
-            email=cleaned_data['email'],
-            first_name=cleaned_data['first_name'],
-            last_name=cleaned_data['last_name'],
-            password=cleaned_data['password1']
-        )
+        # 設置額外字段
+        user.first_name = self.validated_data.get('first_name', '')
+        user.last_name = self.validated_data.get('last_name', '')
+        user.save()
         
-        # 創建用戶設置
-        from .models import UserSettings
+        # 創建用戶設置（如果不存在）
         UserSettings.objects.get_or_create(user=user)
         
-        return user 
-    
-class CustomLoginTokenObtainPairSerializer(TokenObtainPairSerializer):
-    """
-    自定義JWT Token序列化器
-    添加用戶信息到響應中
-    """
-    
-    def validate(self, attrs):
-        data = super().validate(attrs)
-        
-        # 添加用戶信息
-        user_data = UserSerializer(self.user).data
-        data['user'] = user_data
-        
-        return data
+        return user
 
 
 class UserSerializer(serializers.ModelSerializer):
     """
     用戶基本信息序列化器
-    用於列表顯示和基本操作
+    用於 dj-rest-auth 的用戶詳情端點和一般用戶信息顯示
     """
     
     avatar_url = serializers.ReadOnlyField()
@@ -213,13 +207,13 @@ class UserDetailSerializer(UserSerializer):
         return PortfolioProjectSerializer(projects, many=True).data
     
     def get_recent_posts(self, obj):
-        """獲取用戶最近的貼文"""
+        """獲取用戶最近的文章"""
         from posts.serializers import PostSerializer
-        posts = obj.posts.filter(is_published=True)[:5]
+        posts = obj.posts.filter(is_published=True).order_by('-created_at')[:5]
         return PostSerializer(posts, many=True, context=self.context).data
     
     def get_settings(self, obj):
-        """獲取用戶設置（僅本人可見）"""
+        """獲取用戶設置（僅對本人可見）"""
         request = self.context.get('request')
         if request and request.user == obj:
             try:
@@ -232,7 +226,7 @@ class UserDetailSerializer(UserSerializer):
 class UserUpdateSerializer(serializers.ModelSerializer):
     """
     用戶更新序列化器
-    處理個人資料更新
+    處理個人資料更新，兼容 dj-rest-auth 的用戶更新端點
     """
     
     avatar = serializers.ImageField(required=False)
@@ -253,13 +247,13 @@ class UserUpdateSerializer(serializers.ModelSerializer):
     def validate_website(self, value):
         """驗證網站URL"""
         if value and not value.startswith(('http://', 'https://')):
-            raise serializers.ValidationError('網站URL必須以 http:// 或 https:// 開始')
+            raise serializers.ValidationError('網站URL必須以http://或https://開頭')
         return value
     
     def validate_github_url(self, value):
         """驗證GitHub URL"""
-        if value and not value.startswith('https://github.com/'):
-            raise serializers.ValidationError('請輸入有效的GitHub個人頁面URL')
+        if value and 'github.com' not in value:
+            raise serializers.ValidationError('請輸入有效的GitHub URL')
         return value
     
     def validate_skill_tags(self, value):
@@ -277,15 +271,15 @@ class UserUpdateSerializer(serializers.ModelSerializer):
     def validate_avatar(self, value):
         """驗證頭像"""
         if value:
-            # 檢查文件大小（10MB）
-            if value.size > 10 * 1024 * 1024:
-                raise serializers.ValidationError('頭像文件不能超過10MB')
+            # 檢查文件大小（5MB）
+            if value.size > 5 * 1024 * 1024:
+                raise serializers.ValidationError('頭像文件大小不能超過5MB')
             
             # 檢查圖片格式
             try:
                 img = Image.open(value)
-                if img.format not in ['JPEG', 'PNG', 'GIF', 'WEBP']:
-                    raise serializers.ValidationError('只支援 JPEG、PNG、GIF、WebP 格式的圖片')
+                if img.format.lower() not in ['jpeg', 'jpg', 'png', 'gif']:
+                    raise serializers.ValidationError('頭像只支持JPEG、PNG、GIF格式')
             except Exception:
                 raise serializers.ValidationError('無效的圖片文件')
         
@@ -300,13 +294,25 @@ class UserSearchSerializer(serializers.ModelSerializer):
     
     avatar_url = serializers.ReadOnlyField()
     display_name = serializers.ReadOnlyField()
+    is_following = serializers.SerializerMethodField()
     
     class Meta:
         model = User
         fields = [
-            'id', 'username', 'display_name', 'avatar_url',
-            'bio', 'is_verified', 'followers_count'
+            'id', 'username', 'display_name', 'bio', 'avatar_url',
+            'location', 'skill_tags', 'is_verified', 'followers_count',
+            'is_following'
         ]
+    
+    def get_is_following(self, obj):
+        """檢查當前用戶是否關注此用戶"""
+        request = self.context.get('request')
+        if request and request.user.is_authenticated:
+            return Follow.objects.filter(
+                follower=request.user,
+                following=obj
+            ).exists()
+        return False
 
 
 class FollowSerializer(serializers.ModelSerializer):
@@ -341,39 +347,39 @@ class PortfolioProjectSerializer(serializers.ModelSerializer):
         read_only_fields = ['id', 'user', 'created_at', 'updated_at']
     
     def validate_title(self, value):
-        """驗證項目標題"""
-        if len(value) > 200:
-            raise serializers.ValidationError('項目標題不能超過200個字符')
+        """驗證標題"""
+        if len(value) > 100:
+            raise serializers.ValidationError('標題不能超過100個字符')
         return value
     
     def validate_description(self, value):
-        """驗證項目描述"""
-        if len(value) > 2000:
-            raise serializers.ValidationError('項目描述不能超過2000個字符')
+        """驗證描述"""
+        if len(value) > 1000:
+            raise serializers.ValidationError('描述不能超過1000個字符')
         return value
     
     def validate_technologies(self, value):
-        """驗證技術棧"""
-        if value and len(value) > 20:
-            raise serializers.ValidationError('技術棧不能超過20項')
+        """驗證技術標籤"""
+        if len(value) > 10:
+            raise serializers.ValidationError('技術標籤不能超過10個')
         return value
     
     def validate_project_url(self, value):
         """驗證項目URL"""
         if value and not value.startswith(('http://', 'https://')):
-            raise serializers.ValidationError('項目URL必須以 http:// 或 https:// 開始')
+            raise serializers.ValidationError('項目URL必須以http://或https://開頭')
         return value
     
     def validate_github_url(self, value):
         """驗證GitHub URL"""
-        if value and not value.startswith('https://github.com/'):
-            raise serializers.ValidationError('請輸入有效的GitHub倉庫URL')
+        if value and 'github.com' not in value:
+            raise serializers.ValidationError('請輸入有效的GitHub URL')
         return value
     
     def validate_youtube_url(self, value):
         """驗證YouTube URL"""
         if value and 'youtube.com' not in value and 'youtu.be' not in value:
-            raise serializers.ValidationError('請輸入有效的YouTube視頻URL')
+            raise serializers.ValidationError('請輸入有效的YouTube URL')
         return value
 
 
@@ -393,33 +399,6 @@ class UserSettingsSerializer(serializers.ModelSerializer):
             'theme', 'language', 'updated_at'
         ]
         read_only_fields = ['updated_at']
-
-
-class PasswordChangeSerializer(serializers.Serializer):
-    """
-    密碼修改序列化器
-    """
-    
-    old_password = serializers.CharField(
-        required=True,
-        style={'input_type': 'password'}
-    )
-    new_password = serializers.CharField(
-        required=True,
-        style={'input_type': 'password'}
-    )
-    new_password_confirm = serializers.CharField(
-        required=True,
-        style={'input_type': 'password'}
-    )
-    
-    def validate(self, attrs):
-        """驗證新密碼確認"""
-        if attrs['new_password'] != attrs['new_password_confirm']:
-            raise serializers.ValidationError({
-                'new_password_confirm': '兩次新密碼輸入不一致'
-            })
-        return attrs
 
 
 class BlockedUserSerializer(serializers.ModelSerializer):

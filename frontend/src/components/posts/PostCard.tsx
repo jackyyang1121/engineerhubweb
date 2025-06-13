@@ -26,6 +26,8 @@ import {
 import type { Post } from '../../api/postApi';
 import * as postApi from '../../api/postApi';
 import { useAuthStore } from '../../store/authStore';
+// 導入重構後的權限檢查工具 - 遵循高階工程師原則
+import { usePermissions } from '../../utils/permission';
 
 interface PostCardProps {
   post: Post;
@@ -48,8 +50,13 @@ const PostCard: React.FC<PostCardProps> = ({
   
   const currentUser = useAuthStore(state => state.user);
   
-  // 检查当前用户是否是贴文作者
-  const isAuthor = currentUser && String(currentUser.id) === String(post.author);
+  // 使用重構後的統一權限檢查工具 - 遵循 Narrowly focused 原則
+  // 這個工具專門負責權限邏輯，提供一致的權限判斷
+  const { canEdit, canDelete } = usePermissions(currentUser, post);
+  
+  // 保持向後兼容性：isAuthor 現在通過統一工具提供
+  // 這確保了 Loosely coupled 原則：組件不需要了解權限檢查的內部實現
+  const isAuthor = canEdit.allowed;
   
   // 处理点赞
   const handleLike = async () => {
@@ -114,10 +121,12 @@ const PostCard: React.FC<PostCardProps> = ({
     }
   };
   
-  // 处理删除贴文
+  // 处理删除贴文 - 使用重構後的權限檢查
   const handleDelete = async () => {
-    if (!isAuthor) {
-      toast.error('您没有权限删除此贴文');
+    // 使用統一權限檢查工具 - 遵循 Narrowly focused 原則
+    // 提供詳細的錯誤原因，提升用戶體驗
+    if (!canDelete.allowed) {
+      toast.error(canDelete.reason || '您没有权限删除此贴文');
       return;
     }
     

@@ -44,6 +44,10 @@ export interface UserData {
   last_online?: string;
   is_verified?: boolean;
   is_private?: boolean;
+  // 權限相關字段 - 修復 permission.ts 中的類型錯誤
+  is_staff?: boolean;        // 是否為工作人員
+  is_superuser?: boolean;    // 是否為超級用戶
+  is_active?: boolean;       // 帳號是否啟用
   // 統計數據
   followers_count: number;
   following_count: number;
@@ -58,20 +62,65 @@ export interface UserData {
   date_joined?: string;
 }
 
-// 註冊數據類型
+// ==================== 認證相關類型 ====================
+
+/**
+ * 用戶註冊數據
+ */
 export interface RegisterData {
-  email: string;
   username: string;
+  email: string;
   password1: string;
   password2: string;
-  first_name: string;
-  last_name: string;
+  first_name?: string;
+  last_name?: string;
+  bio?: string;
+  location?: string;
+  skills?: string[];
 }
 
-// 登入數據類型
+/**
+ * 用戶登入數據
+ */
 export interface LoginData {
-  username: string;
+  email?: string;
+  username?: string;
   password: string;
+  remember_me?: boolean;
+}
+
+/**
+ * 登入響應數據
+ */
+export interface LoginResponse {
+  access_token: string;
+  refresh_token: string;
+  user: UserData;
+  expires_in: number;
+}
+
+/**
+ * 刷新令牌數據
+ */
+export interface RefreshTokenData {
+  refresh: string;
+}
+
+/**
+ * 密碼重置請求數據
+ */
+export interface PasswordResetData {
+  email: string;
+}
+
+/**
+ * 密碼重置確認數據
+ */
+export interface PasswordResetConfirmData {
+  uid: string;
+  token: string;
+  new_password1: string;
+  new_password2: string;
 }
 
 // Token 響應類型
@@ -134,6 +183,18 @@ export interface UpdatePostData {
   remove_media?: string[];
 }
 
+// 更新用戶資料數據類型
+export interface UpdateProfileData {
+  first_name?: string;
+  last_name?: string;
+  bio?: string;
+  location?: string;
+  website?: string;
+  github_url?: string;
+  skill_tags?: string[];
+  avatar?: File | string;
+}
+
 // ==================== 評論相關類型 ====================
 
 // 評論類型
@@ -185,6 +246,25 @@ export interface SearchParams {
   type?: 'all' | 'posts' | 'users';
   page?: number;
   ordering?: string;
+}
+
+// 熱門話題項目類型
+export interface TrendingTopic {
+  name: string;
+  count: number;
+  trend_direction: 'up' | 'down' | 'stable';
+  hashtag: string;
+  description?: string;
+  related_posts_count: number;
+  growth_rate?: number;
+}
+
+// 熱門話題響應類型
+export interface TrendingTopicsResponse {
+  trending_topics: TrendingTopic[];
+  total_count: number;
+  last_updated: string;
+  time_period: '24h' | '7d' | '30d';
 }
 
 // ==================== 聊天相關類型 ====================

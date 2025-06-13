@@ -1,3 +1,19 @@
+/**
+ * EngineerHub - 認證 API 模組
+ * 
+ * 使用 dj-rest-auth + allauth + SimpleJWT 提供完整的認證功能
+ * 
+ * 主要端點：
+ * - 註冊: POST /api/auth/registration/
+ * - 登入: POST /api/auth/login/
+ * - 登出: POST /api/auth/logout/
+ * - 用戶信息: GET /api/auth/user/
+ * - 密碼修改: POST /api/auth/password/change/
+ * - 密碼重置: POST /api/auth/password/reset/
+ * - Token 刷新: POST /api/auth/token/refresh/
+ * - Token 驗證: POST /api/auth/token/verify/
+ */
+
 import api from './axiosConfig';
 
 // 從統一類型文件導入類型定義
@@ -17,63 +33,94 @@ export type {
   UserStats
 } from '../types';
 
-// 註冊新用戶
-// 可調整路由為/auth/simple-register/簡單註冊
+// ==================== 用戶註冊 ====================
+/**
+ * 註冊新用戶
+ * 使用 dj-rest-auth 的註冊端點，支援郵箱驗證
+ * 
+ * @param userData 用戶註冊數據
+ * @returns Promise<TokenResponse> 包含 access_token 和 refresh_token
+ */
 export const register = async (userData: RegisterData): Promise<TokenResponse> => {
-  /*
-  Promise<TokenResponse>:
-  指定返回類型：Promise<TokenResponse> 告訴 TypeScript 編譯器，register 函數的返回值是一個 Promise，當這個 Promise 解析（resolved）時，會得到一個 TokenResponse 類型的物件。這確保了調用 register 的代碼能正確處理返回數據。
-  類型安全：如果函數實現中返回的數據不符合 TokenResponse 的結構（例如缺少 accessToken），TypeScript 會在編譯時報錯。    
-  */
-  /*
-  什麼是 Promise 物件？
-  Promise 是 JavaScript 用來處理非同步操作（例如 API 請求、計時器等）的內建物件。它表示一個尚未完成但最終會有結果（成功或失敗）的操作。
-  Promise 有三種狀態：
-  Pending（待定）：操作尚未完成。
-  Fulfilled（成功）：操作成功完成，返回結果。
-  Rejected（失敗）：操作失敗，返回錯誤。
-  用途：
-  Promise 讓你能以更結構化的方式處理非同步邏輯，避免傳統的「回調地獄」（callback hell）。
-  它支援 async/await 語法，讓非同步程式碼看起來像同步程式碼。
-  */
-  const response = await api.post('/auth/register/', userData);
+  const response = await api.post('/auth/registration/', userData);
   return response.data;
 };
 
-// 使用用戶名和密碼登入
-// 可調整路由為/auth/simple-login/簡單登入
+// ==================== 用戶登入 ====================
+/**
+ * 使用用戶名/郵箱和密碼登入
+ * 使用 dj-rest-auth 的登入端點，支援 JWT 認證
+ * 
+ * @param credentials 登入憑證（用戶名/郵箱 + 密碼）
+ * @returns Promise<TokenResponse> 包含 access_token 和 refresh_token
+ */
 export const login = async (credentials: LoginData): Promise<TokenResponse> => {
   const response = await api.post('/auth/login/', credentials);
-  //對應到後端backend/engineerhub/urls.py的路由path('api/auth/login/', CustomLoginTokenObtainPairView.as_view(), name='simple_login')
-  //對應到後端backend/accounts/views.py的CustomLoginTokenObtainPairView視圖
-  return response.data;    //回傳response.data就是後端拿到的access_token和refresh_token
-};
-
-// 登出
-export const logout = async (): Promise<void> => {
-  await api.post('/simple-auth/logout/');
-};
-
-// 刷新令牌
-export const refreshToken = async (): Promise<TokenResponse> => {
-  const response = await api.post('/auth/token/refresh/');
   return response.data;
 };
 
-// 忘記密碼
+// ==================== 用戶登出 ====================
+/**
+ * 登出當前用戶
+ * 使用 dj-rest-auth 的登出端點，會將 refresh_token 加入黑名單
+ * 
+ * @returns Promise<void>
+ */
+export const logout = async (): Promise<void> => {
+  await api.post('/auth/logout/');
+};
+
+// ==================== Token 管理 ====================
+/**
+ * 刷新 JWT Token
+ * 使用 refresh_token 獲取新的 access_token
+ * 
+ * @param refreshToken 刷新令牌
+ * @returns Promise<TokenResponse> 新的 token 對
+ */
+export const refreshToken = async (refreshToken: string): Promise<TokenResponse> => {
+  const response = await api.post('/auth/token/refresh/', {
+    refresh: refreshToken
+  });
+  return response.data;
+};
+
+/**
+ * 驗證 JWT Token
+ * 檢查 access_token 是否有效
+ * 
+ * @param token 訪問令牌
+ * @returns Promise<{ valid: boolean }> 驗證結果
+ */
+export const verifyToken = async (token: string): Promise<{ valid: boolean }> => {
+  try {
+    await api.post('/auth/token/verify/', { token });
+    return { valid: true };
+  } catch {
+    return { valid: false };
+  }
+};
+
+// ==================== 密碼管理 ====================
+/**
+ * 忘記密碼 - 發送重置郵件
+ * 使用 dj-rest-auth 的密碼重置端點
+ * 
+ * @param email 用戶郵箱
+ * @returns Promise<{ detail: string }> 操作結果訊息
+ */
 export const forgotPassword = async (email: string): Promise<{ detail: string }> => {
-  /*
-  為什麼需要 { detail: string }？
-  這是 TypeScript 的類型安全機制，確保：
-  函數的返回值符合預期結構（例如後端 API 返回 { detail: "some message" }）。
-  調用 forgotPassword 的程式碼可以安全地訪問 result.detail，且 TypeScript 會檢查 detail 是字串。
-  如果後端返回的資料不符合 { detail: string }（例如 { detail: 123 } 或 { message: "error" }），TypeScript 會在編譯時報錯。
-  */
   const response = await api.post('/auth/password/reset/', { email });
   return response.data;
 };
 
-// 重置密碼
+/**
+ * 重置密碼 - 使用重置令牌設置新密碼
+ * 使用 dj-rest-auth 的密碼重置確認端點
+ * 
+ * @param data 重置密碼數據
+ * @returns Promise<{ detail: string }> 操作結果訊息
+ */
 export const resetPassword = async (data: { 
   uid: string; 
   token: string; 
@@ -84,19 +131,13 @@ export const resetPassword = async (data: {
   return response.data;
 };
 
-// 獲取當前用戶信息
-export const getCurrentUser = async (): Promise<UserData> => {
-  const response = await api.get('/users/me/');
-  return response.data;
-};
-
-// 修改用戶信息
-export const updateUserProfile = async (userData: Partial<UserData>): Promise<UserData> => {
-  const response = await api.patch('/users/me/', userData);
-  return response.data;
-};
-
-// 修改密碼
+/**
+ * 修改密碼 - 已登入用戶修改密碼
+ * 使用 dj-rest-auth 的密碼修改端點
+ * 
+ * @param passwords 密碼修改數據
+ * @returns Promise<{ detail: string }> 操作結果訊息
+ */
 export const changePassword = async (passwords: { 
   old_password: string; 
   new_password1: string; 
@@ -106,14 +147,123 @@ export const changePassword = async (passwords: {
   return response.data;
 };
 
-// 社交登入: Google
+// ==================== 用戶信息管理 ====================
+/**
+ * 獲取當前用戶信息
+ * 使用 dj-rest-auth 的用戶詳情端點
+ * 
+ * @returns Promise<UserData> 當前用戶數據
+ */
+export const getCurrentUser = async (): Promise<UserData> => {
+  const response = await api.get('/auth/user/');
+  return response.data;
+};
+
+/**
+ * 更新用戶信息
+ * 使用 dj-rest-auth 的用戶更新端點
+ * 
+ * @param userData 要更新的用戶數據
+ * @returns Promise<UserData> 更新後的用戶數據
+ */
+export const updateUserProfile = async (userData: Partial<UserData>): Promise<UserData> => {
+  const response = await api.put('/auth/user/', userData);
+  return response.data;
+};
+
+/**
+ * 部分更新用戶信息
+ * 使用 PATCH 方法進行部分更新
+ * 
+ * @param userData 要更新的用戶數據
+ * @returns Promise<UserData> 更新後的用戶數據
+ */
+export const patchUserProfile = async (userData: Partial<UserData>): Promise<UserData> => {
+  const response = await api.patch('/auth/user/', userData);
+  return response.data;
+};
+
+// ==================== 郵箱驗證 ====================
+/**
+ * 重新發送驗證郵件
+ * 使用 dj-rest-auth 的郵箱驗證端點
+ * 
+ * @param email 用戶郵箱
+ * @returns Promise<{ detail: string }> 操作結果訊息
+ */
+export const resendEmailVerification = async (email: string): Promise<{ detail: string }> => {
+  const response = await api.post('/auth/registration/resend-email/', { email });
+  return response.data;
+};
+
+/**
+ * 驗證郵箱
+ * 使用郵件中的驗證鏈接進行郵箱驗證
+ * 
+ * @param key 驗證密鑰
+ * @returns Promise<{ detail: string }> 驗證結果訊息
+ */
+export const verifyEmail = async (key: string): Promise<{ detail: string }> => {
+  const response = await api.post('/auth/registration/verify-email/', { key });
+  return response.data;
+};
+
+// ==================== 社交登入 ====================
+/**
+ * Google 社交登入
+ * 使用 Google OAuth2 進行登入
+ * 
+ * @param accessToken Google 訪問令牌
+ * @returns Promise<TokenResponse> JWT token 對
+ */
 export const loginWithGoogle = async (accessToken: string): Promise<TokenResponse> => {
   const response = await api.post('/auth/google/', { access_token: accessToken });
   return response.data;
 };
 
-// 社交登入: GitHub
+/**
+ * GitHub 社交登入
+ * 使用 GitHub OAuth2 進行登入
+ * 
+ * @param code GitHub 授權碼
+ * @returns Promise<TokenResponse> JWT token 對
+ */
 export const loginWithGitHub = async (code: string): Promise<TokenResponse> => {
   const response = await api.post('/auth/github/', { code });
+  return response.data;
+};
+
+// ==================== 用戶管理相關 API ====================
+/**
+ * 獲取用戶列表
+ * 使用自定義的用戶管理端點
+ * 
+ * @returns Promise<UserData[]> 用戶列表
+ */
+export const getUsers = async (): Promise<UserData[]> => {
+  const response = await api.get('/users/');
+  return response.data;
+};
+
+/**
+ * 獲取特定用戶信息
+ * 使用自定義的用戶詳情端點
+ * 
+ * @param userId 用戶 ID
+ * @returns Promise<UserData> 用戶數據
+ */
+export const getUserById = async (userId: string): Promise<UserData> => {
+  const response = await api.get(`/users/${userId}/`);
+  return response.data;
+};
+
+/**
+ * 獲取當前用戶的詳細信息
+ * 使用自定義的 "me" 端點
+ * 
+ * @returns Promise<UserData> 當前用戶的詳細數據
+ */
+export const getMyProfile = async (): Promise<UserData> => {
+  const response = await api.get('/users/me/');
   return response.data;
 }; 
